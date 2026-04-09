@@ -1,0 +1,215 @@
+import duckdb
+import json
+import hashlib
+from datetime import date
+
+DB_PATH = "data/curated/jobs.duckdb"
+
+def conectar():
+    return duckdb.connect(DB_PATH)
+
+def criar_tabelas():
+    con = conectar()
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS dim_empresa (
+            id          INTEGER PRIMARY KEY,
+            nome        VARCHAR UNIQUE,
+            ramo        VARCHAR,
+            cidade      VARCHAR,
+            estado      VARCHAR,
+            url_gupy    VARCHAR,
+            url_linkedin VARCHAR,
+            url_site_vagas VARCHAR,
+            ativa       BOOLEAN DEFAULT true,
+            data_cadastro DATE DEFAULT current_date
+        )
+    """)
+
+    con.execute("""
+        CREATE SEQUENCE IF NOT EXISTS seq_empresa START 1
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS fact_vaga (
+            id              INTEGER PRIMARY KEY,
+            hash            VARCHAR UNIQUE,
+            titulo          VARCHAR,
+            nivel           VARCHAR,
+            modalidade      VARCHAR,
+            stacks          JSON,
+            link            VARCHAR,
+            fonte           VARCHAR,
+            id_empresa      INTEGER REFERENCES dim_empresa(id),
+            data_coleta     DATE DEFAULT current_date,
+            ativa           BOOLEAN DEFAULT true,
+            data_encerramento DATE
+        )
+    """)
+
+    con.execute("""
+        CREATE SEQUENCE IF NOT EXISTS seq_vaga START 1
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS log_coleta (
+            id              INTEGER PRIMARY KEY,
+            data_execucao   TIMESTAMP DEFAULT current_timestamp,
+            empresa         VARCHAR,
+            vagas_encontradas INTEGER,
+            vagas_novas     INTEGER,
+            status          VARCHAR,
+            erro            VARCHAR
+        )
+    """)
+
+    con.execute("""
+        CREATE SEQUENCE IF NOT EXISTS seq_log START 1
+    """)
+
+    print("Tabelas criadas com sucesso")
+    con.close()
+
+def gerar_hash(titulo: str, empresa: str, link: str) -> str:
+    conteudo = f"{titulo}{empresa}{link}".lower()
+    return hashlib.md5(conteudo.encode()).hexdigest()
+
+def upsert_empresa(nome: str, url_gupy: str, **kwargs) -> int:
+    con = conectar()
+
+    resultado = con.execute(
+        "SELECT id FROM dim_empresa WHERE nome = ?", [nome]
+    ).fetchone()
+
+    if resultado:
+        id_empresa = resultado[0]
+    else:
+        id_empresa = con.execute("SELECT nextval('seq_empresa')").fetchone()[0]
+        con.execute("""
+            INSERT INTO dim_empresa (id, nome, url_gupy, ramo, cidade, estado, url_linkedin, url_site_vagas)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, [
+            id_empresa,
+            nome,
+            url_gupy,
+            kwargs.get("ramo", ""),
+            kwargs.get("cidade", ""),
+            kwargs.get("estado", ""),
+            kwargs.get("url_linkedin", ""),
+            kwargs.get("url_site_vagas", "")
+        ])
+
+    con.close()
+    return id_empresa
+
+def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
+    con = conectar()
+
+    hash_vaga = gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])
+
+    existente = con.execute(
+        "SELECT id FROM fact_vaga WHERE hash = ?", [hash_vaga]
+    ).fetchone()
+
+    if existente:
+        con.close()
+        return False
+
+    id_vaga = con.execute("SELECT nextval('seq_vaga')").fetchone()[0]
+
+    con.execute("""
+        INSERT INTO fact_vaga (id, hash, titulo, nivel, modalidade, stacks, link, fonte, id_empresa)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, [
+        id_vaga,
+        hash_vaga,
+        vaga["titulo"],
+        vaga.get("nivel", "não identificado"),
+        vaga.get("modalidade", "não identificado"),
+        json.dumps(vaga.get("stacks", {})),
+        vaga["link"],
+        vaga["fonte"],
+        id_empresa
+    ])
+
+    con.close()
+    return True
+
+def registrar_log(empresa: str, encontradas: int, novas: int, status: str, erro: str = ""):
+    con = conectar()
+    id_log = con.execute("SELECT nextval('seq_log')").fetchone()[0]
+    con.execute("""
+        INSERT INTO log_coleta (id, empresa, vagas_encontradas, vagas_novas, status, erro)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, [id_log, empresa, encontradas, novas, status, erro])
+    con.close()
+
+def listar_empresas_ativas() -> list:
+    con = conectar()
+    empresas = con.execute("""
+        SELECT nome, url_gupy FROM dim_empresa WHERE ativa = true AND url_gupy IS NOT NULL
+    """).fetchall()
+    con.close()
+    return empresas
+
+def verificar_vagas_encerradas(id_empresa: int, links_ativos: list):
+    con = conectar()
+
+    vagas_no_banco = con.execute("""
+        SELECT id, link, titulo FROM fact_vaga
+        WHERE id_empresa = ? AND ativa = true
+    """, [id_empresa]).fetchall()
+
+    encerradas = []
+    for id_vaga, link, titulo in vagas_no_banco:
+        if link not in links_ativos:
+            con.execute("""
+                UPDATE fact_vaga
+                SET ativa = false, data_encerramento = current_date
+                WHERE id = ?
+            """, [id_vaga])
+            encerradas.append(titulo)
+
+    con.close()
+    return encerradas
+
+def inserir_endereco(id_empresa: int, cidade: str, bairro: str):
+    con = conectar()
+    id_end = con.execute("SELECT nextval('seq_endereco')").fetchone()[0]
+    con.execute("""
+        INSERT INTO dim_empresa_endereco (id, id_empresa, cidade, bairro)
+        VALUES (?, ?, ?, ?)
+    """, [id_end, id_empresa, cidade, bairro])
+    con.close()
+
+def listar_enderecos(id_empresa: int) -> list:
+    con = conectar()
+    enderecos = con.execute("""
+        SELECT id, cidade, bairro
+        FROM dim_empresa_endereco
+        WHERE id_empresa = ?
+        ORDER BY cidade, bairro
+    """, [id_empresa]).fetchall()
+    con.close()
+    return enderecos
+
+def deletar_endereco(id_endereco: int):
+    con = conectar()
+    con.execute("DELETE FROM dim_empresa_endereco WHERE id = ?", [id_endereco])
+    con.close()
+
+if __name__ == "__main__":
+    criar_tabelas()
+
+    upsert_empresa(
+        nome="Compass",
+        url_gupy="https://compass.gupy.io/",
+        ramo="tecnologia",
+        cidade="São Paulo",
+        estado="SP"
+    )
+
+    print("\nEmpresas cadastradas:")
+    con = conectar()
+    print(con.execute("SELECT id, nome, url_gupy, ativa FROM dim_empresa").df())
+    con.close()
