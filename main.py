@@ -9,8 +9,18 @@ from database.db_manager import (
     registrar_log,
     listar_empresas_ativas,
     verificar_vagas_encerradas,
-    gerar_hash
+    gerar_hash,
+    carregar_filtros
 )
+
+
+def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
+    titulo_lower = titulo.lower()
+    if any(b in titulo_lower for b in bloqueio):
+        return False
+    if interesse and not any(i in titulo_lower for i in interesse):
+        return False
+    return True
 
 
 def processar_empresa(nome: str, url_gupy: str):
@@ -22,14 +32,19 @@ def processar_empresa(nome: str, url_gupy: str):
         vagas = buscar_vagas(url_gupy)
         vagas_encontradas = len(vagas)
 
+        # aplica filtro de títulos antes de buscar descrições
+        interesse, bloqueio = carregar_filtros()
+        vagas_filtradas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
+        print(f"  {len(vagas_filtradas)} vagas relevantes de {vagas_encontradas} após filtro")
+
         vagas_enriquecidas = []
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            for vaga in vagas:
+            for vaga in vagas_filtradas:
                 try:
-                    page.goto(vaga["link"], wait_until="networkidle")
+                    page.goto(vaga["link"], wait_until="networkidle", timeout=60000)
                     page.wait_for_selector(
                         "[class*='description'], [class*='jobDescription'], section",
                         timeout=10000

@@ -6,6 +6,8 @@ import streamlit as st
 import duckdb
 import pandas as pd
 import json
+import threading
+import time
 from scrapers.company_search import buscar_empresa
 from database.db_manager import (
     inserir_endereco, listar_enderecos, deletar_endereco,
@@ -70,7 +72,8 @@ def extrair_stacks_flat(df, categoria):
     return pd.Series(todas).value_counts()
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
-pagina = st.sidebar.radio("Navegação", ["Dashboard", "Empresas", "Vagas Negadas"])
+pagina = st.sidebar.radio("Navegação", ["Dashboard", "Vagas", "Empresas", "Pipeline", "Configurações", "Vagas Negadas"])
+
 
 # ─── PÁGINA DASHBOARD ───────────────────────────────────────────
 if pagina == "Dashboard":
@@ -423,3 +426,292 @@ elif pagina == "Vagas Negadas":
                     con.close()
                     st.success("Vaga reativada!")
                     st.rerun()
+
+elif pagina == "Pipeline":
+    st.title("Pipeline")
+    st.caption("Dispare a coleta de vagas em background e acompanhe o status.")
+
+    import duckdb as ddb_pipe
+    import threading
+    import time
+
+    con = ddb_pipe.connect("data/curated/jobs.duckdb")
+    empresas = con.execute("""
+        SELECT nome, url_gupy FROM dim_empresa
+        WHERE ativa = true AND url_gupy IS NOT NULL
+    """).fetchall()
+    con.close()
+
+    st.metric("Empresas ativas", len(empresas))
+    for nome, url in empresas:
+        st.write(f"- {nome} — `{url}`")
+
+    st.divider()
+
+    # estado global compartilhado com a thread
+    if "pipeline_estado" not in st.session_state:
+        st.session_state.pipeline_estado = {
+            "rodando": False,
+            "concluido": False,
+            "log": [],
+            "total_encontradas": 0,
+            "total_novas": 0
+        }
+
+    estado = st.session_state.pipeline_estado
+
+    def rodar_em_background(empresas, estado):
+        from main import processar_empresa
+        from database.db_manager import criar_tabelas
+
+        criar_tabelas()
+        total_encontradas = 0
+        total_novas = 0
+
+        for nome, url_gupy in empresas:
+            estado["log"].append(f"▶ Iniciando {nome}...")
+            encontradas, novas, erro = processar_empresa(nome, url_gupy)
+            if erro:
+                estado["log"].append(f"✗ {nome} — erro: {erro[:60]}")
+            else:
+                total_encontradas += encontradas
+                total_novas += novas
+                estado["log"].append(f"✓ {nome} — {encontradas} vagas | {novas} novas")
+
+        estado["total_encontradas"] = total_encontradas
+        estado["total_novas"] = total_novas
+        estado["log"].append("✓ Pipeline concluído!")
+        estado["rodando"] = False
+        estado["concluido"] = True
+
+    col_btn1, col_btn2 = st.columns(2)
+
+    with col_btn1:
+        if st.button(
+            "Rodar pipeline",
+            type="primary",
+            use_container_width=True,
+            disabled=estado["rodando"]
+        ):
+            estado["rodando"] = True
+            estado["concluido"] = False
+            estado["log"] = []
+            estado["total_encontradas"] = 0
+            estado["total_novas"] = 0
+            thread = threading.Thread(
+                target=rodar_em_background,
+                args=(empresas, estado),
+                daemon=True
+            )
+            thread.start()
+            st.rerun()
+
+    with col_btn2:
+        if st.button("Limpar log", use_container_width=True):
+            estado["log"] = []
+            estado["concluido"] = False
+            estado["total_encontradas"] = 0
+            estado["total_novas"] = 0
+            st.rerun()
+
+    if estado["rodando"]:
+        st.info("Pipeline rodando em background — você pode navegar normalmente.")
+
+    if estado["concluido"]:
+        col1, col2 = st.columns(2)
+        col1.metric("Vagas encontradas", estado["total_encontradas"])
+        col2.metric("Vagas novas", estado["total_novas"])
+        st.success("Pipeline concluído!")
+
+    if estado["log"]:
+        st.divider()
+        st.write("**Log de execução:**")
+        st.code("\n".join(estado["log"]), language=None)
+
+    if estado["rodando"]:
+        time.sleep(3)
+        st.rerun()
+
+elif pagina == "Configurações":
+    st.title("Configurações")
+    st.caption("Gerencie os filtros de coleta de vagas.")
+
+    from database.db_manager import adicionar_filtro, remover_filtro, listar_filtros
+
+    df_filtros = listar_filtros()
+
+    col_interesse, col_bloqueio = st.columns(2)
+
+    with col_interesse:
+        st.subheader("Palavras de interesse")
+        st.caption("Vagas com esses termos no título serão coletadas.")
+        df_i = df_filtros[df_filtros["tipo"] == "interesse"]
+        for _, row in df_i.iterrows():
+            col_t, col_d = st.columns([4, 1])
+            col_t.write(f"`{row['termo']}`")
+            if col_d.button("Remover", key=f"rem_i_{row['id']}"):
+                remover_filtro(row["id"])
+                st.rerun()
+
+        with st.form("form_interesse"):
+            novo_interesse = st.text_input("Adicionar termo de interesse")
+            if st.form_submit_button("Adicionar"):
+                if novo_interesse:
+                    adicionar_filtro("interesse", novo_interesse.lower())
+                    st.success(f"'{novo_interesse}' adicionado!")
+                    st.rerun()
+
+    with col_bloqueio:
+        st.subheader("Palavras bloqueadas")
+        st.caption("Vagas com esses termos no título serão ignoradas.")
+        df_b = df_filtros[df_filtros["tipo"] == "bloqueio"]
+        for _, row in df_b.iterrows():
+            col_t, col_d = st.columns([4, 1])
+            col_t.write(f"`{row['termo']}`")
+            if col_d.button("Remover", key=f"rem_b_{row['id']}"):
+                remover_filtro(row["id"])
+                st.rerun()
+
+        with st.form("form_bloqueio"):
+            novo_bloqueio = st.text_input("Adicionar termo bloqueado")
+            if st.form_submit_button("Adicionar"):
+                if novo_bloqueio:
+                    adicionar_filtro("bloqueio", novo_bloqueio.lower())
+                    st.success(f"'{novo_bloqueio}' bloqueado!")
+                    st.rerun()
+
+elif pagina == "Vagas":
+    st.title("Vagas salvas")
+
+    df = carregar_vagas()
+
+    # filtros
+    st.sidebar.divider()
+    st.sidebar.header("Filtros")
+
+    empresas = ["Todas"] + sorted(df["empresa"].unique().tolist())
+    empresa_sel = st.sidebar.selectbox("Empresa", empresas)
+
+    niveis = ["Todos"] + sorted(df["nivel"].dropna().unique().tolist())
+    nivel_sel = st.sidebar.selectbox("Nível", niveis)
+
+    modalidades = ["Todas"] + sorted(df["modalidade"].dropna().unique().tolist())
+    modalidade_sel = st.sidebar.selectbox("Modalidade", modalidades)
+
+    status_cand = ["Todos"] + list(TIMELINE_LABELS.values())
+    status_cand_sel = st.sidebar.selectbox("Status candidatura", status_cand)
+
+    status_vaga = st.sidebar.radio("Status da vaga", ["Ativas", "Encerradas", "Todas"])
+
+    busca = st.sidebar.text_input("Buscar no título")
+
+    # aplica filtros
+    df_filtrado = df.copy()
+    if empresa_sel != "Todas":
+        df_filtrado = df_filtrado[df_filtrado["empresa"] == empresa_sel]
+    if nivel_sel != "Todos":
+        df_filtrado = df_filtrado[df_filtrado["nivel"] == nivel_sel]
+    if modalidade_sel != "Todas":
+        df_filtrado = df_filtrado[df_filtrado["modalidade"] == modalidade_sel]
+    if status_vaga == "Ativas":
+        df_filtrado = df_filtrado[df_filtrado["ativa"] == True]
+    elif status_vaga == "Encerradas":
+        df_filtrado = df_filtrado[df_filtrado["ativa"] == False]
+    if status_cand_sel != "Todos":
+        chave = next((k for k, v in TIMELINE_LABELS.items() if v == status_cand_sel), None)
+        if chave:
+            df_filtrado = df_filtrado[df_filtrado["candidatura_status"] == chave]
+    if busca:
+        df_filtrado = df_filtrado[df_filtrado["titulo"].str.contains(busca, case=False, na=False)]
+
+    # métricas
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total", len(df_filtrado))
+    col2.metric("Ativas", df_filtrado[df_filtrado["ativa"] == True].shape[0])
+    col3.metric("Encerradas", df_filtrado[df_filtrado["ativa"] == False].shape[0])
+    col4.metric("Inscritas", df_filtrado[df_filtrado["candidatura_status"] == "inscrito"].shape[0])
+
+    st.divider()
+
+    for _, vaga in df_filtrado.iterrows():
+        status_icon = "🟢" if vaga["ativa"] else "🔴"
+        status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
+        label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
+
+        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
+            col1, col2, col3 = st.columns(3)
+            col1.write(f"**Nível:** {vaga['nivel']}")
+            col2.write(f"**Modalidade:** {vaga['modalidade']}")
+            col3.write(f"**Coletada em:** {vaga['data_coleta']}")
+
+            if not vaga["ativa"]:
+                st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
+
+            try:
+                stacks = json.loads(vaga["stacks"]) if isinstance(vaga["stacks"], str) else vaga["stacks"]
+                if stacks:
+                    st.write("**Stacks:**")
+                    for categoria, termos in stacks.items():
+                        st.write(f"- {categoria}: {', '.join(termos)}")
+            except:
+                pass
+
+            st.link_button("Ver vaga", vaga["link"])
+
+            st.divider()
+            st.write("**Candidatura:**")
+
+            fases_ativas = ["nao_inscrito", "inscrito", "chamado", "recrutador",
+                            "fase_1", "fase_2", "fase_3"]
+
+            cols = st.columns(len(fases_ativas))
+            for i, fase in enumerate(fases_ativas):
+                ativo = fase == status_cand_val
+                cols[i].markdown(
+                    f"<div style='text-align:center; padding:4px; border-radius:6px; "
+                    f"background:{'#1D9E75' if ativo else '#f0f0f0'}; "
+                    f"color:{'white' if ativo else '#888'}; font-size:11px'>"
+                    f"{TIMELINE_LABELS[fase]}</div>",
+                    unsafe_allow_html=True
+                )
+
+            st.write("")
+
+            with st.form(key=f"form_vaga_{vaga['id']}"):
+                col_s, col_o = st.columns([2, 3])
+                novo_status = col_s.selectbox(
+                    "Atualizar status",
+                    options=TIMELINE,
+                    format_func=lambda x: TIMELINE_LABELS[x],
+                    index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
+                    key=f"sel_{vaga['id']}"
+                )
+                observacao = col_o.text_input(
+                    "Observação",
+                    value=vaga.get("candidatura_observacao") or "",
+                    key=f"obs_{vaga['id']}"
+                )
+
+                col_salvar, col_negar = st.columns(2)
+                with col_salvar:
+                    if st.form_submit_button("Salvar status", use_container_width=True):
+                        atualizar_candidatura(
+                            id_vaga=vaga["id"],
+                            status=novo_status,
+                            fase=novo_status,
+                            observacao=observacao
+                        )
+                        st.success("Status atualizado!")
+                        st.rerun()
+                with col_negar:
+                    if st.form_submit_button("Negar vaga", use_container_width=True, type="secondary"):
+                        negar_vaga(
+                            id_vaga=vaga["id"],
+                            observacao=observacao or f"Negada em: {status_cand_val}"
+                        )
+                        st.warning("Vaga negada!")
+                        st.rerun()
+
+
+
+

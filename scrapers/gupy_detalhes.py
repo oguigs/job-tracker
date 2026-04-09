@@ -27,10 +27,24 @@ def coletar_descricao(page, url: str) -> str:
         return ""
 
 def enriquecer_vagas(caminho_json: str):
+    from database.db_manager import carregar_filtros
+
     with open(caminho_json, "r", encoding="utf-8") as f:
         vagas = json.load(f)
 
-    vagas_relevantes = [v for v in vagas if é_vaga_relevante(v["titulo"])]
+    interesse, bloqueio = carregar_filtros()
+
+    def titulo_relevante(titulo: str) -> bool:
+        titulo_lower = titulo.lower()
+        # se tem termo de bloqueio, descarta
+        if any(b in titulo_lower for b in bloqueio):
+            return False
+        # se não tem nenhum termo de interesse, descarta
+        if interesse and not any(i in titulo_lower for i in interesse):
+            return False
+        return True
+
+    vagas_relevantes = [v for v in vagas if titulo_relevante(v["titulo"])]
     print(f"{len(vagas_relevantes)} vagas relevantes de {len(vagas)} coletadas")
 
     with sync_playwright() as p:

@@ -11,7 +11,7 @@ def buscar_vagas(url_empresa: str):
         page = browser.new_page()
 
         print(f"Abrindo página de {nome_empresa}...")
-        response = page.goto(url_empresa, wait_until="networkidle")
+        response = page.goto(url_empresa, wait_until="networkidle", timeout=60000)
 
         if response.status == 404:
             print(f"Página não encontrada: {url_empresa}")
