@@ -198,6 +198,70 @@ def deletar_endereco(id_endereco: int):
     con.execute("DELETE FROM dim_empresa_endereco WHERE id = ?", [id_endereco])
     con.close()
 
+TIMELINE = [
+    "nao_inscrito",
+    "inscrito",
+    "chamado",
+    "recrutador",
+    "fase_1",
+    "fase_2",
+    "fase_3",
+    "aprovado",
+    "reprovado",
+    "negado"
+]
+
+TIMELINE_LABELS = {
+    "nao_inscrito":  "Não inscrito",
+    "inscrito":      "Inscrito",
+    "chamado":       "Chamado",
+    "recrutador":    "Entrevista RH",
+    "fase_1":        "Fase 1",
+    "fase_2":        "Fase 2",
+    "fase_3":        "Fase 3",
+    "aprovado":      "Aprovado",
+    "reprovado":     "Reprovado",
+    "negado":        "Negado"
+}
+
+def atualizar_candidatura(id_vaga: int, status: str, fase: str = None, observacao: str = None):
+    con = conectar()
+    con.execute("""
+        UPDATE fact_vaga
+        SET candidatura_status = ?,
+            candidatura_fase = ?,
+            candidatura_observacao = ?,
+            candidatura_data = current_date
+        WHERE id = ?
+    """, [status, fase, observacao, id_vaga])
+    con.close()
+
+def negar_vaga(id_vaga: int, observacao: str = None):
+    con = conectar()
+    con.execute("""
+        UPDATE fact_vaga
+        SET negada = true,
+            candidatura_status = 'negado',
+            candidatura_fase = candidatura_status,
+            candidatura_observacao = ?,
+            candidatura_data = current_date
+        WHERE id = ?
+    """, [observacao, id_vaga])
+    con.close()
+
+def listar_vagas_negadas() -> list:
+    con = conectar()
+    df = con.execute("""
+        SELECT v.id, v.titulo, v.candidatura_fase, v.candidatura_observacao,
+               v.candidatura_data, e.nome AS empresa
+        FROM fact_vaga v
+        JOIN dim_empresa e ON v.id_empresa = e.id
+        WHERE v.negada = true
+        ORDER BY v.candidatura_data DESC
+    """).df()
+    con.close()
+    return df
+
 if __name__ == "__main__":
     criar_tabelas()
 

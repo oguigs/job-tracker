@@ -7,7 +7,11 @@ import duckdb
 import pandas as pd
 import json
 from scrapers.company_search import buscar_empresa
-from database.db_manager import inserir_endereco, listar_enderecos, deletar_endereco
+from database.db_manager import (
+    inserir_endereco, listar_enderecos, deletar_endereco,
+    atualizar_candidatura, negar_vaga, listar_vagas_negadas,
+    TIMELINE, TIMELINE_LABELS
+)
 
 DB_PATH = "data/curated/jobs.duckdb"
 
@@ -23,9 +27,11 @@ def carregar_vagas():
         SELECT
             v.id, v.titulo, v.nivel, v.modalidade, v.stacks,
             v.link, v.fonte, v.data_coleta, v.ativa, v.data_encerramento,
+            v.candidatura_status, v.candidatura_fase, v.candidatura_observacao,
             e.nome AS empresa, e.ramo, e.cidade, e.url_linkedin
         FROM fact_vaga v
         JOIN dim_empresa e ON v.id_empresa = e.id
+        WHERE v.negada = false OR v.negada IS NULL
         ORDER BY v.data_coleta DESC
     """).df()
     con.close()
@@ -64,7 +70,7 @@ def extrair_stacks_flat(df, categoria):
     return pd.Series(todas).value_counts()
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
-pagina = st.sidebar.radio("Navegação", ["Dashboard", "Empresas"])
+pagina = st.sidebar.radio("Navegação", ["Dashboard", "Empresas", "Vagas Negadas"])
 
 # ─── PÁGINA DASHBOARD ───────────────────────────────────────────
 if pagina == "Dashboard":
@@ -137,13 +143,18 @@ if pagina == "Dashboard":
 
     for _, vaga in df_filtrado.iterrows():
         status_icon = "🟢" if vaga["ativa"] else "🔴"
-        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']}"):
+        status_cand = vaga.get("candidatura_status") or "nao_inscrito"
+        label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
+
+        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
             col1, col2, col3 = st.columns(3)
             col1.write(f"**Nível:** {vaga['nivel']}")
             col2.write(f"**Modalidade:** {vaga['modalidade']}")
             col3.write(f"**Coletada em:** {vaga['data_coleta']}")
+
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
+
             try:
                 stacks = json.loads(vaga["stacks"]) if isinstance(vaga["stacks"], str) else vaga["stacks"]
                 if stacks:
@@ -152,7 +163,62 @@ if pagina == "Dashboard":
                         st.write(f"- {categoria}: {', '.join(termos)}")
             except:
                 pass
+
             st.link_button("Ver vaga", vaga["link"])
+
+            st.divider()
+            st.write("**Candidatura:**")
+
+            fases_ativas = ["nao_inscrito", "inscrito", "chamado", "recrutador",
+                            "fase_1", "fase_2", "fase_3"]
+
+            cols = st.columns(len(fases_ativas))
+            for i, fase in enumerate(fases_ativas):
+                ativo = fase == status_cand
+                cols[i].markdown(
+                    f"<div style='text-align:center; padding:4px; border-radius:6px; "
+                    f"background:{'#1D9E75' if ativo else '#f0f0f0'}; "
+                    f"color:{'white' if ativo else '#888'}; font-size:11px'>"
+                    f"{TIMELINE_LABELS[fase]}</div>",
+                    unsafe_allow_html=True
+                )
+
+            st.write("")
+
+            with st.form(key=f"form_status_{vaga['id']}"):
+                col_s, col_o = st.columns([2, 3])
+                novo_status = col_s.selectbox(
+                    "Atualizar status",
+                    options=TIMELINE,
+                    format_func=lambda x: TIMELINE_LABELS[x],
+                    index=TIMELINE.index(status_cand) if status_cand in TIMELINE else 0,
+                    key=f"sel_status_{vaga['id']}"
+                )
+                observacao = col_o.text_input(
+                    "Observação",
+                    value=vaga.get("candidatura_observacao") or "",
+                    key=f"obs_{vaga['id']}"
+                )
+
+                col_salvar, col_negar = st.columns([1, 1])
+                with col_salvar:
+                    if st.form_submit_button("Salvar status", use_container_width=True):
+                        atualizar_candidatura(
+                            id_vaga=vaga["id"],
+                            status=novo_status,
+                            fase=novo_status,
+                            observacao=observacao
+                        )
+                        st.success("Status atualizado!")
+                        st.rerun()
+                with col_negar:
+                    if st.form_submit_button("Negar vaga", use_container_width=True, type="secondary"):
+                        negar_vaga(
+                            id_vaga=vaga["id"],
+                            observacao=observacao or f"Negada em: {status_cand}"
+                        )
+                        st.warning("Vaga negada e removida da lista.")
+                        st.rerun()
 
     st.divider()
     st.subheader("Histórico de execuções")
@@ -295,15 +361,65 @@ elif pagina == "Empresas":
                         st.warning("Cidade é obrigatória.")
 
             st.divider()
-            if emp["ativa"]:
-                if st.button("Pausar monitoramento", key=f"pausar_{emp['id']}"):
+            col_btn1, col_btn2 = st.columns(2)
+
+            with col_btn1:
+                if emp["ativa"]:
+                    if st.button("Pausar monitoramento", key=f"pausar_{emp['id']}", use_container_width=True):
+                        con = conectar_rw()
+                        con.execute("UPDATE dim_empresa SET ativa = false WHERE id = ?", [emp["id"]])
+                        con.close()
+                        st.rerun()
+                else:
+                    if st.button("Reativar monitoramento", key=f"reativar_{emp['id']}", use_container_width=True):
+                        con = conectar_rw()
+                        con.execute("UPDATE dim_empresa SET ativa = true WHERE id = ?", [emp["id"]])
+                        con.close()
+                        st.rerun()
+
+            with col_btn2:
+                if st.button("Buscar vagas agora", key=f"buscar_{emp['id']}", use_container_width=True):
+                    with st.spinner(f"Coletando vagas de {emp['nome']}..."):
+                        from main import processar_empresa
+                        encontradas, novas, erro = processar_empresa(emp["nome"], emp["url_gupy"])
+                        if erro:
+                            st.error(f"Erro: {erro}")
+                        else:
+                            st.success(f"{encontradas} encontradas | {novas} novas")
+
+# ─── PÁGINA VAGAS NEGADAS ────────────────────────────────────────────
+elif pagina == "Vagas Negadas":
+    st.title("Vagas Negadas")
+    st.caption("Vagas que você optou por não seguir. Se aparecerem em novas buscas, serão ignoradas automaticamente.")
+
+    df_negadas = listar_vagas_negadas()
+
+    if df_negadas.empty:
+        st.info("Nenhuma vaga negada ainda.")
+    else:
+        st.metric("Total de vagas negadas", len(df_negadas))
+        st.divider()
+
+        for _, vaga in df_negadas.iterrows():
+            with st.expander(f"{vaga['titulo']} — {vaga['empresa']}"):
+                col1, col2 = st.columns(2)
+                col1.write(f"**Negada em:** {vaga['candidatura_data']}")
+                col2.write(f"**Fase ao negar:** {TIMELINE_LABELS.get(vaga['candidatura_fase'], '—')}")
+
+                if vaga["candidatura_observacao"]:
+                    st.write(f"**Observação:** {vaga['candidatura_observacao']}")
+
+                if st.button("Reativar vaga", key=f"reativar_negada_{vaga['id']}"):
                     con = conectar_rw()
-                    con.execute("UPDATE dim_empresa SET ativa = false WHERE id = ?", [emp["id"]])
+                    con.execute("""
+                        UPDATE fact_vaga
+                        SET negada = false,
+                            candidatura_status = 'nao_inscrito',
+                            candidatura_fase = null,
+                            candidatura_observacao = null,
+                            candidatura_data = null
+                        WHERE id = ?
+                    """, [vaga["id"]])
                     con.close()
-                    st.rerun()
-            else:
-                if st.button("Reativar monitoramento", key=f"reativar_{emp['id']}"):
-                    con = conectar_rw()
-                    con.execute("UPDATE dim_empresa SET ativa = true WHERE id = ?", [emp["id"]])
-                    con.close()
+                    st.success("Vaga reativada!")
                     st.rerun()

@@ -1,7 +1,6 @@
 import json
-from datetime import date
+import duckdb
 from scrapers.gupy_scraper import buscar_vagas
-from scrapers.gupy_detalhes import enriquecer_vagas
 from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
 from database.db_manager import (
     criar_tabelas,
@@ -9,8 +8,85 @@ from database.db_manager import (
     inserir_vaga,
     registrar_log,
     listar_empresas_ativas,
-    verificar_vagas_encerradas
+    verificar_vagas_encerradas,
+    gerar_hash
 )
+
+
+def processar_empresa(nome: str, url_gupy: str):
+    vagas_encontradas = 0
+    vagas_novas = 0
+    erro = ""
+
+    try:
+        vagas = buscar_vagas(url_gupy)
+        vagas_encontradas = len(vagas)
+
+        vagas_enriquecidas = []
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            for vaga in vagas:
+                try:
+                    page.goto(vaga["link"], wait_until="networkidle")
+                    page.wait_for_selector(
+                        "[class*='description'], [class*='jobDescription'], section",
+                        timeout=10000
+                    )
+                    el = page.query_selector(
+                        "[class*='description'], [class*='jobDescription'], section"
+                    )
+                    vaga["descricao"] = el.inner_text().strip() if el else ""
+                except:
+                    vaga["descricao"] = ""
+                vagas_enriquecidas.append(vaga)
+            browser.close()
+
+        id_empresa = upsert_empresa(nome=nome, url_gupy=url_gupy)
+
+        for vaga in vagas_enriquecidas:
+            descricao = vaga.get("descricao", "")
+            titulo = vaga.get("titulo", "")
+
+            vaga["stacks"] = extrair_stacks(descricao)
+            vaga["nivel"] = detectar_nivel(titulo)
+            vaga["modalidade"] = detectar_modalidade(
+                descricao,
+                modalidade_coletada=vaga.get("modalidade", "não identificado")
+            )
+
+            con_check = duckdb.connect("data/curated/jobs.duckdb")
+            negada = con_check.execute("""
+                SELECT id FROM fact_vaga WHERE hash = ? AND negada = true
+            """, [gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])]).fetchone()
+            con_check.close()
+
+            if negada:
+                print(f"  Vaga negada ignorada: {vaga['titulo']}")
+                continue
+
+            inserida = inserir_vaga(vaga, id_empresa)
+            if inserida:
+                vagas_novas += 1
+
+        links_ativos = [v["link"] for v in vagas_enriquecidas]
+        encerradas = verificar_vagas_encerradas(id_empresa, links_ativos)
+        if encerradas:
+            print(f"  {len(encerradas)} vaga(s) encerrada(s):")
+            for titulo in encerradas:
+                print(f"    - {titulo}")
+
+        registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
+        print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
+
+    except Exception as e:
+        erro = str(e)
+        registrar_log(nome, vagas_encontradas, vagas_novas, "erro", erro)
+        print(f"  Erro: {erro}")
+
+    return vagas_encontradas, vagas_novas, erro
+
 
 def rodar_pipeline():
     criar_tabelas()
@@ -24,73 +100,9 @@ def rodar_pipeline():
 
     for nome, url_gupy in empresas:
         print(f"\nProcessando {nome}...")
-        vagas_encontradas = 0
-        vagas_novas = 0
-        erro = ""
-
-        try:
-            # coleta
-            vagas = buscar_vagas(url_gupy)
-            vagas_encontradas = len(vagas)
-
-            # enriquece com descrição
-            vagas_enriquecidas = []
-            from playwright.sync_api import sync_playwright
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
-                for vaga in vagas:
-                    try:
-                        page.goto(vaga["link"], wait_until="networkidle")
-                        page.wait_for_selector(
-                            "[class*='description'], [class*='jobDescription'], section",
-                            timeout=10000
-                        )
-                        el = page.query_selector(
-                            "[class*='description'], [class*='jobDescription'], section"
-                        )
-                        vaga["descricao"] = el.inner_text().strip() if el else ""
-                    except:
-                        vaga["descricao"] = ""
-                    vagas_enriquecidas.append(vaga)
-                browser.close()
-
-            # processa e grava
-            id_empresa = upsert_empresa(nome=nome, url_gupy=url_gupy)
-
-            for vaga in vagas_enriquecidas:
-                descricao = vaga.get("descricao", "")
-                titulo = vaga.get("titulo", "")
-
-                vaga["stacks"] = extrair_stacks(descricao)
-                vaga["nivel"] = detectar_nivel(titulo)
-                vaga["modalidade"] = detectar_modalidade(
-                    descricao,
-                    modalidade_coletada=vaga.get("modalidade", "não identificado")
-                )
-
-                inserida = inserir_vaga(vaga, id_empresa)
-                if inserida:
-                    vagas_novas += 1
-
-            registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
-            print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
-
-            links_ativos = [v["link"] for v in vagas_enriquecidas]
-            encerradas = verificar_vagas_encerradas(id_empresa, links_ativos)
-
-            if encerradas:
-                print(f"  {len(encerradas)} vaga(s) encerrada(s):")
-                for titulo in encerradas:
-                    print(f"    - {titulo}")
-
-        except Exception as e:
-            erro = str(e)
-            registrar_log(nome, vagas_encontradas, vagas_novas, "erro", erro)
-            print(f"  Erro: {erro}")
+        processar_empresa(nome, url_gupy)
 
     print("\nPipeline concluído. Resumo no banco:")
-    import duckdb
     con = duckdb.connect("data/curated/jobs.duckdb")
     print(con.execute("""
         SELECT e.nome, COUNT(v.id) as total_vagas
