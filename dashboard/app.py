@@ -56,8 +56,8 @@ def carregar_empresas():
     con = conectar()
     df = con.execute("""
         SELECT id, nome, ramo, cidade, estado, url_gupy,
-               url_linkedin, url_site_vagas, ativa, data_cadastro,
-               favicon_url
+               url_linkedin, url_site_vagas, url_site_oficial,
+               ativa, data_cadastro, favicon_url
         FROM dim_empresa
         ORDER BY nome
     """).df()
@@ -106,7 +106,8 @@ def carregar_perfil_empresa(nome: str):
     con = conectar()
     empresa = con.execute("""
         SELECT id, nome, ramo, cidade, estado, url_gupy,
-               url_linkedin, url_site_vagas, favicon_url, data_cadastro
+               url_linkedin, url_site_vagas, url_site_oficial,
+               favicon_url, data_cadastro
         FROM dim_empresa WHERE nome = ?
     """, [nome]).df()
 
@@ -135,9 +136,16 @@ def carregar_perfil_empresa(nome: str):
     con.close()
     return empresa, vagas, logs, enderecos
 
+def get_favicon(nome: str, favicon_url: str = "") -> str:
+    """Retorna o caminho local do favicon ou a URL remota como fallback."""
+    nome_arquivo = nome.lower().replace(" ", "_").replace("&", "e")
+    caminho_local = f"dashboard/static/favicons/{nome_arquivo}.png"
+    if os.path.exists(caminho_local):
+        return caminho_local
+    return favicon_url or ""
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
-# verifica se há uma empresa selecionada via query params
+
 empresa_perfil = st.query_params.get("empresa", None)
 
 if not empresa_perfil:
@@ -255,7 +263,7 @@ if pagina == "Dashboard":
         status_icon = "🟢" if vaga["ativa"] else "🔴"
         status_cand = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
-        favicon = vaga.get("favicon_url") or ""
+        favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
 
         with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
             if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_{vaga['id']}"):
@@ -388,9 +396,12 @@ elif pagina == "Vagas":
         status_icon = "🟢" if vaga["ativa"] else "🔴"
         status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
-        favicon = vaga.get("favicon_url") or ""
+        favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
 
         with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
+            if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_v_{vaga['id']}"):
+                st.query_params["empresa"] = vaga["empresa"]
+                st.rerun()
             col_logo, col_info = st.columns([1, 5])
             if favicon:
                 col_logo.image(favicon, width=40)
@@ -505,7 +516,11 @@ elif pagina == "Empresas":
         url_gupy = st.text_input("URL Gupy *", placeholder="https://empresa.gupy.io/")
         url_linkedin = st.text_input("URL LinkedIn", value=d.get("url_linkedin", ""))
         url_site_vagas = st.text_input("URL site de vagas", value=d.get("url_site_vagas", ""))
-        dominio = st.text_input("Domínio da empresa", placeholder="ex: compass.uol.com.br")
+        url_site_oficial = st.text_input(
+            "Site oficial da empresa",
+            placeholder="https://www.empresa.com.br",
+            help="Usado para buscar o logo da empresa automaticamente"
+        )
 
         submitted = st.form_submit_button("Salvar empresa")
 
@@ -516,7 +531,12 @@ elif pagina == "Empresas":
                 st.error("URL Gupy é obrigatória.")
             else:
                 try:
-                    favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64" if dominio else ""
+                    if url_site_oficial:
+                        dominio = url_site_oficial.replace("https://www.", "").replace("https://", "").split("/")[0]
+                        favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
+                    else:
+                        favicon_url = ""
+
                     con = conectar_rw()
                     existente = con.execute(
                         "SELECT id FROM dim_empresa WHERE nome = ?", [nome]
@@ -530,10 +550,12 @@ elif pagina == "Empresas":
                         ).fetchone()[0]
                         con.execute("""
                             INSERT INTO dim_empresa
-                            (id, nome, ramo, cidade, estado, url_gupy, url_linkedin, url_site_vagas, favicon_url)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            (id, nome, ramo, cidade, estado, url_gupy, url_linkedin,
+                             url_site_vagas, url_site_oficial, favicon_url)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, [id_novo, nome, ramo, cidade, estado,
-                              url_gupy, url_linkedin, url_site_vagas, favicon_url])
+                              url_gupy, url_linkedin, url_site_vagas,
+                              url_site_oficial, favicon_url])
                         con.close()
                         st.session_state.dados_buscados = {}
                         st.session_state.form_key += 1
@@ -547,7 +569,7 @@ elif pagina == "Empresas":
 
     for _, emp in df_empresas.iterrows():
         status = "🟢 Ativa" if emp["ativa"] else "🔴 Pausada"
-        favicon = emp.get("favicon_url") or ""
+        favicon = get_favicon(emp["nome"], emp.get("favicon_url") or "")
 
         col_logo, col_titulo = st.columns([1, 8])
         if favicon:
@@ -565,6 +587,8 @@ elif pagina == "Empresas":
                 st.write(f"**LinkedIn:** {emp['url_linkedin']}")
             if emp["url_site_vagas"]:
                 st.write(f"**Site vagas:** {emp['url_site_vagas']}")
+            if emp.get("url_site_oficial"):
+                st.write(f"**Site oficial:** {emp['url_site_oficial']}")
 
             st.divider()
             with st.form(key=f"form_edit_{emp['id']}"):
@@ -575,18 +599,27 @@ elif pagina == "Empresas":
                 edit_gupy = st.text_input("URL Gupy", value=emp["url_gupy"] or "", key=f"edit_gupy_{emp['id']}")
                 edit_linkedin = st.text_input("URL LinkedIn", value=emp["url_linkedin"] or "", key=f"edit_linkedin_{emp['id']}")
                 edit_site = st.text_input("URL site de vagas", value=emp["url_site_vagas"] or "", key=f"edit_site_{emp['id']}")
-                edit_favicon = st.text_input("Domínio (para logo)", value="", placeholder="ex: compass.uol.com.br", key=f"edit_favicon_{emp['id']}")
+                edit_site_oficial = st.text_input(
+                    "Site oficial da empresa",
+                    value=emp.get("url_site_oficial") or "",
+                    placeholder="https://www.empresa.com.br",
+                    key=f"edit_site_oficial_{emp['id']}"
+                )
 
                 if st.form_submit_button("Salvar alterações"):
-                    novo_favicon = f"https://www.google.com/s2/favicons?domain={edit_favicon}&sz=64" if edit_favicon else emp.get("favicon_url") or ""
+                    if edit_site_oficial:
+                        dominio = edit_site_oficial.replace("https://www.", "").replace("https://", "").split("/")[0]
+                        novo_favicon = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
+                    else:
+                        novo_favicon = get_favicon(emp["nome"], emp.get("favicon_url") or "")
                     con = conectar_rw()
                     con.execute("""
                         UPDATE dim_empresa
                         SET ramo = ?, estado = ?, url_gupy = ?, url_linkedin = ?,
-                            url_site_vagas = ?, favicon_url = ?
+                            url_site_vagas = ?, url_site_oficial = ?, favicon_url = ?
                         WHERE id = ?
                     """, [edit_ramo, edit_estado, edit_gupy, edit_linkedin,
-                          edit_site, novo_favicon, emp["id"]])
+                          edit_site, edit_site_oficial, novo_favicon, emp["id"]])
                     con.close()
                     st.success("Empresa atualizada!")
                     st.rerun()
@@ -797,6 +830,43 @@ elif pagina == "Configurações":
                     st.rerun()
 
 # ─── PÁGINA VAGAS NEGADAS ───────────────────────────────────────
+elif pagina == "Vagas Negadas":
+    st.title("Vagas Negadas")
+    st.caption("Vagas que você optou por não seguir. Se aparecerem em novas buscas, serão ignoradas automaticamente.")
+
+    df_negadas = listar_vagas_negadas()
+
+    if df_negadas.empty:
+        st.info("Nenhuma vaga negada ainda.")
+    else:
+        st.metric("Total de vagas negadas", len(df_negadas))
+        st.divider()
+
+        for _, vaga in df_negadas.iterrows():
+            with st.expander(f"{vaga['titulo']} — {vaga['empresa']}"):
+                col1, col2 = st.columns(2)
+                col1.write(f"**Negada em:** {vaga['candidatura_data']}")
+                col2.write(f"**Fase ao negar:** {TIMELINE_LABELS.get(vaga['candidatura_fase'], '—')}")
+
+                if vaga["candidatura_observacao"]:
+                    st.write(f"**Observação:** {vaga['candidatura_observacao']}")
+
+                if st.button("Reativar vaga", key=f"reativar_negada_{vaga['id']}"):
+                    con = conectar_rw()
+                    con.execute("""
+                        UPDATE fact_vaga
+                        SET negada = false,
+                            candidatura_status = 'nao_inscrito',
+                            candidatura_fase = null,
+                            candidatura_observacao = null,
+                            candidatura_data = null
+                        WHERE id = ?
+                    """, [vaga["id"]])
+                    con.close()
+                    st.success("Vaga reativada!")
+                    st.rerun()
+
+# ─── PÁGINA PERFIL EMPRESA ──────────────────────────────────────
 elif pagina == "Perfil Empresa":
     empresa_df, vagas_df, logs_df, enderecos = carregar_perfil_empresa(empresa_perfil)
 
@@ -804,7 +874,7 @@ elif pagina == "Perfil Empresa":
         st.error(f"Empresa '{empresa_perfil}' não encontrada.")
     else:
         emp = empresa_df.iloc[0]
-        favicon = emp.get("favicon_url") or ""
+        favicon = get_favicon(emp["nome"], emp.get("favicon_url") or "")
 
         col_logo, col_titulo = st.columns([1, 6])
         if favicon:
@@ -812,13 +882,15 @@ elif pagina == "Perfil Empresa":
         col_titulo.title(emp["nome"])
         col_titulo.caption(f"{emp['ramo'] or '—'} · {emp['cidade'] or '—'}/{emp['estado'] or '—'} · Cadastrada em {emp['data_cadastro']}")
 
-        col_a, col_b, col_c = st.columns(3)
+        cols_links = st.columns(4)
         if emp["url_gupy"]:
-            col_a.link_button("Portal Gupy", emp["url_gupy"], use_container_width=True)
+            cols_links[0].link_button("Portal Gupy", emp["url_gupy"], use_container_width=True)
         if emp["url_linkedin"]:
-            col_b.link_button("LinkedIn", emp["url_linkedin"], use_container_width=True)
+            cols_links[1].link_button("LinkedIn", emp["url_linkedin"], use_container_width=True)
         if emp["url_site_vagas"]:
-            col_c.link_button("Site de vagas", emp["url_site_vagas"], use_container_width=True)
+            cols_links[2].link_button("Site de vagas", emp["url_site_vagas"], use_container_width=True)
+        if emp.get("url_site_oficial"):
+            cols_links[3].link_button("Site oficial", emp["url_site_oficial"], use_container_width=True)
 
         if enderecos:
             st.write("**Polos:**")
