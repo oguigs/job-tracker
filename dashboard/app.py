@@ -32,7 +32,7 @@ def carregar_vagas():
             v.id, v.titulo, v.nivel, v.modalidade, v.stacks,
             v.link, v.fonte, v.data_coleta, v.ativa, v.data_encerramento,
             v.candidatura_status, v.candidatura_fase, v.candidatura_observacao,
-            e.nome AS empresa, e.ramo, e.cidade, e.url_linkedin
+            e.nome AS empresa, e.ramo, e.cidade, e.url_linkedin, e.favicon_url
         FROM fact_vaga v
         JOIN dim_empresa e ON v.id_empresa = e.id
         WHERE v.negada = false OR v.negada IS NULL
@@ -56,7 +56,8 @@ def carregar_empresas():
     con = conectar()
     df = con.execute("""
         SELECT id, nome, ramo, cidade, estado, url_gupy,
-               url_linkedin, url_site_vagas, ativa, data_cadastro
+               url_linkedin, url_site_vagas, ativa, data_cadastro,
+               favicon_url
         FROM dim_empresa
         ORDER BY nome
     """).df()
@@ -147,13 +148,11 @@ if pagina == "Dashboard":
         fig = grafico_stacks(s, "Linguagens", "#1D9E75")
         if fig:
             st.plotly_chart(fig, use_container_width=True)
-
     with col_b:
         s = extrair_stacks_flat(df_filtrado, "cloud")
         fig = grafico_stacks(s, "Cloud", "#378ADD")
         if fig:
             st.plotly_chart(fig, use_container_width=True)
-
     with col_c:
         s = extrair_stacks_flat(df_filtrado, "processamento")
         fig = grafico_stacks(s, "Processamento", "#D85A30")
@@ -166,20 +165,17 @@ if pagina == "Dashboard":
         fig = grafico_stacks(s, "Orquestração", "#7F77DD")
         if fig:
             st.plotly_chart(fig, use_container_width=True)
-
     with col_e:
         s = extrair_stacks_flat(df_filtrado, "armazenamento")
         fig = grafico_stacks(s, "Armazenamento", "#BA7517")
         if fig:
             st.plotly_chart(fig, use_container_width=True)
-
     with col_f:
         s = extrair_stacks_flat(df_filtrado, "infraestrutura")
         fig = grafico_stacks(s, "Infraestrutura", "#888780")
         if fig:
             st.plotly_chart(fig, use_container_width=True)
 
-    # gráfico de distribuição por nível
     st.divider()
     col_nivel, col_modal = st.columns(2)
 
@@ -188,9 +184,7 @@ if pagina == "Dashboard":
         df_nivel = df_filtrado["nivel"].value_counts().reset_index()
         df_nivel.columns = ["nivel", "count"]
         fig = px.pie(
-            df_nivel,
-            values="count",
-            names="nivel",
+            df_nivel, values="count", names="nivel",
             color_discrete_sequence=px.colors.qualitative.Set2,
             template="plotly_white"
         )
@@ -203,9 +197,7 @@ if pagina == "Dashboard":
         df_modal = df_filtrado["modalidade"].value_counts().reset_index()
         df_modal.columns = ["modalidade", "count"]
         fig = px.pie(
-            df_modal,
-            values="count",
-            names="modalidade",
+            df_modal, values="count", names="modalidade",
             color_discrete_sequence=["#1D9E75", "#378ADD", "#D85A30"],
             template="plotly_white"
         )
@@ -220,12 +212,13 @@ if pagina == "Dashboard":
         status_icon = "🟢" if vaga["ativa"] else "🔴"
         status_cand = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
+        favicon = vaga.get("favicon_url") or ""
 
         with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
-            col1, col2, col3 = st.columns(3)
-            col1.write(f"**Nível:** {vaga['nivel']}")
-            col2.write(f"**Modalidade:** {vaga['modalidade']}")
-            col3.write(f"**Coletada em:** {vaga['data_coleta']}")
+            col_logo, col_info = st.columns([1, 5])
+            if favicon:
+                col_logo.image(favicon, width=40)
+            col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {vaga['data_coleta']}")
 
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
@@ -349,12 +342,13 @@ elif pagina == "Vagas":
         status_icon = "🟢" if vaga["ativa"] else "🔴"
         status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
+        favicon = vaga.get("favicon_url") or ""
 
         with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
-            col1, col2, col3 = st.columns(3)
-            col1.write(f"**Nível:** {vaga['nivel']}")
-            col2.write(f"**Modalidade:** {vaga['modalidade']}")
-            col3.write(f"**Coletada em:** {vaga['data_coleta']}")
+            col_logo, col_info = st.columns([1, 5])
+            if favicon:
+                col_logo.image(favicon, width=40)
+            col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {vaga['data_coleta']}")
 
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
@@ -465,6 +459,7 @@ elif pagina == "Empresas":
         url_gupy = st.text_input("URL Gupy *", placeholder="https://empresa.gupy.io/")
         url_linkedin = st.text_input("URL LinkedIn", value=d.get("url_linkedin", ""))
         url_site_vagas = st.text_input("URL site de vagas", value=d.get("url_site_vagas", ""))
+        dominio = st.text_input("Domínio da empresa", placeholder="ex: compass.uol.com.br")
 
         submitted = st.form_submit_button("Salvar empresa")
 
@@ -475,6 +470,7 @@ elif pagina == "Empresas":
                 st.error("URL Gupy é obrigatória.")
             else:
                 try:
+                    favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64" if dominio else ""
                     con = conectar_rw()
                     existente = con.execute(
                         "SELECT id FROM dim_empresa WHERE nome = ?", [nome]
@@ -488,10 +484,10 @@ elif pagina == "Empresas":
                         ).fetchone()[0]
                         con.execute("""
                             INSERT INTO dim_empresa
-                            (id, nome, ramo, cidade, estado, url_gupy, url_linkedin, url_site_vagas)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            (id, nome, ramo, cidade, estado, url_gupy, url_linkedin, url_site_vagas, favicon_url)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, [id_novo, nome, ramo, cidade, estado,
-                              url_gupy, url_linkedin, url_site_vagas])
+                              url_gupy, url_linkedin, url_site_vagas, favicon_url])
                         con.close()
                         st.session_state.dados_buscados = {}
                         st.session_state.form_key += 1
@@ -505,8 +501,14 @@ elif pagina == "Empresas":
 
     for _, emp in df_empresas.iterrows():
         status = "🟢 Ativa" if emp["ativa"] else "🔴 Pausada"
-        with st.expander(f"{emp['nome']} — {status}"):
+        favicon = emp.get("favicon_url") or ""
 
+        col_logo, col_titulo = st.columns([1, 8])
+        if favicon:
+            col_logo.image(favicon, width=32)
+        col_titulo.markdown(f"**{emp['nome']}** — {status}")
+
+        with st.expander(f"Ver detalhes — {emp['nome']}"):
             col1, col2 = st.columns(2)
             col1.write(f"**Ramo:** {emp['ramo'] or '—'}")
             col2.write(f"**Cadastrada em:** {emp['data_cadastro']}")
@@ -527,14 +529,18 @@ elif pagina == "Empresas":
                 edit_gupy = st.text_input("URL Gupy", value=emp["url_gupy"] or "", key=f"edit_gupy_{emp['id']}")
                 edit_linkedin = st.text_input("URL LinkedIn", value=emp["url_linkedin"] or "", key=f"edit_linkedin_{emp['id']}")
                 edit_site = st.text_input("URL site de vagas", value=emp["url_site_vagas"] or "", key=f"edit_site_{emp['id']}")
+                edit_favicon = st.text_input("Domínio (para logo)", value="", placeholder="ex: compass.uol.com.br", key=f"edit_favicon_{emp['id']}")
 
                 if st.form_submit_button("Salvar alterações"):
+                    novo_favicon = f"https://www.google.com/s2/favicons?domain={edit_favicon}&sz=64" if edit_favicon else emp.get("favicon_url") or ""
                     con = conectar_rw()
                     con.execute("""
                         UPDATE dim_empresa
-                        SET ramo = ?, estado = ?, url_gupy = ?, url_linkedin = ?, url_site_vagas = ?
+                        SET ramo = ?, estado = ?, url_gupy = ?, url_linkedin = ?,
+                            url_site_vagas = ?, favicon_url = ?
                         WHERE id = ?
-                    """, [edit_ramo, edit_estado, edit_gupy, edit_linkedin, edit_site, emp["id"]])
+                    """, [edit_ramo, edit_estado, edit_gupy, edit_linkedin,
+                          edit_site, novo_favicon, emp["id"]])
                     con.close()
                     st.success("Empresa atualizada!")
                     st.rerun()
