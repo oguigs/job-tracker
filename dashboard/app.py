@@ -102,8 +102,51 @@ def grafico_stacks(df_counts, titulo: str, cor: str):
     )
     return fig
 
+def carregar_perfil_empresa(nome: str):
+    con = conectar()
+    empresa = con.execute("""
+        SELECT id, nome, ramo, cidade, estado, url_gupy,
+               url_linkedin, url_site_vagas, favicon_url, data_cadastro
+        FROM dim_empresa WHERE nome = ?
+    """, [nome]).df()
+
+    vagas = con.execute("""
+        SELECT id, titulo, nivel, modalidade, stacks, link,
+               data_coleta, ativa, candidatura_status
+        FROM fact_vaga
+        WHERE id_empresa = (SELECT id FROM dim_empresa WHERE nome = ?)
+        AND (negada = false OR negada IS NULL)
+        ORDER BY data_coleta DESC
+    """, [nome]).df()
+
+    logs = con.execute("""
+        SELECT vagas_encontradas, vagas_novas, status, data_execucao
+        FROM log_coleta
+        WHERE empresa = ?
+        ORDER BY data_execucao DESC
+        LIMIT 5
+    """, [nome]).df()
+
+    enderecos = con.execute("""
+        SELECT cidade, bairro FROM dim_empresa_endereco
+        WHERE id_empresa = (SELECT id FROM dim_empresa WHERE nome = ?)
+    """, [nome]).fetchall()
+
+    con.close()
+    return empresa, vagas, logs, enderecos
+
+
 st.set_page_config(page_title="Job Tracker", layout="wide")
-pagina = st.sidebar.radio("Navegação", ["Dashboard", "Vagas", "Empresas", "Pipeline", "Configurações", "Vagas Negadas"])
+# verifica se há uma empresa selecionada via query params
+empresa_perfil = st.query_params.get("empresa", None)
+
+if not empresa_perfil:
+    pagina = st.sidebar.radio("Navegação", ["Dashboard", "Vagas", "Empresas", "Pipeline", "Configurações", "Vagas Negadas"])
+else:
+    pagina = "Perfil Empresa"
+    if st.sidebar.button("← Voltar"):
+        st.query_params.clear()
+        st.rerun()
 
 # ─── PÁGINA DASHBOARD ───────────────────────────────────────────
 if pagina == "Dashboard":
@@ -215,6 +258,9 @@ if pagina == "Dashboard":
         favicon = vaga.get("favicon_url") or ""
 
         with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
+            if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_{vaga['id']}"):
+                st.query_params["empresa"] = vaga["empresa"]
+                st.rerun()
             col_logo, col_info = st.columns([1, 5])
             if favicon:
                 col_logo.image(favicon, width=40)
@@ -751,38 +797,89 @@ elif pagina == "Configurações":
                     st.rerun()
 
 # ─── PÁGINA VAGAS NEGADAS ───────────────────────────────────────
-elif pagina == "Vagas Negadas":
-    st.title("Vagas Negadas")
-    st.caption("Vagas que você optou por não seguir. Se aparecerem em novas buscas, serão ignoradas automaticamente.")
+elif pagina == "Perfil Empresa":
+    empresa_df, vagas_df, logs_df, enderecos = carregar_perfil_empresa(empresa_perfil)
 
-    df_negadas = listar_vagas_negadas()
-
-    if df_negadas.empty:
-        st.info("Nenhuma vaga negada ainda.")
+    if empresa_df.empty:
+        st.error(f"Empresa '{empresa_perfil}' não encontrada.")
     else:
-        st.metric("Total de vagas negadas", len(df_negadas))
+        emp = empresa_df.iloc[0]
+        favicon = emp.get("favicon_url") or ""
+
+        col_logo, col_titulo = st.columns([1, 6])
+        if favicon:
+            col_logo.image(favicon, width=64)
+        col_titulo.title(emp["nome"])
+        col_titulo.caption(f"{emp['ramo'] or '—'} · {emp['cidade'] or '—'}/{emp['estado'] or '—'} · Cadastrada em {emp['data_cadastro']}")
+
+        col_a, col_b, col_c = st.columns(3)
+        if emp["url_gupy"]:
+            col_a.link_button("Portal Gupy", emp["url_gupy"], use_container_width=True)
+        if emp["url_linkedin"]:
+            col_b.link_button("LinkedIn", emp["url_linkedin"], use_container_width=True)
+        if emp["url_site_vagas"]:
+            col_c.link_button("Site de vagas", emp["url_site_vagas"], use_container_width=True)
+
+        if enderecos:
+            st.write("**Polos:**")
+            for cidade, bairro in enderecos:
+                st.write(f"- {cidade} / {bairro or '—'}")
+
         st.divider()
 
-        for _, vaga in df_negadas.iterrows():
-            with st.expander(f"{vaga['titulo']} — {vaga['empresa']}"):
-                col1, col2 = st.columns(2)
-                col1.write(f"**Negada em:** {vaga['candidatura_data']}")
-                col2.write(f"**Fase ao negar:** {TIMELINE_LABELS.get(vaga['candidatura_fase'], '—')}")
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("Total de vagas", len(vagas_df))
+        col_m2.metric("Vagas ativas", vagas_df[vagas_df["ativa"] == True].shape[0])
+        col_m3.metric("Inscritas", vagas_df[vagas_df["candidatura_status"] == "inscrito"].shape[0])
 
-                if vaga["candidatura_observacao"]:
-                    st.write(f"**Observação:** {vaga['candidatura_observacao']}")
+        st.divider()
+        st.subheader("Stacks mais pedidas")
 
-                if st.button("Reativar vaga", key=f"reativar_negada_{vaga['id']}"):
-                    con = conectar_rw()
-                    con.execute("""
-                        UPDATE fact_vaga
-                        SET negada = false,
-                            candidatura_status = 'nao_inscrito',
-                            candidatura_fase = null,
-                            candidatura_observacao = null,
-                            candidatura_data = null
-                        WHERE id = ?
-                    """, [vaga["id"]])
-                    con.close()
-                    st.success("Vaga reativada!")
-                    st.rerun()
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            s = extrair_stacks_flat(vagas_df, "linguagens")
+            fig = grafico_stacks(s, "Linguagens", "#1D9E75")
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+        with col_b:
+            s = extrair_stacks_flat(vagas_df, "cloud")
+            fig = grafico_stacks(s, "Cloud", "#378ADD")
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+        with col_c:
+            s = extrair_stacks_flat(vagas_df, "processamento")
+            fig = grafico_stacks(s, "Processamento", "#D85A30")
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+
+        st.divider()
+        st.subheader("Vagas")
+
+        for _, vaga in vagas_df.iterrows():
+            status_icon = "🟢" if vaga["ativa"] else "🔴"
+            status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
+            label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
+
+            with st.expander(f"{status_icon} {vaga['titulo']} | {label_status}"):
+                col1, col2, col3 = st.columns(3)
+                col1.write(f"**Nível:** {vaga['nivel']}")
+                col2.write(f"**Modalidade:** {vaga['modalidade']}")
+                col3.write(f"**Coletada em:** {vaga['data_coleta']}")
+
+                try:
+                    stacks = json.loads(vaga["stacks"]) if isinstance(vaga["stacks"], str) else vaga["stacks"]
+                    if stacks:
+                        st.write("**Stacks:**")
+                        for categoria, termos in stacks.items():
+                            st.write(f"- {categoria}: {', '.join(termos)}")
+                except:
+                    pass
+
+                st.link_button("Ver vaga", vaga["link"])
+
+        st.divider()
+        st.subheader("Histórico do pipeline")
+        if not logs_df.empty:
+            st.dataframe(logs_df, use_container_width=True)
+        else:
+            st.caption("Nenhuma execução registrada ainda.")
