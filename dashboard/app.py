@@ -2,6 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 import duckdb
 import pandas as pd
@@ -69,11 +71,38 @@ def extrair_stacks_flat(df, categoria):
             todas.extend(stacks.get(categoria, []))
         except:
             pass
-    return pd.Series(todas).value_counts()
+    return pd.Series(todas).value_counts().reset_index().rename(
+        columns={"index": "stack", 0: "count", "count": "count"}
+    )
+
+def grafico_stacks(df_counts, titulo: str, cor: str):
+    if df_counts.empty:
+        return None
+    df_counts.columns = ["stack", "count"]
+    fig = px.bar(
+        df_counts,
+        x="count",
+        y="stack",
+        orientation="h",
+        title=titulo,
+        color_discrete_sequence=[cor],
+        template="plotly_white"
+    )
+    fig.update_layout(
+        height=300,
+        margin=dict(l=0, r=0, t=40, b=0),
+        yaxis=dict(autorange="reversed", title=""),
+        xaxis=dict(title="Vagas"),
+        showlegend=False,
+        title_font_size=14
+    )
+    fig.update_traces(
+        hovertemplate="<b>%{y}</b><br>%{x} vagas<extra></extra>"
+    )
+    return fig
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
 pagina = st.sidebar.radio("Navegação", ["Dashboard", "Vagas", "Empresas", "Pipeline", "Configurações", "Vagas Negadas"])
-
 
 # ─── PÁGINA DASHBOARD ───────────────────────────────────────────
 if pagina == "Dashboard":
@@ -114,32 +143,75 @@ if pagina == "Dashboard":
 
     col_a, col_b, col_c = st.columns(3)
     with col_a:
-        st.caption("Linguagens")
         s = extrair_stacks_flat(df_filtrado, "linguagens")
-        if not s.empty:
-            st.bar_chart(s)
-    with col_b:
-        st.caption("Cloud")
-        s = extrair_stacks_flat(df_filtrado, "cloud")
-        if not s.empty:
-            st.bar_chart(s)
-    with col_c:
-        st.caption("Processamento")
-        s = extrair_stacks_flat(df_filtrado, "processamento")
-        if not s.empty:
-            st.bar_chart(s)
+        fig = grafico_stacks(s, "Linguagens", "#1D9E75")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
 
-    col_d, col_e = st.columns(2)
+    with col_b:
+        s = extrair_stacks_flat(df_filtrado, "cloud")
+        fig = grafico_stacks(s, "Cloud", "#378ADD")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+
+    with col_c:
+        s = extrair_stacks_flat(df_filtrado, "processamento")
+        fig = grafico_stacks(s, "Processamento", "#D85A30")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+
+    col_d, col_e, col_f = st.columns(3)
     with col_d:
-        st.caption("Orquestração")
         s = extrair_stacks_flat(df_filtrado, "orquestracao")
-        if not s.empty:
-            st.bar_chart(s)
+        fig = grafico_stacks(s, "Orquestração", "#7F77DD")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+
     with col_e:
-        st.caption("Armazenamento")
         s = extrair_stacks_flat(df_filtrado, "armazenamento")
-        if not s.empty:
-            st.bar_chart(s)
+        fig = grafico_stacks(s, "Armazenamento", "#BA7517")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+
+    with col_f:
+        s = extrair_stacks_flat(df_filtrado, "infraestrutura")
+        fig = grafico_stacks(s, "Infraestrutura", "#888780")
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+
+    # gráfico de distribuição por nível
+    st.divider()
+    col_nivel, col_modal = st.columns(2)
+
+    with col_nivel:
+        st.subheader("Distribuição por nível")
+        df_nivel = df_filtrado["nivel"].value_counts().reset_index()
+        df_nivel.columns = ["nivel", "count"]
+        fig = px.pie(
+            df_nivel,
+            values="count",
+            names="nivel",
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            template="plotly_white"
+        )
+        fig.update_layout(height=300, margin=dict(l=0, r=0, t=0, b=0))
+        fig.update_traces(hovertemplate="<b>%{label}</b><br>%{value} vagas<extra></extra>")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_modal:
+        st.subheader("Distribuição por modalidade")
+        df_modal = df_filtrado["modalidade"].value_counts().reset_index()
+        df_modal.columns = ["modalidade", "count"]
+        fig = px.pie(
+            df_modal,
+            values="count",
+            names="modalidade",
+            color_discrete_sequence=["#1D9E75", "#378ADD", "#D85A30"],
+            template="plotly_white"
+        )
+        fig.update_layout(height=300, margin=dict(l=0, r=0, t=0, b=0))
+        fig.update_traces(hovertemplate="<b>%{label}</b><br>%{value} vagas<extra></extra>")
+        st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
     st.subheader("Vagas")
@@ -227,6 +299,131 @@ if pagina == "Dashboard":
     st.subheader("Histórico de execuções")
     st.dataframe(carregar_logs(), use_container_width=True)
 
+# ─── PÁGINA VAGAS ───────────────────────────────────────────────
+elif pagina == "Vagas":
+    st.title("Vagas salvas")
+
+    df = carregar_vagas()
+
+    st.sidebar.divider()
+    st.sidebar.header("Filtros")
+
+    empresas = ["Todas"] + sorted(df["empresa"].unique().tolist())
+    empresa_sel = st.sidebar.selectbox("Empresa", empresas)
+    niveis = ["Todos"] + sorted(df["nivel"].dropna().unique().tolist())
+    nivel_sel = st.sidebar.selectbox("Nível", niveis)
+    modalidades = ["Todas"] + sorted(df["modalidade"].dropna().unique().tolist())
+    modalidade_sel = st.sidebar.selectbox("Modalidade", modalidades)
+    status_cand = ["Todos"] + list(TIMELINE_LABELS.values())
+    status_cand_sel = st.sidebar.selectbox("Status candidatura", status_cand)
+    status_vaga = st.sidebar.radio("Status da vaga", ["Ativas", "Encerradas", "Todas"])
+    busca = st.sidebar.text_input("Buscar no título")
+
+    df_filtrado = df.copy()
+    if empresa_sel != "Todas":
+        df_filtrado = df_filtrado[df_filtrado["empresa"] == empresa_sel]
+    if nivel_sel != "Todos":
+        df_filtrado = df_filtrado[df_filtrado["nivel"] == nivel_sel]
+    if modalidade_sel != "Todas":
+        df_filtrado = df_filtrado[df_filtrado["modalidade"] == modalidade_sel]
+    if status_vaga == "Ativas":
+        df_filtrado = df_filtrado[df_filtrado["ativa"] == True]
+    elif status_vaga == "Encerradas":
+        df_filtrado = df_filtrado[df_filtrado["ativa"] == False]
+    if status_cand_sel != "Todos":
+        chave = next((k for k, v in TIMELINE_LABELS.items() if v == status_cand_sel), None)
+        if chave:
+            df_filtrado = df_filtrado[df_filtrado["candidatura_status"] == chave]
+    if busca:
+        df_filtrado = df_filtrado[df_filtrado["titulo"].str.contains(busca, case=False, na=False)]
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total", len(df_filtrado))
+    col2.metric("Ativas", df_filtrado[df_filtrado["ativa"] == True].shape[0])
+    col3.metric("Encerradas", df_filtrado[df_filtrado["ativa"] == False].shape[0])
+    col4.metric("Inscritas", df_filtrado[df_filtrado["candidatura_status"] == "inscrito"].shape[0])
+
+    st.divider()
+
+    for _, vaga in df_filtrado.iterrows():
+        status_icon = "🟢" if vaga["ativa"] else "🔴"
+        status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
+        label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
+
+        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
+            col1, col2, col3 = st.columns(3)
+            col1.write(f"**Nível:** {vaga['nivel']}")
+            col2.write(f"**Modalidade:** {vaga['modalidade']}")
+            col3.write(f"**Coletada em:** {vaga['data_coleta']}")
+
+            if not vaga["ativa"]:
+                st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
+
+            try:
+                stacks = json.loads(vaga["stacks"]) if isinstance(vaga["stacks"], str) else vaga["stacks"]
+                if stacks:
+                    st.write("**Stacks:**")
+                    for categoria, termos in stacks.items():
+                        st.write(f"- {categoria}: {', '.join(termos)}")
+            except:
+                pass
+
+            st.link_button("Ver vaga", vaga["link"])
+
+            st.divider()
+            st.write("**Candidatura:**")
+
+            fases_ativas = ["nao_inscrito", "inscrito", "chamado", "recrutador",
+                            "fase_1", "fase_2", "fase_3"]
+
+            cols = st.columns(len(fases_ativas))
+            for i, fase in enumerate(fases_ativas):
+                ativo = fase == status_cand_val
+                cols[i].markdown(
+                    f"<div style='text-align:center; padding:4px; border-radius:6px; "
+                    f"background:{'#1D9E75' if ativo else '#f0f0f0'}; "
+                    f"color:{'white' if ativo else '#888'}; font-size:11px'>"
+                    f"{TIMELINE_LABELS[fase]}</div>",
+                    unsafe_allow_html=True
+                )
+
+            st.write("")
+
+            with st.form(key=f"form_vaga_{vaga['id']}"):
+                col_s, col_o = st.columns([2, 3])
+                novo_status = col_s.selectbox(
+                    "Atualizar status",
+                    options=TIMELINE,
+                    format_func=lambda x: TIMELINE_LABELS[x],
+                    index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
+                    key=f"sel_{vaga['id']}"
+                )
+                observacao = col_o.text_input(
+                    "Observação",
+                    value=vaga.get("candidatura_observacao") or "",
+                    key=f"obs_{vaga['id']}"
+                )
+
+                col_salvar, col_negar = st.columns(2)
+                with col_salvar:
+                    if st.form_submit_button("Salvar status", use_container_width=True):
+                        atualizar_candidatura(
+                            id_vaga=vaga["id"],
+                            status=novo_status,
+                            fase=novo_status,
+                            observacao=observacao
+                        )
+                        st.success("Status atualizado!")
+                        st.rerun()
+                with col_negar:
+                    if st.form_submit_button("Negar vaga", use_container_width=True, type="secondary"):
+                        negar_vaga(
+                            id_vaga=vaga["id"],
+                            observacao=observacao or f"Negada em: {status_cand_val}"
+                        )
+                        st.warning("Vaga negada!")
+                        st.rerun()
+
 # ─── PÁGINA EMPRESAS ────────────────────────────────────────────
 elif pagina == "Empresas":
     st.title("Empresas monitoradas")
@@ -237,6 +434,8 @@ elif pagina == "Empresas":
 
     if "dados_buscados" not in st.session_state:
         st.session_state.dados_buscados = {}
+    if "form_key" not in st.session_state:
+        st.session_state.form_key = 0
 
     col_busca, col_btn = st.columns([3, 1])
     nome_busca = col_busca.text_input("Nome da empresa", placeholder="Ex: Nubank")
@@ -253,7 +452,7 @@ elif pagina == "Empresas":
 
     d = st.session_state.dados_buscados
 
-    with st.form("form_empresa"):
+    with st.form(f"form_empresa_{st.session_state.form_key}"):
         col1, col2 = st.columns(2)
         nome = col1.text_input("Nome da empresa *", value=d.get("nome", ""))
         ramo = col2.text_input("Ramo", value=d.get("ramo", ""))
@@ -295,6 +494,7 @@ elif pagina == "Empresas":
                               url_gupy, url_linkedin, url_site_vagas])
                         con.close()
                         st.session_state.dados_buscados = {}
+                        st.session_state.form_key += 1
                         st.success(f"{nome} cadastrada com sucesso!")
                         st.rerun()
                 except Exception as e:
@@ -390,52 +590,12 @@ elif pagina == "Empresas":
                         else:
                             st.success(f"{encontradas} encontradas | {novas} novas")
 
-# ─── PÁGINA VAGAS NEGADAS ────────────────────────────────────────────
-elif pagina == "Vagas Negadas":
-    st.title("Vagas Negadas")
-    st.caption("Vagas que você optou por não seguir. Se aparecerem em novas buscas, serão ignoradas automaticamente.")
-
-    df_negadas = listar_vagas_negadas()
-
-    if df_negadas.empty:
-        st.info("Nenhuma vaga negada ainda.")
-    else:
-        st.metric("Total de vagas negadas", len(df_negadas))
-        st.divider()
-
-        for _, vaga in df_negadas.iterrows():
-            with st.expander(f"{vaga['titulo']} — {vaga['empresa']}"):
-                col1, col2 = st.columns(2)
-                col1.write(f"**Negada em:** {vaga['candidatura_data']}")
-                col2.write(f"**Fase ao negar:** {TIMELINE_LABELS.get(vaga['candidatura_fase'], '—')}")
-
-                if vaga["candidatura_observacao"]:
-                    st.write(f"**Observação:** {vaga['candidatura_observacao']}")
-
-                if st.button("Reativar vaga", key=f"reativar_negada_{vaga['id']}"):
-                    con = conectar_rw()
-                    con.execute("""
-                        UPDATE fact_vaga
-                        SET negada = false,
-                            candidatura_status = 'nao_inscrito',
-                            candidatura_fase = null,
-                            candidatura_observacao = null,
-                            candidatura_data = null
-                        WHERE id = ?
-                    """, [vaga["id"]])
-                    con.close()
-                    st.success("Vaga reativada!")
-                    st.rerun()
-
+# ─── PÁGINA PIPELINE ────────────────────────────────────────────
 elif pagina == "Pipeline":
     st.title("Pipeline")
     st.caption("Dispare a coleta de vagas em background e acompanhe o status.")
 
-    import duckdb as ddb_pipe
-    import threading
-    import time
-
-    con = ddb_pipe.connect("data/curated/jobs.duckdb")
+    con = duckdb.connect("data/curated/jobs.duckdb")
     empresas = con.execute("""
         SELECT nome, url_gupy FROM dim_empresa
         WHERE ativa = true AND url_gupy IS NOT NULL
@@ -448,7 +608,6 @@ elif pagina == "Pipeline":
 
     st.divider()
 
-    # estado global compartilhado com a thread
     if "pipeline_estado" not in st.session_state:
         st.session_state.pipeline_estado = {
             "rodando": False,
@@ -462,16 +621,20 @@ elif pagina == "Pipeline":
 
     def rodar_em_background(empresas, estado):
         from main import processar_empresa
-        from database.db_manager import criar_tabelas
+        from database.db_manager import criar_tabelas, ultima_execucao_sucesso
 
         criar_tabelas()
         total_encontradas = 0
         total_novas = 0
 
         for nome, url_gupy in empresas:
+            horas = ultima_execucao_sucesso(nome)
+            if horas < 12:
+                estado["log"].append(f"⏭ {nome} — pulada (última execução há {horas}h)")
+                continue
             estado["log"].append(f"▶ Iniciando {nome}...")
             encontradas, novas, erro = processar_empresa(nome, url_gupy)
-            if erro:
+            if erro and "cooldown" not in erro:
                 estado["log"].append(f"✗ {nome} — erro: {erro[:60]}")
             else:
                 total_encontradas += encontradas
@@ -532,6 +695,7 @@ elif pagina == "Pipeline":
         time.sleep(3)
         st.rerun()
 
+# ─── PÁGINA CONFIGURAÇÕES ───────────────────────────────────────
 elif pagina == "Configurações":
     st.title("Configurações")
     st.caption("Gerencie os filtros de coleta de vagas.")
@@ -580,138 +744,39 @@ elif pagina == "Configurações":
                     st.success(f"'{novo_bloqueio}' bloqueado!")
                     st.rerun()
 
-elif pagina == "Vagas":
-    st.title("Vagas salvas")
+# ─── PÁGINA VAGAS NEGADAS ───────────────────────────────────────
+elif pagina == "Vagas Negadas":
+    st.title("Vagas Negadas")
+    st.caption("Vagas que você optou por não seguir. Se aparecerem em novas buscas, serão ignoradas automaticamente.")
 
-    df = carregar_vagas()
+    df_negadas = listar_vagas_negadas()
 
-    # filtros
-    st.sidebar.divider()
-    st.sidebar.header("Filtros")
+    if df_negadas.empty:
+        st.info("Nenhuma vaga negada ainda.")
+    else:
+        st.metric("Total de vagas negadas", len(df_negadas))
+        st.divider()
 
-    empresas = ["Todas"] + sorted(df["empresa"].unique().tolist())
-    empresa_sel = st.sidebar.selectbox("Empresa", empresas)
+        for _, vaga in df_negadas.iterrows():
+            with st.expander(f"{vaga['titulo']} — {vaga['empresa']}"):
+                col1, col2 = st.columns(2)
+                col1.write(f"**Negada em:** {vaga['candidatura_data']}")
+                col2.write(f"**Fase ao negar:** {TIMELINE_LABELS.get(vaga['candidatura_fase'], '—')}")
 
-    niveis = ["Todos"] + sorted(df["nivel"].dropna().unique().tolist())
-    nivel_sel = st.sidebar.selectbox("Nível", niveis)
+                if vaga["candidatura_observacao"]:
+                    st.write(f"**Observação:** {vaga['candidatura_observacao']}")
 
-    modalidades = ["Todas"] + sorted(df["modalidade"].dropna().unique().tolist())
-    modalidade_sel = st.sidebar.selectbox("Modalidade", modalidades)
-
-    status_cand = ["Todos"] + list(TIMELINE_LABELS.values())
-    status_cand_sel = st.sidebar.selectbox("Status candidatura", status_cand)
-
-    status_vaga = st.sidebar.radio("Status da vaga", ["Ativas", "Encerradas", "Todas"])
-
-    busca = st.sidebar.text_input("Buscar no título")
-
-    # aplica filtros
-    df_filtrado = df.copy()
-    if empresa_sel != "Todas":
-        df_filtrado = df_filtrado[df_filtrado["empresa"] == empresa_sel]
-    if nivel_sel != "Todos":
-        df_filtrado = df_filtrado[df_filtrado["nivel"] == nivel_sel]
-    if modalidade_sel != "Todas":
-        df_filtrado = df_filtrado[df_filtrado["modalidade"] == modalidade_sel]
-    if status_vaga == "Ativas":
-        df_filtrado = df_filtrado[df_filtrado["ativa"] == True]
-    elif status_vaga == "Encerradas":
-        df_filtrado = df_filtrado[df_filtrado["ativa"] == False]
-    if status_cand_sel != "Todos":
-        chave = next((k for k, v in TIMELINE_LABELS.items() if v == status_cand_sel), None)
-        if chave:
-            df_filtrado = df_filtrado[df_filtrado["candidatura_status"] == chave]
-    if busca:
-        df_filtrado = df_filtrado[df_filtrado["titulo"].str.contains(busca, case=False, na=False)]
-
-    # métricas
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total", len(df_filtrado))
-    col2.metric("Ativas", df_filtrado[df_filtrado["ativa"] == True].shape[0])
-    col3.metric("Encerradas", df_filtrado[df_filtrado["ativa"] == False].shape[0])
-    col4.metric("Inscritas", df_filtrado[df_filtrado["candidatura_status"] == "inscrito"].shape[0])
-
-    st.divider()
-
-    for _, vaga in df_filtrado.iterrows():
-        status_icon = "🟢" if vaga["ativa"] else "🔴"
-        status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
-        label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
-
-        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
-            col1, col2, col3 = st.columns(3)
-            col1.write(f"**Nível:** {vaga['nivel']}")
-            col2.write(f"**Modalidade:** {vaga['modalidade']}")
-            col3.write(f"**Coletada em:** {vaga['data_coleta']}")
-
-            if not vaga["ativa"]:
-                st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
-
-            try:
-                stacks = json.loads(vaga["stacks"]) if isinstance(vaga["stacks"], str) else vaga["stacks"]
-                if stacks:
-                    st.write("**Stacks:**")
-                    for categoria, termos in stacks.items():
-                        st.write(f"- {categoria}: {', '.join(termos)}")
-            except:
-                pass
-
-            st.link_button("Ver vaga", vaga["link"])
-
-            st.divider()
-            st.write("**Candidatura:**")
-
-            fases_ativas = ["nao_inscrito", "inscrito", "chamado", "recrutador",
-                            "fase_1", "fase_2", "fase_3"]
-
-            cols = st.columns(len(fases_ativas))
-            for i, fase in enumerate(fases_ativas):
-                ativo = fase == status_cand_val
-                cols[i].markdown(
-                    f"<div style='text-align:center; padding:4px; border-radius:6px; "
-                    f"background:{'#1D9E75' if ativo else '#f0f0f0'}; "
-                    f"color:{'white' if ativo else '#888'}; font-size:11px'>"
-                    f"{TIMELINE_LABELS[fase]}</div>",
-                    unsafe_allow_html=True
-                )
-
-            st.write("")
-
-            with st.form(key=f"form_vaga_{vaga['id']}"):
-                col_s, col_o = st.columns([2, 3])
-                novo_status = col_s.selectbox(
-                    "Atualizar status",
-                    options=TIMELINE,
-                    format_func=lambda x: TIMELINE_LABELS[x],
-                    index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
-                    key=f"sel_{vaga['id']}"
-                )
-                observacao = col_o.text_input(
-                    "Observação",
-                    value=vaga.get("candidatura_observacao") or "",
-                    key=f"obs_{vaga['id']}"
-                )
-
-                col_salvar, col_negar = st.columns(2)
-                with col_salvar:
-                    if st.form_submit_button("Salvar status", use_container_width=True):
-                        atualizar_candidatura(
-                            id_vaga=vaga["id"],
-                            status=novo_status,
-                            fase=novo_status,
-                            observacao=observacao
-                        )
-                        st.success("Status atualizado!")
-                        st.rerun()
-                with col_negar:
-                    if st.form_submit_button("Negar vaga", use_container_width=True, type="secondary"):
-                        negar_vaga(
-                            id_vaga=vaga["id"],
-                            observacao=observacao or f"Negada em: {status_cand_val}"
-                        )
-                        st.warning("Vaga negada!")
-                        st.rerun()
-
-
-
-
+                if st.button("Reativar vaga", key=f"reativar_negada_{vaga['id']}"):
+                    con = conectar_rw()
+                    con.execute("""
+                        UPDATE fact_vaga
+                        SET negada = false,
+                            candidatura_status = 'nao_inscrito',
+                            candidatura_fase = null,
+                            candidatura_observacao = null,
+                            candidatura_data = null
+                        WHERE id = ?
+                    """, [vaga["id"]])
+                    con.close()
+                    st.success("Vaga reativada!")
+                    st.rerun()

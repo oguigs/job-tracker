@@ -1,4 +1,5 @@
 import json
+import time as _time
 import duckdb
 from scrapers.gupy_scraper import buscar_vagas
 from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
@@ -10,8 +11,11 @@ from database.db_manager import (
     listar_empresas_ativas,
     verificar_vagas_encerradas,
     gerar_hash,
-    carregar_filtros
+    carregar_filtros,
+    ultima_execucao_sucesso
 )
+
+TIMEOUT_EMPRESA_SEGUNDOS = 300  # 5 minutos por empresa
 
 
 def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
@@ -23,26 +27,41 @@ def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
     return True
 
 
-def processar_empresa(nome: str, url_gupy: str):
+def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
     vagas_encontradas = 0
     vagas_novas = 0
     erro = ""
+
+    # verifica cooldown
+    horas_desde_ultima = ultima_execucao_sucesso(nome)
+    if horas_desde_ultima < cooldown_horas:
+        print(f"  Pulando {nome} — última execução há {horas_desde_ultima}h (cooldown: {cooldown_horas}h)")
+        return 0, 0, f"cooldown ({horas_desde_ultima}h)"
+
+    print(f"  Última execução: {horas_desde_ultima}h atrás")
 
     try:
         vagas = buscar_vagas(url_gupy)
         vagas_encontradas = len(vagas)
 
-        # aplica filtro de títulos antes de buscar descrições
         interesse, bloqueio = carregar_filtros()
         vagas_filtradas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
         print(f"  {len(vagas_filtradas)} vagas relevantes de {vagas_encontradas} após filtro")
 
         vagas_enriquecidas = []
         from playwright.sync_api import sync_playwright
+
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
+            inicio_coleta = _time.time()
+
             for vaga in vagas_filtradas:
+                # timeout por empresa
+                if _time.time() - inicio_coleta > TIMEOUT_EMPRESA_SEGUNDOS:
+                    print(f"  Timeout de {TIMEOUT_EMPRESA_SEGUNDOS}s atingido — parando coleta de descrições")
+                    break
+
                 try:
                     page.goto(vaga["link"], wait_until="networkidle", timeout=60000)
                     page.wait_for_selector(
@@ -53,9 +72,11 @@ def processar_empresa(nome: str, url_gupy: str):
                         "[class*='description'], [class*='jobDescription'], section"
                     )
                     vaga["descricao"] = el.inner_text().strip() if el else ""
-                except:
+                except Exception as e:
+                    print(f"  Erro na vaga {vaga['titulo'][:40]}: {str(e)[:60]}")
                     vaga["descricao"] = ""
                 vagas_enriquecidas.append(vaga)
+
             browser.close()
 
         id_empresa = upsert_empresa(nome=nome, url_gupy=url_gupy)

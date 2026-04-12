@@ -1,14 +1,38 @@
 import duckdb
 import json
 import hashlib
-from datetime import date
+import shutil
+import os
+from datetime import date, datetime, timezone
 
 DB_PATH = "data/curated/jobs.duckdb"
+BACKUP_DIR = "data/curated/backups"
+MAX_BACKUPS = 7
+
 
 def conectar():
     return duckdb.connect(DB_PATH)
 
+
+def fazer_backup():
+    if not os.path.exists(DB_PATH):
+        return
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    destino = f"{BACKUP_DIR}/jobs_{timestamp}.duckdb"
+    shutil.copy2(DB_PATH, destino)
+    print(f"Backup criado: {destino}")
+
+    # mantém apenas os últimos MAX_BACKUPS
+    backups = sorted([
+        f for f in os.listdir(BACKUP_DIR) if f.endswith(".duckdb")
+    ])
+    while len(backups) > MAX_BACKUPS:
+        os.remove(f"{BACKUP_DIR}/{backups.pop(0)}")
+
+
 def criar_tabelas():
+    fazer_backup()
     con = conectar()
 
     con.execute("""
@@ -21,14 +45,13 @@ def criar_tabelas():
             url_gupy    VARCHAR,
             url_linkedin VARCHAR,
             url_site_vagas VARCHAR,
+            favicon_url VARCHAR,
             ativa       BOOLEAN DEFAULT true,
             data_cadastro DATE DEFAULT current_date
         )
     """)
 
-    con.execute("""
-        CREATE SEQUENCE IF NOT EXISTS seq_empresa START 1
-    """)
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_empresa START 1")
 
     con.execute("""
         CREATE TABLE IF NOT EXISTS fact_vaga (
@@ -43,13 +66,16 @@ def criar_tabelas():
             id_empresa      INTEGER REFERENCES dim_empresa(id),
             data_coleta     DATE DEFAULT current_date,
             ativa           BOOLEAN DEFAULT true,
-            data_encerramento DATE
+            data_encerramento DATE,
+            negada          BOOLEAN DEFAULT false,
+            candidatura_status VARCHAR DEFAULT 'nao_inscrito',
+            candidatura_fase VARCHAR,
+            candidatura_observacao VARCHAR,
+            candidatura_data DATE
         )
     """)
 
-    con.execute("""
-        CREATE SEQUENCE IF NOT EXISTS seq_vaga START 1
-    """)
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_vaga START 1")
 
     con.execute("""
         CREATE TABLE IF NOT EXISTS log_coleta (
@@ -63,20 +89,41 @@ def criar_tabelas():
         )
     """)
 
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_log START 1")
+
     con.execute("""
-        CREATE SEQUENCE IF NOT EXISTS seq_log START 1
+        CREATE TABLE IF NOT EXISTS dim_empresa_endereco (
+            id          INTEGER PRIMARY KEY,
+            id_empresa  INTEGER REFERENCES dim_empresa(id),
+            cidade      VARCHAR,
+            bairro      VARCHAR
+        )
     """)
+
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_endereco START 1")
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS config_filtros (
+            id          INTEGER PRIMARY KEY,
+            tipo        VARCHAR,
+            termo       VARCHAR,
+            data_criacao DATE DEFAULT current_date
+        )
+    """)
+
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_filtro START 1")
 
     print("Tabelas criadas com sucesso")
     con.close()
+
 
 def gerar_hash(titulo: str, empresa: str, link: str) -> str:
     conteudo = f"{titulo}{empresa}{link}".lower()
     return hashlib.md5(conteudo.encode()).hexdigest()
 
+
 def upsert_empresa(nome: str, url_gupy: str, **kwargs) -> int:
     con = conectar()
-
     resultado = con.execute(
         "SELECT id FROM dim_empresa WHERE nome = ?", [nome]
     ).fetchone()
@@ -85,26 +132,31 @@ def upsert_empresa(nome: str, url_gupy: str, **kwargs) -> int:
         id_empresa = resultado[0]
     else:
         id_empresa = con.execute("SELECT nextval('seq_empresa')").fetchone()[0]
+
+        # gera favicon_url a partir do domínio
+        dominio = url_gupy.replace("https://", "").split("/")[0]
+        favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
+
         con.execute("""
-            INSERT INTO dim_empresa (id, nome, url_gupy, ramo, cidade, estado, url_linkedin, url_site_vagas)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO dim_empresa
+            (id, nome, url_gupy, ramo, cidade, estado, url_linkedin, url_site_vagas, favicon_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, [
-            id_empresa,
-            nome,
-            url_gupy,
+            id_empresa, nome, url_gupy,
             kwargs.get("ramo", ""),
             kwargs.get("cidade", ""),
             kwargs.get("estado", ""),
             kwargs.get("url_linkedin", ""),
-            kwargs.get("url_site_vagas", "")
+            kwargs.get("url_site_vagas", ""),
+            favicon_url
         ])
 
     con.close()
     return id_empresa
 
+
 def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
     con = conectar()
-
     hash_vaga = gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])
 
     existente = con.execute(
@@ -116,13 +168,11 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
         return False
 
     id_vaga = con.execute("SELECT nextval('seq_vaga')").fetchone()[0]
-
     con.execute("""
         INSERT INTO fact_vaga (id, hash, titulo, nivel, modalidade, stacks, link, fonte, id_empresa)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, [
-        id_vaga,
-        hash_vaga,
+        id_vaga, hash_vaga,
         vaga["titulo"],
         vaga.get("nivel", "não identificado"),
         vaga.get("modalidade", "não identificado"),
@@ -135,6 +185,7 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
     con.close()
     return True
 
+
 def registrar_log(empresa: str, encontradas: int, novas: int, status: str, erro: str = ""):
     con = conectar()
     id_log = con.execute("SELECT nextval('seq_log')").fetchone()[0]
@@ -144,17 +195,19 @@ def registrar_log(empresa: str, encontradas: int, novas: int, status: str, erro:
     """, [id_log, empresa, encontradas, novas, status, erro])
     con.close()
 
+
 def listar_empresas_ativas() -> list:
     con = conectar()
     empresas = con.execute("""
-        SELECT nome, url_gupy FROM dim_empresa WHERE ativa = true AND url_gupy IS NOT NULL
+        SELECT nome, url_gupy FROM dim_empresa
+        WHERE ativa = true AND url_gupy IS NOT NULL
     """).fetchall()
     con.close()
     return empresas
 
+
 def verificar_vagas_encerradas(id_empresa: int, links_ativos: list):
     con = conectar()
-
     vagas_no_banco = con.execute("""
         SELECT id, link, titulo FROM fact_vaga
         WHERE id_empresa = ? AND ativa = true
@@ -173,6 +226,7 @@ def verificar_vagas_encerradas(id_empresa: int, links_ativos: list):
     con.close()
     return encerradas
 
+
 def inserir_endereco(id_empresa: int, cidade: str, bairro: str):
     con = conectar()
     id_end = con.execute("SELECT nextval('seq_endereco')").fetchone()[0]
@@ -182,47 +236,42 @@ def inserir_endereco(id_empresa: int, cidade: str, bairro: str):
     """, [id_end, id_empresa, cidade, bairro])
     con.close()
 
+
 def listar_enderecos(id_empresa: int) -> list:
     con = conectar()
     enderecos = con.execute("""
-        SELECT id, cidade, bairro
-        FROM dim_empresa_endereco
+        SELECT id, cidade, bairro FROM dim_empresa_endereco
         WHERE id_empresa = ?
         ORDER BY cidade, bairro
     """, [id_empresa]).fetchall()
     con.close()
     return enderecos
 
+
 def deletar_endereco(id_endereco: int):
     con = conectar()
     con.execute("DELETE FROM dim_empresa_endereco WHERE id = ?", [id_endereco])
     con.close()
 
+
 TIMELINE = [
-    "nao_inscrito",
-    "inscrito",
-    "chamado",
-    "recrutador",
-    "fase_1",
-    "fase_2",
-    "fase_3",
-    "aprovado",
-    "reprovado",
-    "negado"
+    "nao_inscrito", "inscrito", "chamado", "recrutador",
+    "fase_1", "fase_2", "fase_3", "aprovado", "reprovado", "negado"
 ]
 
 TIMELINE_LABELS = {
-    "nao_inscrito":  "Não inscrito",
-    "inscrito":      "Inscrito",
-    "chamado":       "Chamado",
-    "recrutador":    "Entrevista RH",
-    "fase_1":        "Fase 1",
-    "fase_2":        "Fase 2",
-    "fase_3":        "Fase 3",
-    "aprovado":      "Aprovado",
-    "reprovado":     "Reprovado",
-    "negado":        "Negado"
+    "nao_inscrito": "Não inscrito",
+    "inscrito":     "Inscrito",
+    "chamado":      "Chamado",
+    "recrutador":   "Entrevista RH",
+    "fase_1":       "Fase 1",
+    "fase_2":       "Fase 2",
+    "fase_3":       "Fase 3",
+    "aprovado":     "Aprovado",
+    "reprovado":    "Reprovado",
+    "negado":       "Negado"
 }
+
 
 def atualizar_candidatura(id_vaga: int, status: str, fase: str = None, observacao: str = None):
     con = conectar()
@@ -235,6 +284,7 @@ def atualizar_candidatura(id_vaga: int, status: str, fase: str = None, observaca
         WHERE id = ?
     """, [status, fase, observacao, id_vaga])
     con.close()
+
 
 def negar_vaga(id_vaga: int, observacao: str = None):
     con = conectar()
@@ -249,7 +299,8 @@ def negar_vaga(id_vaga: int, observacao: str = None):
     """, [observacao, id_vaga])
     con.close()
 
-def listar_vagas_negadas() -> list:
+
+def listar_vagas_negadas():
     con = conectar()
     df = con.execute("""
         SELECT v.id, v.titulo, v.candidatura_fase, v.candidatura_observacao,
@@ -262,6 +313,7 @@ def listar_vagas_negadas() -> list:
     con.close()
     return df
 
+
 def carregar_filtros():
     con = conectar()
     resultado = con.execute("""
@@ -272,6 +324,7 @@ def carregar_filtros():
     interesse = [r[1].lower() for r in resultado if r[0] == "interesse"]
     bloqueio = [r[1].lower() for r in resultado if r[0] == "bloqueio"]
     return interesse, bloqueio
+
 
 def adicionar_filtro(tipo: str, termo: str):
     con = conectar()
@@ -285,10 +338,12 @@ def adicionar_filtro(tipo: str, termo: str):
         """, [tipo, termo])
     con.close()
 
+
 def remover_filtro(id_filtro: int):
     con = conectar()
     con.execute("DELETE FROM config_filtros WHERE id = ?", [id_filtro])
     con.close()
+
 
 def listar_filtros():
     con = conectar()
@@ -300,17 +355,29 @@ def listar_filtros():
     con.close()
     return df
 
+
+def ultima_execucao_sucesso(nome_empresa: str) -> float:
+    con = conectar()
+    resultado = con.execute("""
+        SELECT data_execucao FROM log_coleta
+        WHERE empresa = ? AND status = 'sucesso'
+        ORDER BY data_execucao DESC
+        LIMIT 1
+    """, [nome_empresa]).fetchone()
+    con.close()
+
+    if not resultado:
+        return 999
+
+    ultima = resultado[0]
+    if ultima.tzinfo is None:
+        ultima = ultima.replace(tzinfo=timezone.utc)
+    agora = datetime.now(timezone.utc)
+    return round((agora - ultima).total_seconds() / 3600, 1)
+
+
 if __name__ == "__main__":
     criar_tabelas()
-
-    upsert_empresa(
-        nome="Compass",
-        url_gupy="https://compass.gupy.io/",
-        ramo="tecnologia",
-        cidade="São Paulo",
-        estado="SP"
-    )
-
     print("\nEmpresas cadastradas:")
     con = conectar()
     print(con.execute("SELECT id, nome, url_gupy, ativa FROM dim_empresa").df())
