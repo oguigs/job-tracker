@@ -1,0 +1,28 @@
+from database.connection import conectar
+from datetime import datetime, timezone
+
+def registrar_log(empresa: str, encontradas: int, novas: int,
+                  status: str, erro: str = ""):
+    con = conectar()
+    id_log = con.execute("SELECT nextval('seq_log')").fetchone()[0]
+    con.execute("""
+        INSERT INTO log_coleta (id, empresa, vagas_encontradas, vagas_novas, status, erro)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, [id_log, empresa, encontradas, novas, status, erro])
+    con.close()
+
+def ultima_execucao_sucesso(nome_empresa: str) -> float:
+    con = conectar()
+    resultado = con.execute("""
+        SELECT data_execucao FROM log_coleta
+        WHERE empresa = ? AND status = 'sucesso'
+        ORDER BY data_execucao DESC LIMIT 1
+    """, [nome_empresa]).fetchone()
+    con.close()
+    if not resultado:
+        return 999
+    ultima = resultado[0]
+    if ultima.tzinfo is None:
+        ultima = ultima.replace(tzinfo=timezone.utc)
+    agora = datetime.now(timezone.utc)
+    return round((agora - ultima).total_seconds() / 3600, 1)
