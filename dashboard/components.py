@@ -155,3 +155,15 @@ def carregar_perfil_empresa(nome: str):
     """, [nome]).fetchall()
     con.close()
     return empresa, vagas, logs, enderecos
+
+def calcular_scores_vagas():
+    """Retorna dict {id_vaga: score} para todas as vagas ativas."""
+    from database.candidato import carregar_perfil
+    from database.score import calcular_scores_todos
+
+    df_perfil = carregar_perfil()
+    if df_perfil.empty:
+        return {}
+
+    id_candidato = int(df_perfil.iloc[0]["id"])
+    return calcular_scores_todos(id_candidato)    

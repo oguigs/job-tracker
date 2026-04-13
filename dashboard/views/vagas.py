@@ -7,6 +7,12 @@ def render():
     st.title("Vagas salvas")
     df = carregar_vagas()
 
+    from dashboard.components import calcular_scores_vagas
+    scores = calcular_scores_vagas()
+
+    # adiciona score ao dataframe
+    df["score"] = df["id"].map(scores).fillna(0).astype(int)
+
     st.sidebar.divider()
     st.sidebar.header("Filtros")
     empresas = ["Todas"] + sorted(df["empresa"].unique().tolist())
@@ -51,7 +57,10 @@ def render():
         label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
         favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
 
-        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
+        score = int(scores.get(vaga["id"], 0))
+        score_label = f"🎯 {score}%" if score > 0 else ""
+
+        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status} {score_label}"):
             if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_v_{vaga['id']}"):
                 st.query_params["empresa"] = vaga["empresa"]
                 st.rerun()
@@ -60,6 +69,16 @@ def render():
                 col_logo.image(favicon, width=40)
             data_fmt = str(vaga['data_coleta'])[:10]
             col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
+            if score > 0:
+                cor_score = "#1D9E75" if score >= 70 else "#BA7517" if score >= 40 else "#D85A30"
+                st.markdown(
+                    f"<div style='margin:4px 0 8px 0;'>"
+                    f"<span style='font-size:11px; color:{cor_score}; font-weight:600;'>Score de fit: {score}%</span>"
+                    f"<div style='background:#f0f0f0; border-radius:6px; height:6px; margin-top:3px;'>"
+                    f"<div style='background:{cor_score}; width:{score}%; height:6px; border-radius:6px;'></div>"
+                    f"</div></div>",
+                    unsafe_allow_html=True
+                )
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
             render_stacks(vaga["stacks"])
