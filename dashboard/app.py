@@ -4,9 +4,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import streamlit as st
 from dashboard.views import (
-    dashboard_page, vagas, cadastrar_vaga,
-    empresas, pipeline, configuracoes,
-    vagas_negadas, perfil_empresa
+    dashboard_page, vagas, cadastrar_vaga, empresas,
+    pipeline, configuracoes, vagas_negadas,
+    perfil_empresa, contatos, perfil_candidato
 )
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
@@ -21,15 +21,18 @@ if empresa_perfil:
 else:
     pagina = st.sidebar.radio("Navegação", [
         "Dashboard", "Vagas", "Cadastrar Vaga",
-        "Empresas", "Pipeline", "Configurações", "Vagas Negadas"
+        "Empresas", "Indicadores", "Pipeline",
+        "Configurações", "Vagas Negadas", "Meu Perfil"
     ])
     pages = {
         "Dashboard":      dashboard_page.render,
         "Vagas":          vagas.render,
         "Cadastrar Vaga": cadastrar_vaga.render,
         "Empresas":       empresas.render,
+        "Indicadores":    contatos.render,
         "Pipeline":       pipeline.render,
         "Configurações":  configuracoes.render,
         "Vagas Negadas":  vagas_negadas.render,
+        "Meu Perfil":     perfil_candidato.render,
     }
     pages[pagina]()
