@@ -375,6 +375,39 @@ def ultima_execucao_sucesso(nome_empresa: str) -> float:
     agora = datetime.now(timezone.utc)
     return round((agora - ultima).total_seconds() / 3600, 1)
 
+def inserir_vaga_manual(titulo: str, id_empresa: int, empresa_nome: str,
+                         descricao: str, origem: str, contato: str) -> int:
+    from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
+
+    stacks = extrair_stacks(descricao)
+    nivel = detectar_nivel(titulo)
+    modalidade = detectar_modalidade(descricao)
+
+    con = conectar()
+    hash_vaga = gerar_hash(titulo, empresa_nome, origem or "manual")
+
+    existente = con.execute(
+        "SELECT id FROM fact_vaga WHERE hash = ?", [hash_vaga]
+    ).fetchone()
+
+    if existente:
+        con.close()
+        return existente[0]
+
+    id_vaga = con.execute("SELECT nextval('seq_vaga')").fetchone()[0]
+    con.execute("""
+        INSERT INTO fact_vaga
+        (id, hash, titulo, nivel, modalidade, stacks, link, fonte,
+         id_empresa, origem, contato)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, [
+        id_vaga, hash_vaga, titulo, nivel, modalidade,
+        json.dumps(stacks), origem or "", "manual",
+        id_empresa, origem, contato
+    ])
+    con.close()
+    return id_vaga
+
 
 if __name__ == "__main__":
     criar_tabelas()
