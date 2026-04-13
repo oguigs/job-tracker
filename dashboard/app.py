@@ -16,6 +16,7 @@ from database.db_manager import (
     atualizar_candidatura, negar_vaga, listar_vagas_negadas,
     TIMELINE, TIMELINE_LABELS
 )
+from dashboard.stack_config import get_stack_icon_url, get_stack_roadmap_url
 
 DB_PATH = "data/curated/jobs.duckdb"
 
@@ -137,12 +138,52 @@ def carregar_perfil_empresa(nome: str):
     return empresa, vagas, logs, enderecos
 
 def get_favicon(nome: str, favicon_url: str = "") -> str:
-    """Retorna o caminho local do favicon ou a URL remota como fallback."""
     nome_arquivo = nome.lower().replace(" ", "_").replace("&", "e")
     caminho_local = f"dashboard/static/favicons/{nome_arquivo}.png"
     if os.path.exists(caminho_local):
         return caminho_local
     return favicon_url or ""
+
+def render_stacks(stacks_json):
+    """Renderiza stacks como badges com ícone e link para roadmap.sh."""
+    try:
+        stacks = json.loads(stacks_json) if isinstance(stacks_json, str) else stacks_json
+        if not stacks:
+            return
+        st.write("**Stacks:**")
+        for categoria, termos in stacks.items():
+            if not termos:
+                continue
+            st.caption(categoria)
+            badges_html = ""
+            for termo in termos:
+                icon_url = get_stack_icon_url(termo)
+                roadmap_url = get_stack_roadmap_url(termo)
+                icon_tag = (
+                    f'<img src="{icon_url}" width="16" '
+                    f'style="vertical-align:middle; margin-right:4px;">'
+                    if icon_url else ""
+                )
+                estilo_base = (
+                    "display:inline-flex; align-items:center; margin:2px; "
+                    "padding:3px 10px; border-radius:12px; font-size:12px; "
+                    "border:1px solid #ddd; text-decoration:none;"
+                )
+                if roadmap_url:
+                    badges_html += (
+                        f'<a href="{roadmap_url}" target="_blank" '
+                        f'style="{estilo_base} background:#e8f5f0; color:#157A5A;">'
+                        f'{icon_tag}{termo}</a>'
+                    )
+                else:
+                    badges_html += (
+                        f'<span style="{estilo_base} background:#f0f0f0; color:#555;">'
+                        f'{icon_tag}{termo}</span>'
+                    )
+            st.markdown(badges_html, unsafe_allow_html=True)
+            st.write("")
+    except:
+        pass
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
 
@@ -277,14 +318,7 @@ if pagina == "Dashboard":
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
 
-            try:
-                stacks = json.loads(vaga["stacks"]) if isinstance(vaga["stacks"], str) else vaga["stacks"]
-                if stacks:
-                    st.write("**Stacks:**")
-                    for categoria, termos in stacks.items():
-                        st.write(f"- {categoria}: {', '.join(termos)}")
-            except:
-                pass
+            render_stacks(vaga["stacks"])
 
             st.link_button("Ver vaga", vaga["link"])
 
@@ -410,14 +444,7 @@ elif pagina == "Vagas":
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
 
-            try:
-                stacks = json.loads(vaga["stacks"]) if isinstance(vaga["stacks"], str) else vaga["stacks"]
-                if stacks:
-                    st.write("**Stacks:**")
-                    for categoria, termos in stacks.items():
-                        st.write(f"- {categoria}: {', '.join(termos)}")
-            except:
-                pass
+            render_stacks(vaga["stacks"])
 
             st.link_button("Ver vaga", vaga["link"])
 
@@ -832,7 +859,7 @@ elif pagina == "Configurações":
 # ─── PÁGINA VAGAS NEGADAS ───────────────────────────────────────
 elif pagina == "Vagas Negadas":
     st.title("Vagas Negadas")
-    st.caption("Vagas que você optou por não seguir. Se aparecerem em novas buscas, serão ignoradas automaticamente.")
+    st.caption("Vagas que você optou por não seguir.")
 
     df_negadas = listar_vagas_negadas()
 
@@ -938,14 +965,7 @@ elif pagina == "Perfil Empresa":
                 col2.write(f"**Modalidade:** {vaga['modalidade']}")
                 col3.write(f"**Coletada em:** {vaga['data_coleta']}")
 
-                try:
-                    stacks = json.loads(vaga["stacks"]) if isinstance(vaga["stacks"], str) else vaga["stacks"]
-                    if stacks:
-                        st.write("**Stacks:**")
-                        for categoria, termos in stacks.items():
-                            st.write(f"- {categoria}: {', '.join(termos)}")
-                except:
-                    pass
+                render_stacks(vaga["stacks"])
 
                 st.link_button("Ver vaga", vaga["link"])
 
