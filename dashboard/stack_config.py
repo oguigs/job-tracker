@@ -70,3 +70,17 @@ def get_stack_roadmap_url(stack: str) -> str:
     if key in STACK_CONFIG:
         return STACK_CONFIG[key][1]
     return None
+
+# Cores por categoria
+CATEGORIA_CORES = {
+    "linguagens":    {"bg": "#E8F5F0", "border": "#1D9E75", "text": "#157A5A"},
+    "cloud":         {"bg": "#EBF3FB", "border": "#378ADD", "text": "#1A5FAD"},
+    "processamento": {"bg": "#FBF0EB", "border": "#D85A30", "text": "#A83A18"},
+    "orquestracao":  {"bg": "#F0EFF9", "border": "#7F77DD", "text": "#4B44AA"},
+    "armazenamento": {"bg": "#FBF4E8", "border": "#BA7517", "text": "#8A5210"},
+    "infraestrutura":{"bg": "#F2F2F1", "border": "#888780", "text": "#555450"},
+}
+
+def get_categoria_cor(categoria: str) -> dict:
+    key = categoria.lower().replace("ç", "c").replace("ã", "a")
+    return CATEGORIA_CORES.get(key, {"bg": "#f0f0f0", "border": "#ddd", "text": "#555"})

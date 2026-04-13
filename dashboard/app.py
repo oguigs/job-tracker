@@ -145,43 +145,49 @@ def get_favicon(nome: str, favicon_url: str = "") -> str:
     return favicon_url or ""
 
 def render_stacks(stacks_json):
-    """Renderiza stacks como badges com ícone e link para roadmap.sh."""
+    """Renderiza stacks como badges coloridos por categoria com ícone e link para roadmap.sh."""
     try:
         stacks = json.loads(stacks_json) if isinstance(stacks_json, str) else stacks_json
         if not stacks:
             return
+        from dashboard.stack_config import get_categoria_cor
         st.write("**Stacks:**")
         for categoria, termos in stacks.items():
             if not termos:
                 continue
-            st.caption(categoria)
-            badges_html = ""
+            cor = get_categoria_cor(categoria)
+            # label da categoria colorido
+            st.markdown(
+                f"<span style='font-size:11px; font-weight:600; color:{cor['text']}; "
+                f"text-transform:uppercase; letter-spacing:0.5px;'>{categoria}</span>",
+                unsafe_allow_html=True
+            )
+            badges_html = "<div style='display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;'>"
             for termo in termos:
                 icon_url = get_stack_icon_url(termo)
                 roadmap_url = get_stack_roadmap_url(termo)
                 icon_tag = (
-                    f'<img src="{icon_url}" width="16" '
+                    f'<img src="{icon_url}" width="14" '
                     f'style="vertical-align:middle; margin-right:4px;">'
                     if icon_url else ""
                 )
                 estilo_base = (
-                    "display:inline-flex; align-items:center; margin:2px; "
-                    "padding:3px 10px; border-radius:12px; font-size:12px; "
-                    "border:1px solid #ddd; text-decoration:none;"
+                    f"display:inline-flex; align-items:center; padding:3px 10px; "
+                    f"border-radius:12px; font-size:12px; font-weight:500; "
+                    f"background:{cor['bg']}; color:{cor['text']}; "
+                    f"border:1px solid {cor['border']}; text-decoration:none;"
                 )
                 if roadmap_url:
                     badges_html += (
                         f'<a href="{roadmap_url}" target="_blank" '
-                        f'style="{estilo_base} background:#e8f5f0; color:#157A5A;">'
-                        f'{icon_tag}{termo}</a>'
+                        f'style="{estilo_base}">{icon_tag}{termo}</a>'
                     )
                 else:
                     badges_html += (
-                        f'<span style="{estilo_base} background:#f0f0f0; color:#555;">'
-                        f'{icon_tag}{termo}</span>'
+                        f'<span style="{estilo_base}">{icon_tag}{termo}</span>'
                     )
+            badges_html += "</div>"
             st.markdown(badges_html, unsafe_allow_html=True)
-            st.write("")
     except:
         pass
 
@@ -313,7 +319,8 @@ if pagina == "Dashboard":
             col_logo, col_info = st.columns([1, 5])
             if favicon:
                 col_logo.image(favicon, width=40)
-            col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {vaga['data_coleta']}")
+            data_fmt = str(vaga['data_coleta'])[:10]
+            col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
 
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
@@ -439,7 +446,8 @@ elif pagina == "Vagas":
             col_logo, col_info = st.columns([1, 5])
             if favicon:
                 col_logo.image(favicon, width=40)
-            col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {vaga['data_coleta']}")
+            data_fmt = str(vaga['data_coleta'])[:10]
+            col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
 
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
