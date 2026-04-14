@@ -6,7 +6,7 @@ import streamlit as st
 from dashboard.views import (
     dashboard_page, vagas, cadastrar_vaga, empresas,
     pipeline, configuracoes, vagas_negadas,
-    perfil_empresa, contatos, perfil_candidato, comparativo
+    perfil_empresa, contatos, perfil_candidato, comparativo, tendencias
 )
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
@@ -20,20 +20,21 @@ if empresa_perfil:
     perfil_empresa.render(empresa_perfil)
 else:
     pagina = st.sidebar.radio("Navegação", [
-        "Dashboard", "Vagas", "Comparativo", "Cadastrar Vaga",
+        "Dashboard", "Vagas", "Comparativo", "Tendências", "Cadastrar Vaga",
         "Empresas", "Indicadores", "Pipeline",
         "Configurações", "Vagas Negadas", "Meu Perfil"
     ])
     pages = {
-        "Dashboard":      dashboard_page.render,
-        "Vagas":          vagas.render,
-        "Comparativo":    comparativo.render,
-        "Cadastrar Vaga": cadastrar_vaga.render,
-        "Empresas":       empresas.render,
-        "Indicadores":    contatos.render,
-        "Pipeline":       pipeline.render,
-        "Configurações":  configuracoes.render,
-        "Vagas Negadas":  vagas_negadas.render,
-        "Meu Perfil":     perfil_candidato.render,
+        "Dashboard":        dashboard_page.render,
+        "Vagas":            vagas.render,
+        "Comparativo":      comparativo.render,
+        "Cadastrar Vaga":   cadastrar_vaga.render,
+        "Empresas":         empresas.render,
+        "Tendências":       tendencias.render,
+        "Indicadores":      contatos.render,
+        "Pipeline":         pipeline.render,
+        "Configurações":    configuracoes.render,
+        "Vagas Negadas":    vagas_negadas.render,
+        "Meu Perfil":       perfil_candidato.render,
     }
     pages[pagina]()
