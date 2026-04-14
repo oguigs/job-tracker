@@ -4,7 +4,8 @@ from database.schemas import TIMELINE, TIMELINE_LABELS
 from database.candidaturas import atualizar_candidatura, negar_vaga
 from dashboard.components import (
     carregar_vagas, carregar_logs, extrair_stacks_flat,
-    grafico_stacks, get_favicon, render_stacks, calcular_scores_vagas, render_score_breakdown, render_diario
+    grafico_stacks, get_favicon, render_stacks, calcular_scores_vagas, 
+    render_score_breakdown, render_diario, render_remuneracao
 )
 
 def render():
@@ -147,7 +148,7 @@ def render():
                     index=TIMELINE.index(status_cand) if status_cand in TIMELINE else 0,
                     key=f"sel_d_{vaga['id']}")
                 observacao = col_o.text_input("Observação",
-                    value=vaga.get("candidatura_observacao") or "",
+                    value="" if str(vaga.get("candidatura_observacao") or "nan") == "nan" else str(vaga.get("candidatura_observacao") or ""),
                     key=f"obs_d_{vaga['id']}")
                 col_s2, col_n2 = st.columns(2)
                 with col_s2:
@@ -160,6 +161,7 @@ def render():
                         negar_vaga(vaga["id"], observacao or f"Negada em: {status_cand}")
                         st.warning("Vaga negada.")
                         st.rerun()
+            render_remuneracao(vaga)
             render_diario(vaga["id"])
 
     st.divider()

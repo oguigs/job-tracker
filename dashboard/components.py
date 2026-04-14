@@ -99,7 +99,9 @@ def carregar_vagas():
         SELECT v.id, v.titulo, v.nivel, v.modalidade, v.stacks,
                v.link, v.fonte, v.data_coleta, v.ativa, v.data_encerramento,
                v.candidatura_status, v.candidatura_fase, v.candidatura_observacao,
-               v.urgente,
+               v.urgente, v.regime, v.moeda, v.salario_min, v.salario_max,
+               v.salario_anual, v.tem_vr, v.valor_vr, v.tem_va, v.valor_va,
+               v.tem_vt, v.valor_vt, v.outros_beneficios,
                e.nome AS empresa, e.ramo, e.cidade, e.url_linkedin, e.favicon_url
         FROM fact_vaga v
         JOIN dim_empresa e ON v.id_empresa = e.id
@@ -323,3 +325,93 @@ def render_preparacao_entrevista(id_vaga: int, id_empresa_nome: str, status_cand
                 )
         else:
             st.caption("Nenhum contato cadastrado para essa empresa.")
+
+def render_remuneracao(vaga: dict):
+    from database.candidaturas import salvar_remuneracao
+
+    def safe_int(val):
+        try:
+            if val is None or str(val) == 'nan': return 0
+            return int(val)
+        except: return 0
+
+    def safe_bool(val):
+        try:
+            if val is None or str(val) == 'nan': return False
+            return bool(val)
+        except: return False
+
+    def safe_str(val):
+        try:
+            if val is None or str(val) == 'nan': return ""
+            return str(val)
+        except: return ""
+
+    st.divider()
+    st.write("**💰 Remuneração:**")
+
+    with st.form(key=f"form_rem_{vaga['id']}"):
+        col1, col2 = st.columns(2)
+        regime = col1.selectbox("Regime", ["CLT","PJ","Exterior"],
+            index=["CLT","PJ","Exterior"].index(safe_str(vaga.get("regime")) or "CLT")
+            if safe_str(vaga.get("regime")) in ["CLT","PJ","Exterior"] else 0,
+            key=f"regime_{vaga['id']}")
+        moeda = col2.selectbox("Moeda", ["BRL","USD","EUR","GBP"],
+            index=["BRL","USD","EUR","GBP"].index(safe_str(vaga.get("moeda")) or "BRL")
+            if safe_str(vaga.get("moeda")) in ["BRL","USD","EUR","GBP"] else 0,
+            key=f"moeda_{vaga['id']}")
+
+        col3, col4 = st.columns(2)
+        salario_mensal = col3.number_input("Salário mensal",
+            min_value=0, step=500,
+            value=safe_int(vaga.get("salario_mensal")),
+            key=f"smensal_{vaga['id']}")
+        salario_anual_total = col4.number_input("Total anual",
+            min_value=0, step=1000,
+            value=safe_int(vaga.get("salario_anual_total")),
+            key=f"sanual_{vaga['id']}")
+
+        st.caption("Benefícios")
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            tem_vr = st.checkbox("VR", value=safe_bool(vaga.get("tem_vr")), key=f"tvr_{vaga['id']}")
+            valor_vr = st.number_input("Valor VR (R$)", min_value=0, step=10,
+                value=safe_int(vaga.get("valor_vr")), key=f"vvr_{vaga['id']}")
+            tem_va = st.checkbox("VA", value=safe_bool(vaga.get("tem_va")), key=f"tva_{vaga['id']}")
+            valor_va = st.number_input("Valor VA (R$)", min_value=0, step=10,
+                value=safe_int(vaga.get("valor_va")), key=f"vva_{vaga['id']}")
+            tem_vt = st.checkbox("VT", value=safe_bool(vaga.get("tem_vt")), key=f"tvt_{vaga['id']}")
+            valor_vt = st.number_input("Valor VT (R$)", min_value=0, step=10,
+                value=safe_int(vaga.get("valor_vt")), key=f"vvt_{vaga['id']}")
+
+        with col_b:
+            tem_plano_saude = st.checkbox("Plano de saúde",
+                value=safe_bool(vaga.get("tem_plano_saude")), key=f"tps_{vaga['id']}")
+            tem_gympass = st.checkbox("Gympass",
+                value=safe_bool(vaga.get("tem_gympass")), key=f"tgym_{vaga['id']}")
+            tem_convenio_medico = st.checkbox("Convênio médico",
+                value=safe_bool(vaga.get("tem_convenio_medico")), key=f"tcm_{vaga['id']}")
+
+        with col_c:
+            tem_convenio_odonto = st.checkbox("Convênio odontológico",
+                value=safe_bool(vaga.get("tem_convenio_odonto")), key=f"tco_{vaga['id']}")
+            tem_prev_privada = st.checkbox("Previdência privada",
+                value=safe_bool(vaga.get("tem_prev_privada")), key=f"tpp_{vaga['id']}")
+
+        outros = st.text_input("Outros benefícios",
+            value=safe_str(vaga.get("outros_beneficios")),
+            placeholder="Ex: stock options, day off aniversário...",
+            key=f"outros_{vaga['id']}")
+
+        if st.form_submit_button("Salvar remuneração", use_container_width=True):
+            salvar_remuneracao(
+                id_vaga=vaga["id"], regime=regime, moeda=moeda,
+                salario_mensal=salario_mensal, salario_anual_total=salario_anual_total,
+                tem_vr=tem_vr, valor_vr=valor_vr, tem_va=tem_va, valor_va=valor_va,
+                tem_vt=tem_vt, valor_vt=valor_vt, tem_plano_saude=tem_plano_saude,
+                tem_gympass=tem_gympass, tem_convenio_medico=tem_convenio_medico,
+                tem_convenio_odonto=tem_convenio_odonto, tem_prev_privada=tem_prev_privada,
+                outros_beneficios=outros
+            )
+            st.success("Remuneração salva!")
+            st.rerun()

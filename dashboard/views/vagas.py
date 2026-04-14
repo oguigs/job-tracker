@@ -3,7 +3,8 @@ from database.schemas import TIMELINE, TIMELINE_LABELS
 from database.candidaturas import atualizar_candidatura, negar_vaga
 from dashboard.components import (
     carregar_vagas, get_favicon, render_stacks,
-    render_score_breakdown, render_diario, calcular_scores_vagas, render_preparacao_entrevista
+    render_score_breakdown, render_diario, calcular_scores_vagas, 
+    render_preparacao_entrevista, render_remuneracao
 )
 
 def render():
@@ -89,6 +90,7 @@ def render():
                     f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True
                 )
             st.write("")
+            render_remuneracao(vaga)
             render_diario(vaga["id"])
             with st.form(key=f"form_v_{vaga['id']}"):
                 col_s, col_o = st.columns([2, 3])
@@ -97,7 +99,7 @@ def render():
                     index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
                     key=f"sel_v_{vaga['id']}")
                 observacao = col_o.text_input("Observação",
-                    value=vaga.get("candidatura_observacao") or "",
+                    value="" if str(vaga.get("candidatura_observacao") or "nan") == "nan" else str(vaga.get("candidatura_observacao") or ""),
                     key=f"obs_v_{vaga['id']}")
                 col_s2, col_n2 = st.columns(2)
                 with col_s2:
