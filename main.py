@@ -3,20 +3,14 @@ import time as _time
 import duckdb
 from scrapers.gupy_scraper import buscar_vagas
 from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
-from database.db_manager import (
-    criar_tabelas,
-    upsert_empresa,
-    inserir_vaga,
-    registrar_log,
-    listar_empresas_ativas,
-    verificar_vagas_encerradas,
-    gerar_hash,
-    carregar_filtros,
-    ultima_execucao_sucesso,
-    
-)
+from database.schemas import criar_tabelas
+from database.empresas import upsert_empresa, listar_empresas_ativas, gerar_hash
+from database.vagas import inserir_vaga, verificar_vagas_encerradas
+from database.logs import registrar_log, ultima_execucao_sucesso
+from database.filtros import carregar_filtros
+from database.snapshots import salvar_snapshot
 
-TIMEOUT_EMPRESA_SEGUNDOS = 300  # 5 minutos por empresa
+TIMEOUT_EMPRESA_SEGUNDOS = 300
 
 
 def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
@@ -33,10 +27,9 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
     vagas_novas = 0
     erro = ""
 
-    # verifica cooldown
     horas_desde_ultima = ultima_execucao_sucesso(nome)
     if horas_desde_ultima < cooldown_horas:
-        print(f"  Pulando {nome} — última execução há {horas_desde_ultima}h (cooldown: {cooldown_horas}h)")
+        print(f"  Pulando {nome} — última execução há {horas_desde_ultima}h")
         return 0, 0, f"cooldown ({horas_desde_ultima}h)"
 
     print(f"  Última execução: {horas_desde_ultima}h atrás")
@@ -58,11 +51,9 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
             inicio_coleta = _time.time()
 
             for vaga in vagas_filtradas:
-                # timeout por empresa
                 if _time.time() - inicio_coleta > TIMEOUT_EMPRESA_SEGUNDOS:
-                    print(f"  Timeout de {TIMEOUT_EMPRESA_SEGUNDOS}s atingido — parando coleta de descrições")
+                    print(f"  Timeout de {TIMEOUT_EMPRESA_SEGUNDOS}s atingido")
                     break
-
                 try:
                     page.goto(vaga["link"], wait_until="networkidle", timeout=60000)
                     page.wait_for_selector(
@@ -86,8 +77,8 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
             descricao = vaga.get("descricao", "")
             titulo = vaga.get("titulo", "")
 
-            vaga["stacks"] = extrair_stacks(descricao)
-            vaga["nivel"] = detectar_nivel(titulo)
+            vaga["stacks"]    = extrair_stacks(descricao)
+            vaga["nivel"]     = detectar_nivel(titulo)
             vaga["modalidade"] = detectar_modalidade(
                 descricao,
                 modalidade_coletada=vaga.get("modalidade", "não identificado")
@@ -100,7 +91,6 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
             con_check.close()
 
             if negada:
-                print(f"  Vaga negada ignorada: {vaga['titulo']}")
                 continue
 
             inserida = inserir_vaga(vaga, id_empresa)
@@ -110,9 +100,7 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
         links_ativos = [v["link"] for v in vagas_enriquecidas]
         encerradas = verificar_vagas_encerradas(id_empresa, links_ativos)
         if encerradas:
-            print(f"  {len(encerradas)} vaga(s) encerrada(s):")
-            for titulo in encerradas:
-                print(f"    - {titulo}")
+            print(f"  {len(encerradas)} vaga(s) encerrada(s)")
 
         registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
         print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
@@ -133,29 +121,17 @@ def rodar_pipeline():
         print("Nenhuma empresa ativa no banco.")
         return
 
-    print(f"\n{len(empresas)} empresa(s) ativa(s) para monitorar")
+    print(f"\n{len(empresas)} empresa(s) ativa(s)")
 
     for nome, url_gupy in empresas:
         print(f"\nProcessando {nome}...")
         processar_empresa(nome, url_gupy)
 
-    print("\nPipeline concluído. Resumo no banco:")
-    con = duckdb.connect("data/curated/jobs.duckdb")
-    print(con.execute("""
-        SELECT e.nome, COUNT(v.id) as total_vagas
-        FROM fact_vaga v
-        JOIN dim_empresa e ON v.id_empresa = e.id
-        GROUP BY e.nome
-    """).df())
+    # snapshot automático ao final do pipeline
+    print("\nSalvando snapshot do mercado...")
+    salvar_snapshot()
 
-    print("\nÚltimos logs:")
-    print(con.execute("""
-        SELECT empresa, vagas_encontradas, vagas_novas, status, data_execucao
-        FROM log_coleta
-        ORDER BY data_execucao DESC
-        LIMIT 5
-    """).df())
-    con.close()
+    print("\nPipeline concluído.")
 
 
 if __name__ == "__main__":
