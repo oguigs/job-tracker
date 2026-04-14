@@ -3,24 +3,63 @@ import re
 
 STACKS = {
     "linguagens": [
-        "python", "sql", "scala", "java", "bash", "shell", "linguagem r", "r studio", "rstudio"
+        "python", "sql", "scala", "java", "bash", "shell", "linguagem r",
+        "r studio", "rstudio", "go", "golang", "rust", "typescript",
+        "javascript", "kotlin", "c++", "c#", "ruby", "php", "swift",
+        "haskell", "lua", "perl", "matlab", "julia"
     ],
     "cloud": [
-        "aws", "azure", "gcp", "google cloud", "databricks", "snowflake"
+        "aws", "azure", "gcp", "google cloud", "databricks", "snowflake",
+        "oracle cloud", "ibm cloud", "cloudflare", "heroku", "vercel",
+        "lambda", "ec2", "ecs", "eks", "emr", "sagemaker",
+        "azure data factory", "azure synapse", "azure databricks",
+        "google dataflow", "google dataproc", "bigquery ml",
+        "cloud functions", "cloud run", "cloud storage"
     ],
     "orquestracao": [
-        "airflow", "prefect", "dagster", "mage", "step functions"
+        "airflow", "prefect", "dagster", "mage", "step functions",
+        "luigi", "argo", "kubeflow", "flyte", "metaflow",
+        "azure data factory", "cloud composer", "aws glue workflow"
     ],
     "processamento": [
-        "spark", "pyspark", "flink", "kafka", "dbt", "dask", "glue"
+        "spark", "pyspark", "flink", "kafka", "dbt", "dask", "glue",
+        "beam", "apache beam", "ray", "polars", "pandas", "numpy",
+        "spark streaming", "kafka streams", "kinesis", "pubsub",
+        "rabbitmq", "activemq", "nifi", "apache nifi",
+        "trino", "presto", "hive", "pig", "sqoop",
+        "debezium", "fivetran", "airbyte", "stitch", "informatica"
     ],
     "armazenamento": [
         "s3", "redshift", "bigquery", "delta lake", "iceberg", "hudi",
-        "dynamodb", "postgres", "postgresql", "mysql", "mongodb"
+        "dynamodb", "postgres", "postgresql", "mysql", "mongodb",
+        "cassandra", "redis", "elasticsearch", "opensearch",
+        "neo4j", "couchdb", "firebase", "supabase",
+        "azure blob", "azure sql", "azure cosmos",
+        "clickhouse", "druid", "pinot", "dremio",
+        "unity catalog", "glue catalog", "hive metastore",
+        "parquet", "avro", "orc", "json", "csv"
     ],
     "infraestrutura": [
         "docker", "kubernetes", "terraform", "ci/cd", "git", "github",
-        "gitlab", "jenkins"
+        "gitlab", "jenkins", "ansible", "puppet", "chef",
+        "helm", "istio", "prometheus", "grafana", "datadog",
+        "github actions", "gitlab ci", "circleci", "travis",
+        "linux", "unix", "bash scripting", "powershell",
+        "nginx", "apache", "vault", "consul",
+        "pulumi", "cloudformation", "cdk", "bicep"
+    ],
+    "visualizacao": [
+        "tableau", "power bi", "looker", "metabase", "superset",
+        "grafana", "qlik", "microstrategy", "thoughtspot",
+        "plotly", "matplotlib", "seaborn", "d3", "streamlit"
+    ],
+    "ml_ia": [
+        "machine learning", "deep learning", "mlflow", "mlops",
+        "scikit-learn", "sklearn", "tensorflow", "pytorch", "keras",
+        "hugging face", "openai", "langchain", "llm",
+        "feature store", "vertex ai", "sagemaker", "azure ml",
+        "databricks mlflow", "wandb", "dvc", "bentoml",
+        "xgboost", "lightgbm", "catboost", "prophet"
     ],
     "nivel": [
         "junior", "pleno", "senior", "especialista", "lead"

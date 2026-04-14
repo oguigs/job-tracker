@@ -52,6 +52,48 @@ STACK_CONFIG = {
     "gitlab":       ("gitlab",      None),
     "ci/cd":        ("githubactions", None),
     "linux":        ("linux",       None),
+
+    # Visualização
+    "tableau":      ("tableau",     None),
+    "power bi":     ("python",      None),
+    "looker":       ("python",      None),
+    "metabase":     ("python",      None),
+    "superset":     ("python",      None),
+    "grafana":      ("grafana",     None),
+
+    # ML/IA
+    "tensorflow":   ("tensorflow",  "https://roadmap.sh/ai-data-scientist"),
+    "pytorch":      ("pytorch",     "https://roadmap.sh/ai-data-scientist"),
+    "scikit-learn": ("python",      "https://roadmap.sh/ai-data-scientist"),
+    "sklearn":      ("python",      "https://roadmap.sh/ai-data-scientist"),
+    "mlflow":       ("python",      None),
+
+    # Infraestrutura adicional
+    "ansible":      ("ansible",     None),
+    "helm":         ("helm",        None),
+    "prometheus":   ("prometheus",  None),
+    "grafana":      ("grafana",     None),
+    "circleci":     ("circleci",    None),
+    "pulumi":       ("python",      None),
+
+    # Armazenamento adicional
+    "cassandra":    ("apachecassandra", None),
+    "elasticsearch":("elasticsearch",  None),
+    "redis":        ("redis",           None),
+    "firebase":     ("firebase",        None),
+
+    # Processamento adicional
+    "polars":       ("python",      None),
+    "pandas":       ("pandas",      None),
+    "numpy":        ("numpy",       None),
+    "rabbitmq":     ("rabbitmq",    None),
+    "trino":        ("python",      None),
+    "airbyte":      ("python",      None),
+
+    # Cloud adicional
+    "lambda":       ("amazonwebservices", None),
+    "kinesis":      ("amazonwebservices", None),
+    "pubsub":       ("googlecloud",       None),
 }
 
 DEVICON_BASE = "https://cdn.jsdelivr.net/gh/devicons/devicon/icons"
@@ -79,6 +121,9 @@ CATEGORIA_CORES = {
     "orquestracao":  {"bg": "#F0EFF9", "border": "#7F77DD", "text": "#4B44AA"},
     "armazenamento": {"bg": "#FBF4E8", "border": "#BA7517", "text": "#8A5210"},
     "infraestrutura":{"bg": "#F2F2F1", "border": "#888780", "text": "#555450"},
+    "visualizacao": {"bg": "#EBF3FB", "border": "#378ADD", "text": "#1A5FAD"},
+    "ml_ia":        {"bg": "#F5EFF9", "border": "#9B59B6", "text": "#6C3483"},
+
 }
 
 def get_categoria_cor(categoria: str) -> dict:

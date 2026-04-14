@@ -14,7 +14,12 @@ def render():
     df["score"] = df["id"].map(scores).fillna(0).astype(int)
     df = df.sort_values("score", ascending=False)
 
+    # filtro rápido
     st.sidebar.divider()
+    st.sidebar.subheader("⚡ Ação rápida")
+    so_novas = st.sidebar.checkbox("Só vagas novas (24h)")
+    so_nao_inscrito = st.sidebar.checkbox("Só não inscritas")
+    modo_compacto = st.sidebar.checkbox("Modo compacto")
     st.sidebar.header("Filtros")
     empresas = ["Todas"] + sorted(df["empresa"].unique().tolist())
     empresa_sel = st.sidebar.selectbox("Empresa", empresas)
@@ -28,6 +33,7 @@ def render():
     busca = st.sidebar.text_input("Buscar no título")
 
     df_f = df.copy()
+
     if empresa_sel != "Todas":
         df_f = df_f[df_f["empresa"] == empresa_sel]
     if nivel_sel != "Todos":
@@ -62,53 +68,71 @@ def render():
         urgente_label = "🔥 URGENTE" if urgente else ""
         score_label = f"🎯 {score}%" if score > 0 else ""
 
-        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status} {score_label} {urgente_label}"):
-            if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_v_{vaga['id']}"):
-                st.query_params["empresa"] = vaga["empresa"]
-                st.rerun()
-            col_logo, col_info = st.columns([1, 5])
-            if favicon:
-                col_logo.image(favicon, width=40)
-            data_fmt = str(vaga['data_coleta'])[:10]
-            col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
-            render_score_breakdown(vaga["id"])
-            render_preparacao_entrevista(vaga["id"], vaga["empresa"], status_cand_val)
-            if not vaga["ativa"]:
-                st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
-            render_stacks(vaga["stacks"])
-            st.link_button("Ver vaga", vaga["link"])
-            st.divider()
-            st.write("**Candidatura:**")
-            fases = ["nao_inscrito", "inscrito", "chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
-            cols = st.columns(len(fases))
-            for i, fase in enumerate(fases):
-                ativo = fase == status_cand_val
-                cols[i].markdown(
-                    f"<div style='text-align:center; padding:4px; border-radius:6px; "
-                    f"background:{'#1D9E75' if ativo else '#f0f0f0'}; "
-                    f"color:{'white' if ativo else '#888'}; font-size:11px'>"
-                    f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True
-                )
-            st.write("")
-            render_remuneracao(vaga)
-            render_diario(vaga["id"])
-            with st.form(key=f"form_v_{vaga['id']}"):
-                col_s, col_o = st.columns([2, 3])
-                novo_status = col_s.selectbox("Atualizar status", options=TIMELINE,
-                    format_func=lambda x: TIMELINE_LABELS[x],
-                    index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
-                    key=f"sel_v_{vaga['id']}")
-                observacao = col_o.text_input("Observação",
-                    value="" if str(vaga.get("candidatura_observacao") or "nan") == "nan" else str(vaga.get("candidatura_observacao") or ""),
-                    key=f"obs_v_{vaga['id']}")
-                col_s2, col_n2 = st.columns(2)
-                with col_s2:
-                    if st.form_submit_button("Salvar status", use_container_width=True):
-                        atualizar_candidatura(vaga["id"], novo_status, novo_status, observacao)
-                        st.success("Status atualizado!")
-                        st.rerun()
-                with col_n2:
-                    if st.form_submit_button("Negar vaga", use_container_width=True, type="secondary"):
-                        negar_vaga(vaga["id"], observacao or f"Negada em: {status_cand_val}")
-                        st.warning("Vaga negada!")
-                        st.rerun()
+        from datetime import datetime, timedelta
+        ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+        is_nova = str(vaga["data_coleta"])[:10] >= ontem
+        nova_label = "🆕 " if is_nova else ""
+
+        with st.expander(f"{nova_label}{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status} {score_label}"):
+            from datetime import datetime, timedelta
+            if so_novas:
+                ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+                df_f = df_f[df_f["data_coleta"].astype(str) >= ontem]
+            if so_nao_inscrito:
+                df_f = df_f[df_f["candidatura_status"] == "nao_inscrito"]
+            
+            if modo_compacto:
+                col1, col2, col3 = st.columns([4, 2, 1])
+                col1.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']}")
+                col2.markdown(f"Score: **{score}%**" if score > 0 else "")
+                col3.link_button("Ver", vaga["link"])
+            else:
+                if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_v_{vaga['id']}"):
+                    st.query_params["empresa"] = vaga["empresa"]
+                    st.rerun()
+                col_logo, col_info = st.columns([1, 5])
+                if favicon:
+                    col_logo.image(favicon, width=40)
+                data_fmt = str(vaga['data_coleta'])[:10]
+                col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
+                render_score_breakdown(vaga["id"])
+                render_preparacao_entrevista(vaga["id"], vaga["empresa"], status_cand_val)
+                if not vaga["ativa"]:
+                    st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
+                render_stacks(vaga["stacks"])
+                st.link_button("Ver vaga", vaga["link"])
+                st.divider()
+                st.write("**Candidatura:**")
+                fases = ["nao_inscrito", "inscrito", "chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
+                cols = st.columns(len(fases))
+                for i, fase in enumerate(fases):
+                    ativo = fase == status_cand_val
+                    cols[i].markdown(
+                        f"<div style='text-align:center; padding:4px; border-radius:6px; "
+                        f"background:{'#1D9E75' if ativo else '#f0f0f0'}; "
+                        f"color:{'white' if ativo else '#888'}; font-size:11px'>"
+                        f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True
+                    )
+                st.write("")
+                render_remuneracao(vaga)
+                render_diario(vaga["id"])
+                with st.form(key=f"form_v_{vaga['id']}"):
+                    col_s, col_o = st.columns([2, 3])
+                    novo_status = col_s.selectbox("Atualizar status", options=TIMELINE,
+                        format_func=lambda x: TIMELINE_LABELS[x],
+                        index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
+                        key=f"sel_v_{vaga['id']}")
+                    observacao = col_o.text_input("Observação",
+                        value="" if str(vaga.get("candidatura_observacao") or "nan") == "nan" else str(vaga.get("candidatura_observacao") or ""),
+                        key=f"obs_v_{vaga['id']}")
+                    col_s2, col_n2 = st.columns(2)
+                    with col_s2:
+                        if st.form_submit_button("Salvar status", use_container_width=True):
+                            atualizar_candidatura(vaga["id"], novo_status, novo_status, observacao)
+                            st.success("Status atualizado!")
+                            st.rerun()
+                    with col_n2:
+                        if st.form_submit_button("Negar vaga", use_container_width=True, type="secondary"):
+                            negar_vaga(vaga["id"], observacao or f"Negada em: {status_cand_val}")
+                            st.warning("Vaga negada!")
+                            st.rerun()
