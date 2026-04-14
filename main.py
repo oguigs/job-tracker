@@ -12,7 +12,8 @@ from database.db_manager import (
     verificar_vagas_encerradas,
     gerar_hash,
     carregar_filtros,
-    ultima_execucao_sucesso
+    ultima_execucao_sucesso,
+    
 )
 
 TIMEOUT_EMPRESA_SEGUNDOS = 300  # 5 minutos por empresa

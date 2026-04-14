@@ -4,12 +4,15 @@ from database.schemas import TIMELINE, TIMELINE_LABELS
 from database.candidaturas import atualizar_candidatura, negar_vaga
 from dashboard.components import (
     carregar_vagas, carregar_logs, extrair_stacks_flat,
-    grafico_stacks, get_favicon, render_stacks
+    grafico_stacks, get_favicon, render_stacks, calcular_scores_vagas, render_score_breakdown, render_diario
 )
 
 def render():
     st.title("Job Tracker — Data Engineering")
     df = carregar_vagas()
+    scores = calcular_scores_vagas()
+    df["score"] = df["id"].map(scores).fillna(0).astype(int)
+    df = df.sort_values("score", ascending=False)
 
     st.sidebar.divider()
     st.sidebar.header("Filtros")
@@ -87,13 +90,19 @@ def render():
 
     st.divider()
     st.subheader("Vagas")
+
     for _, vaga in df_f.iterrows():
         status_icon = "🟢" if vaga["ativa"] else "🔴"
         status_cand = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
         favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
+        score = int(vaga.get("score", 0))
+        score_label = f"🎯 {score}%" if score > 0 else ""
+        urgente = vaga.get("urgente", False)
+        urgente_label = "🔥 URGENTE" if urgente else ""
 
-        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status}"):
+
+        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status} {score_label}"):
             if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_d_{vaga['id']}"):
                 st.query_params["empresa"] = vaga["empresa"]
                 st.rerun()
@@ -102,6 +111,18 @@ def render():
                 col_logo.image(favicon, width=40)
             data_fmt = str(vaga['data_coleta'])[:10]
             col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
+
+            if score > 0:
+                cor_score = "#1D9E75" if score >= 70 else "#BA7517" if score >= 40 else "#D85A30"
+                st.markdown(
+                    f"<div style='margin:4px 0 8px 0;'>"
+                    f"<span style='font-size:11px; color:{cor_score}; font-weight:600;'>Score de fit: {score}%</span>"
+                    f"<div style='background:#f0f0f0; border-radius:6px; height:6px; margin-top:3px;'>"
+                    f"<div style='background:{cor_score}; width:{score}%; height:6px; border-radius:6px;'></div>"
+                    f"</div></div>",
+                    unsafe_allow_html=True
+                )
+
             if not vaga["ativa"]:
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
             render_stacks(vaga["stacks"])
@@ -139,6 +160,7 @@ def render():
                         negar_vaga(vaga["id"], observacao or f"Negada em: {status_cand}")
                         st.warning("Vaga negada.")
                         st.rerun()
+            render_diario(vaga["id"])
 
     st.divider()
     st.subheader("Histórico de execuções")

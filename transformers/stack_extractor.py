@@ -95,6 +95,19 @@ def processar_vagas(caminho_json: str):
 
     return vagas
 
+TERMOS_URGENCIA = [
+    "início imediato", "inicio imediato",
+    "urgente", "urgência", "urgencia",
+    "processo rápido", "processo rapido",
+    "vaga urgente", "contratação imediata",
+    "contratacao imediata", "imediato",
+    "asap", "as soon as possible"
+]
+
+def detectar_urgencia(descricao: str, titulo: str = "") -> bool:
+    texto = (descricao + " " + titulo).lower()
+    return any(termo in texto for termo in TERMOS_URGENCIA)
+
 
 if __name__ == "__main__":
     processar_vagas("data/raw/vagas_enriquecidas.json")

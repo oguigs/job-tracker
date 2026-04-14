@@ -156,21 +156,24 @@ def upsert_empresa(nome: str, url_gupy: str, **kwargs) -> int:
 
 
 def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
+    from transformers.stack_extractor import detectar_urgencia
     con = conectar()
     hash_vaga = gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])
-
     existente = con.execute(
         "SELECT id FROM fact_vaga WHERE hash = ?", [hash_vaga]
     ).fetchone()
-
     if existente:
         con.close()
         return False
-
     id_vaga = con.execute("SELECT nextval('seq_vaga')").fetchone()[0]
+    urgente = detectar_urgencia(
+        vaga.get("descricao", ""),
+        vaga.get("titulo", "")
+    )
     con.execute("""
-        INSERT INTO fact_vaga (id, hash, titulo, nivel, modalidade, stacks, link, fonte, id_empresa)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO fact_vaga
+        (id, hash, titulo, nivel, modalidade, stacks, link, fonte, id_empresa, urgente)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, [
         id_vaga, hash_vaga,
         vaga["titulo"],
@@ -179,9 +182,9 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
         json.dumps(vaga.get("stacks", {})),
         vaga["link"],
         vaga["fonte"],
-        id_empresa
+        id_empresa,
+        urgente
     ])
-
     con.close()
     return True
 
@@ -445,6 +448,7 @@ def deletar_contato(id_contato: int):
     con = conectar()
     con.execute("DELETE FROM dim_contato WHERE id = ?", [id_contato])
     con.close()
+
 
 
 if __name__ == "__main__":
