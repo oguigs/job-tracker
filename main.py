@@ -12,10 +12,6 @@ from database.snapshots import salvar_snapshot
 
 TIMEOUT_EMPRESA_SEGUNDOS = 300
 
-
-
-
-
 def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
     titulo_lower = titulo.lower()
     if any(b in titulo_lower for b in bloqueio):
@@ -23,7 +19,6 @@ def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
     if interesse and not any(i in titulo_lower for i in interesse):
         return False
     return True
-
 
 def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
     if empresa_bloqueada(nome):
@@ -67,6 +62,7 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
             except ImportError:
                 pass
 
+            inicio_coleta = _time.time()
             for vaga in vagas_filtradas:
                 if _time.time() - inicio_coleta > TIMEOUT_EMPRESA_SEGUNDOS:
                     print(f"  Timeout de {TIMEOUT_EMPRESA_SEGUNDOS}s atingido")
@@ -148,6 +144,44 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
 
     return vagas_encontradas, vagas_novas, erro
 
+def processar_empresa_greenhouse(nome: str, slug: str):
+    from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
+    from transformers.stack_extractor import extrair_stacks, detectar_nivel
+
+    vagas_encontradas = 0
+    vagas_novas = 0
+
+    try:
+        vagas = buscar_vagas_greenhouse(slug)
+        vagas_encontradas = len(vagas)
+        id_empresa = upsert_empresa(nome=nome, url_gupy="")
+
+        for vaga in vagas:
+            vaga["stacks"] = extrair_stacks(vaga["titulo"])
+            vaga["nivel"] = detectar_nivel(vaga["titulo"])
+            vaga["empresa"] = nome
+
+            from database.vagas import gerar_hash
+            h = gerar_hash(vaga["titulo"], nome, vaga["link"])
+            con_check = duckdb.connect("data/curated/jobs.duckdb")
+            existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
+            con_check.close()
+            if existe:
+                continue
+
+            inserida = inserir_vaga(vaga, id_empresa)
+            if inserida:
+                vagas_novas += 1
+
+        registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
+        print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
+
+    except Exception as e:
+        registrar_log(nome, 0, 0, "erro", str(e))
+        print(f"  Erro: {e}")
+
+    return vagas_encontradas, vagas_novas, ""
+
 
 def rodar_pipeline():
     criar_tabelas()
@@ -162,6 +196,18 @@ def rodar_pipeline():
     for nome, url_gupy in empresas:
         print(f"\nProcessando {nome}...")
         processar_empresa(nome, url_gupy)
+
+    # empresas Greenhouse
+    con_gh = duckdb.connect("data/curated/jobs.duckdb")
+    empresas_gh = con_gh.execute("""
+        SELECT nome, url_greenhouse FROM dim_empresa
+        WHERE ativa = true AND url_greenhouse IS NOT NULL
+    """).fetchall()
+    con_gh.close()
+
+    for nome, slug in empresas_gh:
+        print(f"\nProcessando {nome} (Greenhouse)...")
+        processar_empresa_greenhouse(nome, slug)
 
     # snapshot automático ao final do pipeline
     print("\nSalvando snapshot do mercado...")
