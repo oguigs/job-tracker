@@ -40,10 +40,13 @@ def render():
         # detecta plataforma automaticamente
         url_gupy = ""
         url_greenhouse = None
+        url_inhire = None
         if "gupy.io" in url_vagas_input:
             url_gupy = url_vagas_input
         elif "greenhouse.io" in url_vagas_input:
             url_greenhouse = url_vagas_input.split("greenhouse.io/")[-1].split("/")[0]
+        elif "inhire.app" in url_vagas_input:
+            url_inhire = url_vagas_input
 
         url_linkedin = st.text_input("URL LinkedIn", value=d.get("url_linkedin", ""))
         url_site_vagas = st.text_input("URL site de vagas", value=d.get("url_site_vagas", ""))
@@ -109,15 +112,18 @@ def render():
                 edit_ramo = col1.text_input("Ramo", value=emp["ramo"] or "", key=f"edit_ramo_{emp['id']}")
                 edit_estado = col2.text_input("Estado", value=emp["estado"] or "", key=f"edit_estado_{emp['id']}")
                 edit_url_vagas = st.text_input("URL de vagas",
-                    value=emp.get("url_gupy") or (f"https://boards.greenhouse.io/{emp.get('url_greenhouse')}" if emp.get("url_greenhouse") else ""),
+                    value=emp.get("url_gupy") or (f"https://boards.greenhouse.io/{emp.get('url_greenhouse')}" if emp.get("url_greenhouse") else "") or (emp.get("url_inhire") or ""),
                     placeholder="Cole a URL do Gupy ou Greenhouse",
                     key=f"edit_url_{emp['id']}")
                 edit_gupy = ""
                 edit_greenhouse = None
+                edit_inhire = None
                 if "gupy.io" in edit_url_vagas:
                     edit_gupy = edit_url_vagas
                 elif "greenhouse.io" in edit_url_vagas:
                     edit_greenhouse = edit_url_vagas.split("greenhouse.io/")[-1].split("/")[0]
+                elif "inhire.app" in edit_url_vagas:
+                    edit_inhire = edit_url_vagas
                 edit_linkedin = st.text_input("URL LinkedIn", value=emp["url_linkedin"] or "", key=f"edit_linkedin_{emp['id']}")
                 edit_site = st.text_input("URL site de vagas", value=emp["url_site_vagas"] or "", key=f"edit_site_{emp['id']}")
                 edit_site_oficial = st.text_input("Site oficial",
