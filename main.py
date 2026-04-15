@@ -47,8 +47,18 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            inicio_coleta = _time.time()
+            context = browser.new_context(
+                viewport={"width": 1366, "height": 768},
+                locale="pt-BR",
+                timezone_id="America/Sao_Paulo",
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = context.new_page()
+            try:
+                from playwright_stealth import stealth_sync
+                stealth_sync(page)
+            except ImportError:
+                pass
 
             for vaga in vagas_filtradas:
                 if _time.time() - inicio_coleta > TIMEOUT_EMPRESA_SEGUNDOS:
@@ -64,12 +74,15 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
                         "[class*='description'], [class*='jobDescription'], section"
                     )
                     vaga["descricao"] = el.inner_text().strip() if el else ""
+                    import random, time as _t
+                    _t.sleep(random.uniform(1.5, 3.5))
                 except Exception as e:
                     print(f"  Erro na vaga {vaga['titulo'][:40]}: {str(e)[:60]}")
                     vaga["descricao"] = ""
                 vagas_enriquecidas.append(vaga)
 
-            browser.close()
+            context.close()
+            browser.close() 
 
         id_empresa = upsert_empresa(nome=nome, url_gupy=url_gupy)
 

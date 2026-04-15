@@ -9,10 +9,10 @@ import duckdb
 DB_PATH = "data/curated/jobs.duckdb"
 
 def conectar():
-    return duckdb.connect(DB_PATH, read_only=True)
+    return duckdb.connect(DB_PATH)
 
 def conectar_rw():
-    return duckdb.connect(DB_PATH, read_only=False)
+    return duckdb.connect(DB_PATH)
 
 def get_favicon(nome: str, favicon_url: str = "") -> str:
     nome_arquivo = nome.lower().replace(" ", "_").replace("&", "e")
@@ -98,7 +98,7 @@ def carregar_vagas():
     df = con.execute("""
         SELECT v.id, v.titulo, v.nivel, v.modalidade, v.stacks,
                v.link, v.fonte, v.data_coleta, v.ativa, v.data_encerramento,
-               v.candidatura_status, v.candidatura_fase, v.candidatura_observacao,
+               v.candidatura_status, v.candidatura_fase, v.candidatura_observacao,v.candidatura_data,
                v.urgente, v.regime, v.moeda, v.salario_min, v.salario_max,
                v.salario_anual, v.tem_vr, v.valor_vr, v.tem_va, v.valor_va,
                v.tem_vt, v.valor_vt, v.outros_beneficios,
@@ -415,3 +415,35 @@ def render_remuneracao(vaga: dict):
             )
             st.success("Remuneração salva!")
             st.rerun()
+
+def render_checklist_preparacao(id_vaga: int):
+    """Checklist interativo de preparação para a vaga."""
+    from database.score import calcular_score
+    from database.candidato import carregar_perfil
+
+    df_perfil = carregar_perfil()
+    if df_perfil.empty:
+        return
+
+    id_candidato = int(df_perfil.iloc[0]["id"])
+    resultado = calcular_score(id_vaga, id_candidato)
+    gaps = resultado.get("gaps", [])
+    matches = resultado.get("matches", [])
+
+    if not gaps and not matches:
+        return
+
+    st.divider()
+    st.write("**📋 Checklist de preparação:**")
+
+    if matches:
+        st.caption("✅ Você já tem — reforce antes da entrevista:")
+        for m in matches:
+            st.checkbox(f"{m['stack']} ({m['nivel']})", value=True,
+                key=f"check_match_{id_vaga}_{m['stack']}")
+
+    if gaps:
+        st.caption("📚 Estudar antes de se candidatar:")
+        for g in gaps:
+            st.checkbox(f"{g['stack']}", value=False,
+                key=f"check_gap_{id_vaga}_{g['stack']}")            

@@ -1,10 +1,11 @@
 import streamlit as st
+from datetime import datetime, timedelta
 from database.schemas import TIMELINE, TIMELINE_LABELS
 from database.candidaturas import atualizar_candidatura, negar_vaga
 from dashboard.components import (
     carregar_vagas, get_favicon, render_stacks,
-    render_score_breakdown, render_diario, calcular_scores_vagas, 
-    render_preparacao_entrevista, render_remuneracao
+    render_score_breakdown, render_diario, calcular_scores_vagas,
+    render_preparacao_entrevista, render_remuneracao, render_checklist_preparacao
 )
 
 def render():
@@ -14,12 +15,14 @@ def render():
     df["score"] = df["id"].map(scores).fillna(0).astype(int)
     df = df.sort_values("score", ascending=False)
 
-    # filtro rápido
     st.sidebar.divider()
     st.sidebar.subheader("⚡ Ação rápida")
     so_novas = st.sidebar.checkbox("Só vagas novas (24h)")
     so_nao_inscrito = st.sidebar.checkbox("Só não inscritas")
     modo_compacto = st.sidebar.checkbox("Modo compacto")
+    sla_dias = st.sidebar.number_input("⏰ Alertar sem resposta (dias)", min_value=0, max_value=30, value=0, step=1)
+
+    st.sidebar.divider()
     st.sidebar.header("Filtros")
     empresas = ["Todas"] + sorted(df["empresa"].unique().tolist())
     empresa_sel = st.sidebar.selectbox("Empresa", empresas)
@@ -34,6 +37,12 @@ def render():
 
     df_f = df.copy()
 
+    if sla_dias > 0:
+        limite = (datetime.now() - timedelta(days=sla_dias)).strftime("%Y-%m-%d")
+        df_f = df_f[
+            (df_f["candidatura_status"] == "inscrito") &
+            (df_f["candidatura_data"].astype(str) <= limite)
+        ]
     if empresa_sel != "Todas":
         df_f = df_f[df_f["empresa"] == empresa_sel]
     if nivel_sel != "Todos":
@@ -50,6 +59,11 @@ def render():
             df_f = df_f[df_f["candidatura_status"] == chave]
     if busca:
         df_f = df_f[df_f["titulo"].str.contains(busca, case=False, na=False)]
+    if so_novas:
+        ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+        df_f = df_f[df_f["data_coleta"].astype(str) >= ontem]
+    if so_nao_inscrito:
+        df_f = df_f[df_f["candidatura_status"] == "nao_inscrito"]
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total", len(df_f))
@@ -58,35 +72,48 @@ def render():
     col4.metric("Inscritas", df_f[df_f["candidatura_status"] == "inscrito"].shape[0])
     st.divider()
 
+    ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+
+    total_novas = df_f[df_f["data_coleta"].astype(str) >= ontem].shape[0]
+
+    if total_novas > 0:
+        st.success(f"🆕 {total_novas} vaga(s) nova(s) nas últimas 24h!")
+
     for _, vaga in df_f.iterrows():
         status_icon = "🟢" if vaga["ativa"] else "🔴"
         status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
         favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
         score = int(scores.get(vaga["id"], 0))
-        urgente = vaga.get("urgente", False)
-        urgente_label = "🔥 URGENTE" if urgente else ""
         score_label = f"🎯 {score}%" if score > 0 else ""
-
-        from datetime import datetime, timedelta
-        ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
         is_nova = str(vaga["data_coleta"])[:10] >= ontem
         nova_label = "🆕 " if is_nova else ""
 
-        with st.expander(f"{nova_label}{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status} {score_label}"):
-            from datetime import datetime, timedelta
-            if so_novas:
-                ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
-                df_f = df_f[df_f["data_coleta"].astype(str) >= ontem]
-            if so_nao_inscrito:
-                df_f = df_f[df_f["candidatura_status"] == "nao_inscrito"]
-            
-            if modo_compacto:
-                col1, col2, col3 = st.columns([4, 2, 1])
-                col1.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']}")
-                col2.markdown(f"Score: **{score}%**" if score > 0 else "")
-                col3.link_button("Ver", vaga["link"])
+        if modo_compacto:
+            cor_bg = "#E8F5F0" if is_nova else "white"
+            st.markdown(
+                f"<div style='padding:8px 12px; margin:2px 0; border-radius:6px; "
+                f"border:1px solid #ddd; background:{cor_bg};'>"
+                f"<span style='font-weight:600'>{nova_label}{status_icon} {vaga['titulo'][:55]}</span> "
+                f"<span style='color:#888; font-size:12px'>— {vaga['empresa']} | {vaga['nivel']} | {vaga['modalidade']}</span>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+            c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
+            c1.caption(f"{str(vaga['data_coleta'])[:10]}")
+            c2.markdown(f"🎯 **{score}%**" if score > 0 else "")
+            c3.link_button("🔗 Ver", vaga["link"])
+            if status_cand_val == "nao_inscrito":
+                if c4.button("✅", key=f"inscrito_{vaga['id']}", help="Marcar como inscrito"):
+                    atualizar_candidatura(vaga["id"], "inscrito", "inscrito", "")
+                    st.rerun()
             else:
+                c4.markdown(
+                    f"<span style='color:#1D9E75; font-size:11px'>{label_status}</span>",
+                    unsafe_allow_html=True
+                )
+        else:
+            with st.expander(f"{nova_label}{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status} {score_label}"):
                 if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_v_{vaga['id']}"):
                     st.query_params["empresa"] = vaga["empresa"]
                     st.rerun()
@@ -96,6 +123,7 @@ def render():
                 data_fmt = str(vaga['data_coleta'])[:10]
                 col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
                 render_score_breakdown(vaga["id"])
+                render_checklist_preparacao(vaga["id"])
                 render_preparacao_entrevista(vaga["id"], vaga["empresa"], status_cand_val)
                 if not vaga["ativa"]:
                     st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
