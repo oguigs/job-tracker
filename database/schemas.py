@@ -68,7 +68,7 @@ def criar_tabelas():
             stacks                 JSON,
             link                   VARCHAR,
             fonte                  VARCHAR,
-            id_empresa             INTEGER REFERENCES dim_empresa(id),
+            id_empresa             INTEGER,
             data_coleta            DATE DEFAULT current_date,
             ativa                  BOOLEAN DEFAULT true,
             data_encerramento      DATE,
@@ -99,7 +99,7 @@ def criar_tabelas():
     con.execute("""
         CREATE TABLE IF NOT EXISTS dim_empresa_endereco (
             id         INTEGER PRIMARY KEY,
-            id_empresa INTEGER REFERENCES dim_empresa(id),
+            id_empresa INTEGER,
             cidade     VARCHAR,
             bairro     VARCHAR
         )
@@ -121,7 +121,7 @@ def criar_tabelas():
             id            INTEGER PRIMARY KEY,
             nome          VARCHAR,
             email         VARCHAR,
-            id_empresa    INTEGER REFERENCES dim_empresa(id),
+            id_empresa    INTEGER,
             grau          VARCHAR,
             observacoes   VARCHAR,
             data_cadastro DATE DEFAULT current_date

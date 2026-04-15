@@ -11,8 +11,8 @@ def render():
 
     con = duckdb.connect("data/curated/jobs.duckdb")
     empresas = con.execute("""
-        SELECT nome, url_gupy FROM dim_empresa
-        WHERE ativa = true AND url_gupy IS NOT NULL
+        SELECT nome, url_vagas FROM dim_empresa
+        WHERE ativa = true AND url_vagas IS NOT NULL
     """).fetchall()
     con.close()
 
@@ -34,13 +34,13 @@ def render():
         criar_tabelas()
         total_encontradas = 0
         total_novas = 0
-        for nome, url_gupy in empresas:
+        for nome, url_vagas in empresas:
             horas = ultima_execucao_sucesso(nome)
             if horas < 12:
                 estado["log"].append(f"⏭ {nome} — pulada (última execução há {horas}h)")
                 continue
             estado["log"].append(f"▶ Iniciando {nome}...")
-            encontradas, novas, erro = processar_empresa(nome, url_gupy)
+            encontradas, novas, erro = processar_empresa(nome, url_vagas)
             if erro and "cooldown" not in erro:
                 estado["log"].append(f"✗ {nome} — erro: {erro[:60]}")
             else:
@@ -78,13 +78,13 @@ def render():
             def rodar_espacado(empresas, estado, intervalo_min):
                 from main import processar_empresa
                 criar_tabelas()
-                for nome, url_gupy in empresas:
+                for nome, url_vagas in empresas:
                     horas = ultima_execucao_sucesso(nome)
                     if horas < 12:
                         estado["log"].append(f"⏭ {nome} — pulada ({horas}h)")
                         continue
                     estado["log"].append(f"▶ Iniciando {nome}...")
-                    encontradas, novas, erro = processar_empresa(nome, url_gupy)
+                    encontradas, novas, erro = processar_empresa(nome, url_vagas)
                     if erro and "cooldown" not in erro and "bloqueado" not in erro:
                         estado["log"].append(f"✗ {nome} — {erro[:60]}")
                     else:

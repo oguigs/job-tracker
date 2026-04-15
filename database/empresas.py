@@ -37,8 +37,8 @@ def upsert_empresa(nome: str, url_gupy: str, **kwargs) -> int:
 def listar_empresas_ativas() -> list:
     con = conectar()
     empresas = con.execute("""
-        SELECT nome, url_gupy FROM dim_empresa
-        WHERE ativa = true AND url_gupy IS NOT NULL
+        SELECT nome, url_vagas FROM dim_empresa
+        WHERE ativa = true AND url_vagas IS NOT NULL AND url_vagas != ''
     """).fetchall()
     con.close()
     return empresas

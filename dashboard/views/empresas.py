@@ -2,6 +2,20 @@ import streamlit as st
 from scrapers.company_search import buscar_empresa
 from database.empresas import inserir_endereco, listar_enderecos, deletar_endereco
 from dashboard.components import carregar_empresas, conectar_rw, get_favicon
+from datetime import date
+
+def safe(v):
+    return "" if v is None or str(v) in ["None","nan","<NA>","NaT",""] else str(v)
+
+def detectar_urls(url_vagas_input):
+    url_vagas = url_vagas_input.strip()
+    if "gupy.io" in url_vagas:
+        return url_vagas, None, None
+    elif "greenhouse.io" in url_vagas:
+        return None, url_vagas, None
+    elif "inhire.app" in url_vagas:
+        return None, None, url_vagas
+    return url_vagas, None, None
 
 def render():
     st.title("Empresas monitoradas")
@@ -34,54 +48,41 @@ def render():
         cidade = col3.text_input("Cidade", value=d.get("cidade", ""))
         bairro = col4.text_input("Bairro", value=d.get("bairro", ""))
         estado = col5.text_input("Estado", value=d.get("estado", ""))
-
         url_vagas_input = st.text_input("URL de vagas *",
-            placeholder="Cole a URL do Gupy ou Greenhouse — ex: https://empresa.gupy.io/ ou https://boards.greenhouse.io/empresa")
-        # detecta plataforma automaticamente
-        url_gupy = ""
-        url_greenhouse = None
-        url_inhire = None
-        if "gupy.io" in url_vagas_input:
-            url_gupy = url_vagas_input
-        elif "greenhouse.io" in url_vagas_input:
-            url_greenhouse = url_vagas_input.split("greenhouse.io/")[-1].split("/")[0]
-        elif "inhire.app" in url_vagas_input:
-            url_inhire = url_vagas_input
-
-        url_linkedin = st.text_input("URL LinkedIn", value=d.get("url_linkedin", ""))
-        url_site_vagas = st.text_input("URL site de vagas", value=d.get("url_site_vagas", ""))
-        url_site_oficial = st.text_input("Site oficial da empresa",
+            placeholder="Ex: https://empresa.gupy.io/ ou https://boards.greenhouse.io/empresa")
+        url_site_oficial = st.text_input("Site oficial",
             placeholder="https://www.empresa.com.br",
-            help="Usado para buscar o logo da empresa automaticamente")
+            help="Usado para buscar o logo automaticamente")
 
         if st.form_submit_button("Salvar empresa"):
             if not nome:
-                st.error("Nome da empresa é obrigatório.")
-            elif not url_gupy:
-                st.error("URL Gupy é obrigatória.")
+                st.error("Nome é obrigatório.")
+            elif not url_vagas_input.strip():
+                st.error("URL de vagas é obrigatória.")
             else:
                 try:
                     favicon_url = ""
                     if url_site_oficial:
-                        dominio = url_site_oficial.replace("https://www.", "").replace("https://", "").split("/")[0]
+                        dominio = url_site_oficial.replace("https://www.","").replace("https://","").split("/")[0]
                         favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
                     con = conectar_rw()
-                    existente = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [nome]).fetchone()
+                    existente = con.execute("SELECT id FROM dim_empresa WHERE nome=?", [nome]).fetchone()
                     if existente:
                         st.warning(f"{nome} já está cadastrada.")
                     else:
                         id_novo = con.execute("SELECT nextval('seq_empresa')").fetchone()[0]
                         con.execute("""
                             INSERT INTO dim_empresa
-                            (id, nome, ramo, cidade, estado, url_gupy, url_linkedin,
-                             url_site_vagas, url_site_oficial, favicon_url)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            (id, nome, ramo, cidade, estado, url_vagas,
+                             ativa, data_cadastro, favicon_url, url_site_oficial)
+                            VALUES (?, ?, ?, ?, ?, ?, true, ?, ?, ?)
                         """, [id_novo, nome, ramo, cidade, estado,
-                              url_gupy, url_linkedin, url_site_vagas, url_site_oficial, favicon_url])
+                              url_vagas_input.strip(), date.today(),
+                              favicon_url, url_site_oficial])
                         con.close()
                         st.session_state.dados_buscados = {}
                         st.session_state.form_key += 1
-                        st.success(f"{nome} cadastrada com sucesso!")
+                        st.success(f"{nome} cadastrada!")
                         st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao cadastrar: {e}")
@@ -90,8 +91,9 @@ def render():
     st.subheader("Empresas cadastradas")
 
     for _, emp in df_empresas.iterrows():
-        status = "🟢 Ativa" if emp["ativa"] else "🔴 Pausada"
-        favicon = get_favicon(emp["nome"], emp.get("favicon_url") or "")
+        ativa = str(emp.get("ativa","")) not in ["False","0","nan","None","<NA>","False"]
+        status = "🟢 Ativa" if ativa else "🔴 Pausada"
+        favicon = get_favicon(emp["nome"], safe(emp.get("favicon_url")))
         col_logo, col_titulo = st.columns([1, 8])
         if favicon:
             col_logo.image(favicon, width=32)
@@ -99,76 +101,63 @@ def render():
 
         with st.expander(f"Ver detalhes — {emp['nome']}"):
             col1, col2 = st.columns(2)
-            col1.write(f"**Ramo:** {emp['ramo'] or '—'}")
-            col2.write(f"**Cadastrada em:** {emp['data_cadastro']}")
-            if emp["url_gupy"]: st.write(f"**Gupy:** {emp['url_gupy']}")
-            if emp["url_linkedin"]: st.write(f"**LinkedIn:** {emp['url_linkedin']}")
-            if emp.get("url_site_oficial"): st.write(f"**Site oficial:** {emp['url_site_oficial']}")
+            col1.write(f"**Ramo:** {safe(emp['ramo']) or '—'}")
+            col2.write(f"**Cadastrada em:** {str(emp['data_cadastro'])[:10]}")
+            url_v = safe(emp.get("url_vagas"))
+            if url_v: st.write(f"**URL de vagas:** {url_v}")
+            url_of = safe(emp.get("url_site_oficial"))
+            if url_of: st.write(f"**Site oficial:** {url_of}")
 
             st.divider()
-            with st.form(key=f"form_edit_{emp['id']}"):
+            with st.form(key=f"form_edit_{int(emp['id'])}"):
                 st.caption("Editar informações")
                 col1, col2 = st.columns(2)
-                edit_ramo = col1.text_input("Ramo", value=emp["ramo"] or "", key=f"edit_ramo_{emp['id']}")
-                edit_estado = col2.text_input("Estado", value=emp["estado"] or "", key=f"edit_estado_{emp['id']}")
-                edit_url_vagas = st.text_input("URL de vagas",
-                    value=emp.get("url_gupy") or (f"https://boards.greenhouse.io/{emp.get('url_greenhouse')}" if emp.get("url_greenhouse") else "") or (emp.get("url_inhire") or ""),
-                    placeholder="Cole a URL do Gupy ou Greenhouse",
-                    key=f"edit_url_{emp['id']}")
-                edit_gupy = ""
-                edit_greenhouse = None
-                edit_inhire = None
-                if "gupy.io" in edit_url_vagas:
-                    edit_gupy = edit_url_vagas
-                elif "greenhouse.io" in edit_url_vagas:
-                    edit_greenhouse = edit_url_vagas.split("greenhouse.io/")[-1].split("/")[0]
-                elif "inhire.app" in edit_url_vagas:
-                    edit_inhire = edit_url_vagas
-                edit_linkedin = st.text_input("URL LinkedIn", value=emp["url_linkedin"] or "", key=f"edit_linkedin_{emp['id']}")
-                edit_site = st.text_input("URL site de vagas", value=emp["url_site_vagas"] or "", key=f"edit_site_{emp['id']}")
+                edit_ramo   = col1.text_input("Ramo", value=safe(emp["ramo"]), key=f"edit_ramo_{int(emp['id'])}")
+                edit_estado = col2.text_input("Estado", value=safe(emp["estado"]), key=f"edit_estado_{int(emp['id'])}")
+                edit_url    = st.text_input("URL de vagas", value=url_v,
+                    placeholder="Cole a URL do Gupy, Greenhouse ou Inhire",
+                    key=f"edit_url_{int(emp['id'])}")
                 edit_site_oficial = st.text_input("Site oficial",
-                    value=emp.get("url_site_oficial") or "",
-                    placeholder="https://www.empresa.com.br",
-                    key=f"edit_site_oficial_{emp['id']}")
+                    value=url_of, placeholder="https://www.empresa.com.br",
+                    key=f"edit_site_oficial_{int(emp['id'])}")
 
                 if st.form_submit_button("Salvar alterações"):
+                    novo_favicon = safe(emp.get("favicon_url"))
                     if edit_site_oficial:
-                        dominio = edit_site_oficial.replace("https://www.", "").replace("https://", "").split("/")[0]
+                        dominio = edit_site_oficial.replace("https://www.","").replace("https://","").split("/")[0]
                         novo_favicon = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
-                    else:
-                        novo_favicon = get_favicon(emp["nome"], emp.get("favicon_url") or "")
                     con = conectar_rw()
                     con.execute("""
                         UPDATE dim_empresa
-                        SET ramo=?, estado=?, url_gupy=?, url_linkedin=?,
-                            url_site_vagas=?, url_site_oficial=?, favicon_url=?
+                        SET ramo=?, estado=?, url_vagas=?,
+                            url_site_oficial=?, favicon_url=?
                         WHERE id=?
-                    """, [edit_ramo, edit_estado, edit_gupy, edit_linkedin,
-                          edit_site, edit_site_oficial, novo_favicon, emp["id"]])
+                    """, [edit_ramo, edit_estado, edit_url,
+                          edit_site_oficial, novo_favicon, int(emp['id'])])
                     con.close()
                     st.success("Empresa atualizada!")
                     st.rerun()
 
             st.divider()
             st.write("**Polos:**")
-            enderecos = listar_enderecos(emp["id"])
+            enderecos = listar_enderecos(int(emp['id']))
             if enderecos:
-                for id_end, cidade, bairro in enderecos:
+                for id_end, cid, bairro in enderecos:
                     col_end, col_del = st.columns([4, 1])
-                    col_end.write(f"- {cidade} / {bairro or '—'}")
+                    col_end.write(f"- {cid} / {bairro or '—'}")
                     if col_del.button("Remover", key=f"del_end_{id_end}"):
                         deletar_endereco(id_end)
                         st.rerun()
             else:
                 st.caption("Nenhum polo cadastrado.")
 
-            with st.form(key=f"form_end_{emp['id']}"):
+            with st.form(key=f"form_end_{int(emp['id'])}"):
                 col_c, col_b, col_add = st.columns([2, 2, 1])
-                nova_cidade = col_c.text_input("Cidade", key=f"cidade_{emp['id']}")
-                novo_bairro = col_b.text_input("Bairro", key=f"bairro_{emp['id']}")
+                nova_cidade = col_c.text_input("Cidade", key=f"cidade_{int(emp['id'])}")
+                novo_bairro = col_b.text_input("Bairro", key=f"bairro_{int(emp['id'])}")
                 if col_add.form_submit_button("Adicionar polo"):
                     if nova_cidade:
-                        inserir_endereco(emp["id"], nova_cidade, novo_bairro)
+                        inserir_endereco(int(emp['id']), nova_cidade, novo_bairro)
                         st.rerun()
                     else:
                         st.warning("Cidade é obrigatória.")
@@ -176,23 +165,24 @@ def render():
             st.divider()
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
-                if emp["ativa"]:
-                    if st.button("Pausar monitoramento", key=f"pausar_{emp['id']}", use_container_width=True):
+                if ativa:
+                    if st.button("Pausar monitoramento", key=f"pausar_{int(emp['id'])}", use_container_width=True):
                         con = conectar_rw()
-                        con.execute("UPDATE dim_empresa SET ativa = false WHERE id = ?", [emp["id"]])
+                        con.execute("UPDATE dim_empresa SET ativa=false WHERE id=?", [int(emp['id'])])
                         con.close()
                         st.rerun()
                 else:
-                    if st.button("Reativar monitoramento", key=f"reativar_{emp['id']}", use_container_width=True):
+                    if st.button("Reativar monitoramento", key=f"reativar_{int(emp['id'])}", use_container_width=True):
                         con = conectar_rw()
-                        con.execute("UPDATE dim_empresa SET ativa = true WHERE id = ?", [emp["id"]])
+                        con.execute("UPDATE dim_empresa SET ativa=true WHERE id=?", [int(emp['id'])])
                         con.close()
                         st.rerun()
             with col_btn2:
-                if st.button("Buscar vagas agora", key=f"buscar_{emp['id']}", use_container_width=True):
+                if st.button("Buscar vagas agora", key=f"buscar_{int(emp['id'])}", use_container_width=True):
                     with st.spinner(f"Coletando vagas de {emp['nome']}..."):
                         from main import processar_empresa
-                        encontradas, novas, erro = processar_empresa(emp["nome"], emp["url_gupy"])
+                        url = safe(emp.get("url_vagas"))
+                        encontradas, novas, erro = processar_empresa(emp["nome"], url)
                         if erro:
                             st.error(f"Erro: {erro}")
                         else:

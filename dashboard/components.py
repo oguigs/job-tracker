@@ -102,7 +102,7 @@ def carregar_vagas():
                v.urgente, v.regime, v.moeda, v.salario_min, v.salario_max,
                v.salario_anual, v.tem_vr, v.valor_vr, v.tem_va, v.valor_va,
                v.tem_vt, v.valor_vt, v.outros_beneficios,
-               e.nome AS empresa, e.ramo, e.cidade, e.url_linkedin, e.favicon_url
+               e.nome AS empresa, e.ramo, e.cidade, e.favicon_url
         FROM fact_vaga v
         JOIN dim_empresa e ON v.id_empresa = e.id
         WHERE v.negada = false OR v.negada IS NULL
@@ -114,9 +114,9 @@ def carregar_vagas():
 def carregar_empresas():
     con = conectar()
     df = con.execute("""
-        SELECT id, nome, ramo, cidade, estado, url_gupy,
-               url_linkedin, url_site_vagas, url_site_oficial,
-               ativa, data_cadastro, favicon_url
+        SELECT id, nome, ramo, cidade, estado, url_vagas,
+               url_site_oficial, favicon_url,
+               ativa, data_cadastro
         FROM dim_empresa ORDER BY nome
     """).df()
     con.close()

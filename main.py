@@ -220,10 +220,15 @@ def processar_empresa_inhire(nome: str, url_inhire: str):
 
     return vagas_encontradas, vagas_novas, ""
 
-
 def rodar_pipeline():
     criar_tabelas()
-    empresas = listar_empresas_ativas()
+    
+    con = duckdb.connect("data/curated/jobs.duckdb")
+    empresas = con.execute("""
+        SELECT nome, url_vagas FROM dim_empresa
+        WHERE ativa = true AND url_vagas IS NOT NULL AND url_vagas != ''
+    """).fetchall()
+    con.close()
 
     if not empresas:
         print("Nenhuma empresa ativa no banco.")
@@ -231,38 +236,20 @@ def rodar_pipeline():
 
     print(f"\n{len(empresas)} empresa(s) ativa(s)")
 
-    for nome, url_gupy in empresas:
+    for nome, url_vagas in empresas:
         print(f"\nProcessando {nome}...")
-        processar_empresa(nome, url_gupy)
+        if "gupy.io" in url_vagas:
+            processar_empresa(nome, url_vagas)
+        elif "greenhouse.io" in url_vagas:
+            slug = url_vagas.split("greenhouse.io/")[-1].split("/")[0]
+            processar_empresa_greenhouse(nome, slug)
+        elif "inhire.app" in url_vagas:
+            processar_empresa_inhire(nome, url_vagas)
+        else:
+            print(f"  Plataforma não reconhecida: {url_vagas}")
 
-    # empresas Greenhouse
-    con_gh = duckdb.connect("data/curated/jobs.duckdb")
-    empresas_gh = con_gh.execute("""
-        SELECT nome, url_greenhouse FROM dim_empresa
-        WHERE ativa = true AND url_greenhouse IS NOT NULL
-    """).fetchall()
-    con_gh.close()
-
-    for nome, slug in empresas_gh:
-        print(f"\nProcessando {nome} (Greenhouse)...")
-        processar_empresa_greenhouse(nome, slug)
-
-    # empresas Inhire
-    con_inh = duckdb.connect("data/curated/jobs.duckdb")
-    empresas_inh = con_inh.execute("""
-        SELECT nome, url_inhire FROM dim_empresa
-        WHERE ativa = true AND url_inhire IS NOT NULL
-    """).fetchall()
-    con_inh.close()
-
-    for nome, url_inhire in empresas_inh:
-        print(f"\nProcessando {nome} (Inhire)...")
-        processar_empresa_inhire(nome, url_inhire)
-
-    # snapshot automático ao final do pipeline
-    print("\nSalvando snapshot do mercado...")
+    print("\nSalvando snapshot...")
     salvar_snapshot()
-
     print("\nPipeline concluído.")
 
 
