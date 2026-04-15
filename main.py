@@ -6,11 +6,14 @@ from transformers.stack_extractor import extrair_stacks, detectar_nivel, detecta
 from database.schemas import criar_tabelas
 from database.empresas import upsert_empresa, listar_empresas_ativas, gerar_hash
 from database.vagas import inserir_vaga, verificar_vagas_encerradas
-from database.logs import registrar_log, ultima_execucao_sucesso
+from database.logs import registrar_log, ultima_execucao_sucesso, empresa_bloqueada
 from database.filtros import carregar_filtros
 from database.snapshots import salvar_snapshot
 
 TIMEOUT_EMPRESA_SEGUNDOS = 300
+
+
+
 
 
 def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
@@ -23,6 +26,10 @@ def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
 
 
 def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
+    if empresa_bloqueada(nome):
+        print(f"  {nome} bloqueada — aguardando 48h")
+        return 0, 0, "bloqueada (48h)"
+
     vagas_encontradas = 0
     vagas_novas = 0
     erro = ""
@@ -94,7 +101,7 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
 
                 import random, time as _t
                 _t.sleep(random.uniform(1.5, 3.5))
-                
+
                 vagas_enriquecidas.append(vaga)
 
             context.close()

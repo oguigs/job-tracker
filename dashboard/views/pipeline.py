@@ -53,9 +53,9 @@ def render():
         estado["rodando"] = False
         estado["concluido"] = True
 
-    col_btn1, col_btn2 = st.columns(2)
+    col_btn1, col_btn2, col_btn3 = st.columns(3)
     with col_btn1:
-        if st.button("Rodar pipeline", type="primary",
+        if st.button("Rodar pipeline completo", type="primary",
                      use_container_width=True, disabled=estado["rodando"]):
             estado["rodando"] = True
             estado["concluido"] = False
@@ -66,7 +66,43 @@ def render():
                 target=rodar_em_background, args=(empresas, estado), daemon=True)
             thread.start()
             st.rerun()
+
     with col_btn2:
+        intervalo = st.number_input("Intervalo (min)", min_value=1, max_value=60, value=5, step=1)
+        if st.button("Rodar espaçado", use_container_width=True, disabled=estado["rodando"]):
+            estado["rodando"] = True
+            estado["concluido"] = False
+            estado["log"] = []
+            estado["total_encontradas"] = 0
+            estado["total_novas"] = 0
+            def rodar_espacado(empresas, estado, intervalo_min):
+                from main import processar_empresa
+                criar_tabelas()
+                for nome, url_gupy in empresas:
+                    horas = ultima_execucao_sucesso(nome)
+                    if horas < 12:
+                        estado["log"].append(f"⏭ {nome} — pulada ({horas}h)")
+                        continue
+                    estado["log"].append(f"▶ Iniciando {nome}...")
+                    encontradas, novas, erro = processar_empresa(nome, url_gupy)
+                    if erro and "cooldown" not in erro and "bloqueado" not in erro:
+                        estado["log"].append(f"✗ {nome} — {erro[:60]}")
+                    else:
+                        estado["total_encontradas"] += encontradas
+                        estado["total_novas"] += novas
+                        estado["log"].append(f"✓ {nome} — {encontradas} vagas | {novas} novas")
+                    estado["log"].append(f"⏸ Aguardando {intervalo_min} min...")
+                    import time
+                    time.sleep(intervalo_min * 60)
+                estado["log"].append("✓ Pipeline espaçado concluído!")
+                estado["rodando"] = False
+                estado["concluido"] = True
+            thread = threading.Thread(
+                target=rodar_espacado, args=(empresas, estado, intervalo), daemon=True)
+            thread.start()
+            st.rerun()
+
+    with col_btn3:
         if st.button("Limpar log", use_container_width=True):
             estado["log"] = []
             estado["concluido"] = False
