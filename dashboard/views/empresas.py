@@ -34,7 +34,17 @@ def render():
         cidade = col3.text_input("Cidade", value=d.get("cidade", ""))
         bairro = col4.text_input("Bairro", value=d.get("bairro", ""))
         estado = col5.text_input("Estado", value=d.get("estado", ""))
-        url_gupy = st.text_input("URL Gupy *", placeholder="https://empresa.gupy.io/")
+
+        url_vagas_input = st.text_input("URL de vagas *",
+            placeholder="Cole a URL do Gupy ou Greenhouse — ex: https://empresa.gupy.io/ ou https://boards.greenhouse.io/empresa")
+        # detecta plataforma automaticamente
+        url_gupy = ""
+        url_greenhouse = None
+        if "gupy.io" in url_vagas_input:
+            url_gupy = url_vagas_input
+        elif "greenhouse.io" in url_vagas_input:
+            url_greenhouse = url_vagas_input.split("greenhouse.io/")[-1].split("/")[0]
+
         url_linkedin = st.text_input("URL LinkedIn", value=d.get("url_linkedin", ""))
         url_site_vagas = st.text_input("URL site de vagas", value=d.get("url_site_vagas", ""))
         url_site_oficial = st.text_input("Site oficial da empresa",
@@ -98,7 +108,16 @@ def render():
                 col1, col2 = st.columns(2)
                 edit_ramo = col1.text_input("Ramo", value=emp["ramo"] or "", key=f"edit_ramo_{emp['id']}")
                 edit_estado = col2.text_input("Estado", value=emp["estado"] or "", key=f"edit_estado_{emp['id']}")
-                edit_gupy = st.text_input("URL Gupy", value=emp["url_gupy"] or "", key=f"edit_gupy_{emp['id']}")
+                edit_url_vagas = st.text_input("URL de vagas",
+                    value=emp.get("url_gupy") or (f"https://boards.greenhouse.io/{emp.get('url_greenhouse')}" if emp.get("url_greenhouse") else ""),
+                    placeholder="Cole a URL do Gupy ou Greenhouse",
+                    key=f"edit_url_{emp['id']}")
+                edit_gupy = ""
+                edit_greenhouse = None
+                if "gupy.io" in edit_url_vagas:
+                    edit_gupy = edit_url_vagas
+                elif "greenhouse.io" in edit_url_vagas:
+                    edit_greenhouse = edit_url_vagas.split("greenhouse.io/")[-1].split("/")[0]
                 edit_linkedin = st.text_input("URL LinkedIn", value=emp["url_linkedin"] or "", key=f"edit_linkedin_{emp['id']}")
                 edit_site = st.text_input("URL site de vagas", value=emp["url_site_vagas"] or "", key=f"edit_site_{emp['id']}")
                 edit_site_oficial = st.text_input("Site oficial",
