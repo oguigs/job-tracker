@@ -63,9 +63,23 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
             for vaga in vagas_filtradas:
                 if _time.time() - inicio_coleta > TIMEOUT_EMPRESA_SEGUNDOS:
                     print(f"  Timeout de {TIMEOUT_EMPRESA_SEGUNDOS}s atingido")
-                    break
+                    break 
                 try:
-                    page.goto(vaga["link"], wait_until="networkidle", timeout=60000)
+                    response = page.goto(vaga["link"], wait_until="networkidle", timeout=60000)
+                    
+                    # detecção de bloqueio
+                    if response and response.status in [403, 429]:
+                        print(f"  Bloqueado ({response.status}) — parando coleta de {nome}")
+                        registrar_log(nome, vagas_encontradas, vagas_novas, "bloqueado", f"HTTP {response.status}")
+                        break
+
+                    # detecção Cloudflare
+                    content = page.content()
+                    if "cloudflare" in content.lower() and "checking your browser" in content.lower():
+                        print(f"  Cloudflare detectado — parando coleta de {nome}")
+                        registrar_log(nome, vagas_encontradas, vagas_novas, "bloqueado", "Cloudflare")
+                        break
+
                     page.wait_for_selector(
                         "[class*='description'], [class*='jobDescription'], section",
                         timeout=10000
@@ -74,11 +88,13 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
                         "[class*='description'], [class*='jobDescription'], section"
                     )
                     vaga["descricao"] = el.inner_text().strip() if el else ""
-                    import random, time as _t
-                    _t.sleep(random.uniform(1.5, 3.5))
                 except Exception as e:
                     print(f"  Erro na vaga {vaga['titulo'][:40]}: {str(e)[:60]}")
                     vaga["descricao"] = ""
+
+                import random, time as _t
+                _t.sleep(random.uniform(1.5, 3.5))
+                
                 vagas_enriquecidas.append(vaga)
 
             context.close()
