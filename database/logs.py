@@ -19,13 +19,17 @@ def ultima_execucao_sucesso(nome_empresa: str) -> float:
         ORDER BY data_execucao DESC LIMIT 1
     """, [nome_empresa]).fetchone()
     con.close()
-    if not resultado:
+    if not resultado or resultado[0] is None:
         return 999
     ultima = resultado[0]
-    if ultima.tzinfo is None:
-        ultima = ultima.replace(tzinfo=timezone.utc)
-    agora = datetime.now(timezone.utc)
-    return round((agora - ultima).total_seconds() / 3600, 1)
+    try:
+        from datetime import datetime, timezone
+        if ultima.tzinfo is None:
+            ultima = ultima.replace(tzinfo=timezone.utc)
+        agora = datetime.now(timezone.utc)
+        return round((agora - ultima).total_seconds() / 3600, 1)
+    except:
+        return 999
     
 def empresa_bloqueada(nome_empresa: str) -> bool:
     """Verifica se empresa foi bloqueada nas últimas 48h."""
