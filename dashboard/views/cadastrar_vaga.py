@@ -4,6 +4,8 @@ from database.vagas import inserir_vaga_manual
 from database.empresas import inserir_endereco
 from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
 from dashboard.components import conectar, conectar_rw, render_stacks
+from datetime import date
+
 
 def render():
     st.title("Cadastrar vaga manualmente")
@@ -104,8 +106,7 @@ def render():
             cidade = col3.text_input("Cidade", value=d.get("cidade", ""))
             estado = col4.text_input("Estado", value=d.get("estado", ""))
             bairro = col5.text_input("Bairro", value="")
-            url_gupy = st.text_input("URL Gupy", placeholder="https://empresa.gupy.io/")
-            url_linkedin = st.text_input("URL LinkedIn", value=d.get("url_linkedin", ""))
+            url_vagas = st.text_input("URL Gupy", placeholder="https://empresa.gupy.io/")
             url_site_oficial = st.text_input("Site oficial", placeholder="https://www.empresa.com.br")
             if st.form_submit_button("Salvar empresa", type="primary", use_container_width=True):
                 if not nome:
@@ -124,11 +125,12 @@ def render():
                             id_novo = con.execute("SELECT nextval('seq_empresa')").fetchone()[0]
                             con.execute("""
                                 INSERT INTO dim_empresa
-                                (id, nome, ramo, cidade, estado, url_gupy, url_linkedin,
-                                 url_site_vagas, url_site_oficial, favicon_url)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                (id, nome, ramo, cidade, estado, url_vagas,
+                                 ativa, data_cadastro, favicon_url, url_site_oficial)
+                                VALUES (?, ?, ?, ?, ?, ?, true, ?, ?, ?)
                             """, [id_novo, nome, ramo, cidade, estado,
-                                  url_gupy, url_linkedin, "", url_site_oficial, favicon_url])
+                                  url_gupy or url_greenhouse_url or url_inhire or "",
+                                  date.today(), favicon_url, url_site_oficial])
                             con.close()
                             st.session_state.modal_dados = {}
                             st.success(f"{nome} cadastrada!")

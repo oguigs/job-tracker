@@ -20,7 +20,7 @@ def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
         return False
     return True
 
-def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
+def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12):
     if empresa_bloqueada(nome):
         print(f"  {nome} bloqueada — aguardando 48h")
         return 0, 0, "bloqueada (48h)"
@@ -37,7 +37,7 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
     print(f"  Última execução: {horas_desde_ultima}h atrás")
 
     try:
-        vagas = buscar_vagas(url_gupy)
+        vagas = buscar_vagas(url_vagas)
         vagas_encontradas = len(vagas)
 
         interesse, bloqueio = carregar_filtros()
@@ -103,7 +103,7 @@ def processar_empresa(nome: str, url_gupy: str, cooldown_horas: int = 12):
             context.close()
             browser.close() 
 
-        id_empresa = upsert_empresa(nome=nome, url_gupy=url_gupy)
+        id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)
 
         for vaga in vagas_enriquecidas:
             descricao = vaga.get("descricao", "")
@@ -154,7 +154,7 @@ def processar_empresa_greenhouse(nome: str, slug: str):
     try:
         vagas = buscar_vagas_greenhouse(slug)
         vagas_encontradas = len(vagas)
-        id_empresa = upsert_empresa(nome=nome, url_gupy="")
+        id_empresa = upsert_empresa(nome=nome, url_vagas="")
 
         for vaga in vagas:
             vaga["stacks"] = extrair_stacks(vaga["titulo"])
@@ -191,6 +191,48 @@ def processar_empresa_inhire(nome: str, url_inhire: str):
 
     try:
         vagas = buscar_vagas_inhire(url_inhire)
+        vagas_encontradas = len(vagas)
+        id_empresa = upsert_empresa(nome=nome, url_vagas="")
+
+        for vaga in vagas:
+            vaga["stacks"] = extrair_stacks(vaga["titulo"])
+            vaga["nivel"] = detectar_nivel(vaga["titulo"])
+            vaga["empresa"] = nome
+
+            from database.vagas import gerar_hash
+            h = gerar_hash(vaga["titulo"], nome, vaga["link"])
+            con_check = duckdb.connect("data/curated/jobs.duckdb")
+            existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
+            con_check.close()
+            if existe:
+                continue
+
+            inserida = inserir_vaga(vaga, id_empresa)
+            if inserida:
+                vagas_novas += 1
+
+        registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
+        print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
+
+    except Exception as e:
+        registrar_log(nome, 0, 0, "erro", str(e))
+        print(f"  Erro: {e}")
+
+    return vagas_encontradas, vagas_novas, ""
+
+def processar_empresa_smartrecruiters(nome: str, url: str):
+    from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
+    from transformers.stack_extractor import extrair_stacks, detectar_nivel
+
+    # extrai slug da URL
+    # ex: https://careers.smartrecruiters.com/Visa/careers-at-pismo
+    slug = url.split("smartrecruiters.com/")[-1].split("/")[0]
+
+    vagas_encontradas = 0
+    vagas_novas = 0
+
+    try:
+        vagas = buscar_vagas_smartrecruiters(slug)
         vagas_encontradas = len(vagas)
         id_empresa = upsert_empresa(nome=nome, url_gupy="")
 
@@ -245,6 +287,8 @@ def rodar_pipeline():
             processar_empresa_greenhouse(nome, slug)
         elif "inhire.app" in url_vagas:
             processar_empresa_inhire(nome, url_vagas)
+        elif "smartrecruiters.com" in url_vagas:
+            processar_empresa_smartrecruiters(nome, url_vagas)    
         else:
             print(f"  Plataforma não reconhecida: {url_vagas}")
 

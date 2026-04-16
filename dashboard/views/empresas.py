@@ -15,6 +15,8 @@ def detectar_urls(url_vagas_input):
         return None, url_vagas, None
     elif "inhire.app" in url_vagas:
         return None, None, url_vagas
+    elif "smartrecruiters.com" in url_vagas_input:
+        return url_vagas_input, None, None    
     return url_vagas, None, None
 
 def render():

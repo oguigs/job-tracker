@@ -38,7 +38,7 @@ def bronze_to_silver():
             COALESCE(ramo, 'Não informado') as ramo,
             COALESCE(cidade, 'Não informado') as cidade,
             COALESCE(estado, 'Não informado') as estado,
-            url_gupy,
+            url_vagas,
             ativa,
             data_cadastro
         FROM main.dim_empresa

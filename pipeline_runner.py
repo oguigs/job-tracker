@@ -28,8 +28,8 @@ def log_etapa(nome: str, status: str, duracao: float = None, detalhe: str = ""):
 def buscar_empresas():
     con = duckdb.connect(DB_PATH)
     empresas = con.execute("""
-        SELECT nome, url_gupy FROM dim_empresa
-        WHERE ativa = true AND url_gupy IS NOT NULL
+        SELECT nome, url_vagas FROM dim_empresa
+        WHERE ativa = true AND url_vagas IS NOT NULL
     """).fetchall()
     con.close()
     return empresas
@@ -54,7 +54,7 @@ def rodar_pipeline_visual():
     total_novas = 0
     total_encerradas = 0
 
-    for nome, url_gupy in empresas:
+    for nome, url_vagas in empresas:
         console.print(f"[bold cyan]► {nome}[/bold cyan]")
         inicio_empresa = time.time()
 
@@ -63,7 +63,7 @@ def rodar_pipeline_visual():
             t = time.time()
             log_etapa("Coletando vagas", "iniciando")
             from scrapers.gupy_scraper import buscar_vagas
-            vagas = buscar_vagas(url_gupy)
+            vagas = buscar_vagas(url_vagas)
             log_etapa("Coleta", "ok", time.time() - t, f"{len(vagas)} vagas encontradas")
 
             # ETAPA 2 — Descrições
@@ -109,7 +109,7 @@ def rodar_pipeline_visual():
             from database.db_manager import upsert_empresa, inserir_vaga, gerar_hash, verificar_vagas_encerradas, registrar_log
             import duckdb as ddb
 
-            id_empresa = upsert_empresa(nome=nome, url_gupy=url_gupy)
+            id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)
             vagas_novas = 0
 
             for vaga in vagas_enriquecidas:

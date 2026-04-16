@@ -134,8 +134,8 @@ def carregar_logs():
 def carregar_perfil_empresa(nome: str):
     con = conectar()
     empresa = con.execute("""
-        SELECT id, nome, ramo, cidade, estado, url_gupy,
-               url_linkedin, url_site_vagas, url_site_oficial,
+        SELECT id, nome, ramo, cidade, estado, url_vagas,
+               url_site_oficial,
                favicon_url, data_cadastro
         FROM dim_empresa WHERE nome = ?
     """, [nome]).df()

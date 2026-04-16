@@ -47,7 +47,7 @@ def criar_tabelas():
             ramo             VARCHAR,
             cidade           VARCHAR,
             estado           VARCHAR,
-            url_gupy         VARCHAR,
+            url_vagas         VARCHAR,
             url_linkedin     VARCHAR,
             url_site_vagas   VARCHAR,
             url_site_oficial VARCHAR,

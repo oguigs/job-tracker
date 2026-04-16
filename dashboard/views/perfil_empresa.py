@@ -22,16 +22,13 @@ def render(empresa_perfil: str):
     col_titulo.title(emp["nome"])
     col_titulo.caption(f"{emp['ramo'] or '—'} · {emp['cidade'] or '—'}/{emp['estado'] or '—'} · Cadastrada em {emp['data_cadastro']}")
 
-    cols_links = st.columns(4)
-    if emp["url_gupy"]:
-        cols_links[0].link_button("Portal Gupy", emp["url_gupy"], use_container_width=True)
-    if emp["url_linkedin"]:
-        cols_links[1].link_button("LinkedIn", emp["url_linkedin"], use_container_width=True)
-    if emp["url_site_vagas"]:
-        cols_links[2].link_button("Site de vagas", emp["url_site_vagas"], use_container_width=True)
-    if emp.get("url_site_oficial"):
-        cols_links[3].link_button("Site oficial", emp["url_site_oficial"], use_container_width=True)
-
+    cols_links = st.columns(3)
+    url_v = str(emp.get("url_vagas") or "")
+    if url_v and url_v not in ["None","nan"]:
+        cols_links[0].link_button("Portal de vagas", url_v, use_container_width=True)
+    url_of = str(emp.get("url_site_oficial") or "")
+    if url_of and url_of not in ["None","nan"]:
+        cols_links[1].link_button("Site oficial", url_of, use_container_width=True)
     if enderecos:
         st.write("**Polos:**")
         for cidade, bairro in enderecos:
@@ -59,7 +56,7 @@ def render(empresa_perfil: str):
     st.divider()
     st.subheader("Vagas")
     for _, vaga in vagas_df.iterrows():
-        status_icon = "🟢" if vaga["ativa"] else "🔴"
+        status_icon = "🟢" if str(vaga["ativa"]) == "True" else "🔴"
         status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
         with st.expander(f"{status_icon} {vaga['titulo']} | {label_status}"):

@@ -5,7 +5,7 @@ def gerar_hash(titulo: str, empresa: str, link: str) -> str:
     conteudo = f"{titulo}{empresa}{link}".lower()
     return hashlib.md5(conteudo.encode()).hexdigest()
 
-def upsert_empresa(nome: str, url_gupy: str, **kwargs) -> int:
+def upsert_empresa(nome: str, url_vagas: str, **kwargs) -> int:
     con = conectar()
     resultado = con.execute(
         "SELECT id FROM dim_empresa WHERE nome = ?", [nome]
@@ -15,15 +15,15 @@ def upsert_empresa(nome: str, url_gupy: str, **kwargs) -> int:
         id_empresa = resultado[0]
     else:
         id_empresa = con.execute("SELECT nextval('seq_empresa')").fetchone()[0]
-        dominio = url_gupy.replace("https://", "").split("/")[0]
+        dominio = url_vagas.replace("https://", "").split("/")[0]
         favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
         con.execute("""
             INSERT INTO dim_empresa
-            (id, nome, url_gupy, ramo, cidade, estado,
+            (id, nome, url_vagas, ramo, cidade, estado,
              url_linkedin, url_site_vagas, favicon_url)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, [
-            id_empresa, nome, url_gupy,
+            id_empresa, nome, url_vagas,
             kwargs.get("ramo", ""),
             kwargs.get("cidade", ""),
             kwargs.get("estado", ""),
