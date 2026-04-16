@@ -93,14 +93,14 @@ def render():
     st.subheader("Vagas")
 
     for _, vaga in df_f.iterrows():
-        status_icon = "🟢" if vaga["ativa"] else "🔴"
+        status_icon = "🟢" if str(vaga["ativa"]) == "True" else "🔴"
         status_cand = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
         favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
         score = int(vaga.get("score", 0))
         score_label = f"🎯 {score}%" if score > 0 else ""
         urgente = vaga.get("urgente", False)
-        urgente_label = "🔥 URGENTE" if urgente else ""
+        urgente_label = "🔥 URGENTE" if str(urgente) == "True" else ""
 
 
         with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status} {score_label}"):
@@ -124,7 +124,7 @@ def render():
                     unsafe_allow_html=True
                 )
 
-            if not vaga["ativa"]:
+            if str(vaga["ativa"]) != "True":
                 st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
             render_stacks(vaga["stacks"])
             st.link_button("Ver vaga", vaga["link"])

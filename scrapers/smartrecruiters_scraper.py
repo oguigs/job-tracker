@@ -34,7 +34,7 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None) -
 
                 vagas.append({
                     "titulo": v["name"],
-                    "link": v["ref"],
+                    "link": f"https://jobs.smartrecruiters.com/{company_slug}/{v['id']}",
                     "modalidade": modalidade,
                     "fonte": "smartrecruiters",
                     "empresa": company_slug,

@@ -233,8 +233,11 @@ def processar_empresa_smartrecruiters(nome: str, url: str):
 
     try:
         vagas = buscar_vagas_smartrecruiters(slug)
+        interesse, bloqueio = carregar_filtros()
+        vagas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
+        print(f"  {len(vagas)} vagas relevantes após filtro")
         vagas_encontradas = len(vagas)
-        id_empresa = upsert_empresa(nome=nome, url_gupy="")
+        id_empresa = upsert_empresa(nome=nome, url_vagas="")
 
         for vaga in vagas:
             vaga["stacks"] = extrair_stacks(vaga["titulo"])

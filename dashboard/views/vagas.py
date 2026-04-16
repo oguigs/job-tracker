@@ -80,7 +80,7 @@ def render():
         st.success(f"🆕 {total_novas} vaga(s) nova(s) nas últimas 24h!")
 
     for _, vaga in df_f.iterrows():
-        status_icon = "🟢" if vaga["ativa"] else "🔴"
+        status_icon = "🟢" if str(vaga["ativa"]) == "True" else "🔴"
         status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
         label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
         favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
@@ -125,7 +125,7 @@ def render():
                 render_score_breakdown(vaga["id"])
                 render_checklist_preparacao(vaga["id"])
                 render_preparacao_entrevista(vaga["id"], vaga["empresa"], status_cand_val)
-                if not vaga["ativa"]:
+                if str(vaga["ativa"]) != "True":
                     st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
                 render_stacks(vaga["stacks"])
                 st.link_button("Ver vaga", vaga["link"])

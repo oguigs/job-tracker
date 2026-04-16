@@ -4,6 +4,7 @@ import time
 import duckdb
 from database.logs import ultima_execucao_sucesso
 from database.schemas import criar_tabelas
+from main import processar_empresa, processar_empresa_greenhouse, processar_empresa_inhire, processar_empresa_smartrecruiters
 
 def render():
     st.title("Pipeline")
@@ -40,7 +41,16 @@ def render():
                 estado["log"].append(f"⏭ {nome} — pulada (última execução há {horas}h)")
                 continue
             estado["log"].append(f"▶ Iniciando {nome}...")
-            encontradas, novas, erro = processar_empresa(nome, url_vagas)
+            url = url_vagas or ""
+            if "greenhouse.io" in url:
+                slug = url.split("greenhouse.io/")[-1].split("/")[0]
+                encontradas, novas, erro = processar_empresa_greenhouse(nome, slug)
+            elif "inhire.app" in url:
+                encontradas, novas, erro = processar_empresa_inhire(nome, url)
+            elif "smartrecruiters.com" in url:
+                encontradas, novas, erro = processar_empresa_smartrecruiters(nome, url)
+            else:
+                encontradas, novas, erro = processar_empresa(nome, url)
             if erro and "cooldown" not in erro:
                 estado["log"].append(f"✗ {nome} — erro: {erro[:60]}")
             else:
@@ -84,7 +94,15 @@ def render():
                         estado["log"].append(f"⏭ {nome} — pulada ({horas}h)")
                         continue
                     estado["log"].append(f"▶ Iniciando {nome}...")
-                    encontradas, novas, erro = processar_empresa(nome, url_vagas)
+                    if "greenhouse.io" in (url_vagas or ""):
+                        slug = url_vagas.split("greenhouse.io/")[-1].split("/")[0]
+                        encontradas, novas, erro = processar_empresa_greenhouse(nome, slug)
+                    elif "inhire.app" in (url_vagas or ""):
+                        encontradas, novas, erro = processar_empresa_inhire(nome, url_vagas)
+                    elif "smartrecruiters.com" in (url_vagas or ""):
+                        encontradas, novas, erro = processar_empresa_smartrecruiters(nome, url_vagas)
+                    else:
+                        encontradas, novas, erro = processar_empresa(nome, url_vagas)
                     if erro and "cooldown" not in erro and "bloqueado" not in erro:
                         estado["log"].append(f"✗ {nome} — {erro[:60]}")
                     else:
