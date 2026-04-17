@@ -7,7 +7,7 @@ from database.schemas import criar_tabelas
 from database.empresas import upsert_empresa, listar_empresas_ativas, gerar_hash
 from database.vagas import inserir_vaga, verificar_vagas_encerradas
 from database.logs import registrar_log, ultima_execucao_sucesso, empresa_bloqueada
-from database.filtros import carregar_filtros
+from database.filtros import carregar_filtros, carregar_filtros_localizacao
 from database.snapshots import salvar_snapshot
 
 TIMEOUT_EMPRESA_SEGUNDOS = 300
@@ -18,6 +18,27 @@ def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
         return False
     if interesse and not any(i in titulo_lower for i in interesse):
         return False
+    return True
+
+def localidade_relevante(vaga: dict, permitidos: list, bloqueados: list) -> bool:
+    """Filtra vaga por localização — país ou cidade."""
+    if not permitidos and not bloqueados:
+        return True
+    
+    local = (
+        vaga.get("cidade", "") + " " + 
+        vaga.get("pais", "") + " " +
+        vaga.get("modalidade", "")
+    ).lower()
+    
+    # se tem bloqueados, rejeita se bater
+    if bloqueados and any(b.lower() in local for b in bloqueados):
+        return False
+    
+    # se tem permitidos, aceita só se bater
+    if permitidos:
+        return any(p.lower() in local for p in permitidos) or "remoto" in local or "remote" in local
+    
     return True
 
 def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12):
@@ -157,7 +178,7 @@ def processar_empresa_greenhouse(nome: str, slug: str):
         id_empresa = upsert_empresa(nome=nome, url_vagas="")
 
         for vaga in vagas:
-            vaga["stacks"] = extrair_stacks(vaga["titulo"])
+            vaga["stacks"] = extrair_stacks(vaga.get("descricao", "") or vaga["titulo"])
             vaga["nivel"] = detectar_nivel(vaga["titulo"])
             vaga["empresa"] = nome
 
@@ -168,6 +189,10 @@ def processar_empresa_greenhouse(nome: str, slug: str):
             con_check.close()
             if existe:
                 continue
+
+            permitidos, bloqueados = carregar_filtros_localizacao()
+            vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
+            print(f"  {len(vagas)} vagas após filtro de localização")
 
             inserida = inserir_vaga(vaga, id_empresa)
             if inserida:
@@ -223,24 +248,40 @@ def processar_empresa_inhire(nome: str, url_inhire: str):
 def processar_empresa_smartrecruiters(nome: str, url: str):
     from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
     from transformers.stack_extractor import extrair_stacks, detectar_nivel
+    import requests, html, re
 
-    # extrai slug da URL
-    # ex: https://careers.smartrecruiters.com/Visa/careers-at-pismo
+    def limpar_html(texto):
+        return re.sub('<[^>]+>', ' ', html.unescape(texto or ''))
+
     slug = url.split("smartrecruiters.com/")[-1].split("/")[0]
-
     vagas_encontradas = 0
     vagas_novas = 0
 
     try:
-        vagas = buscar_vagas_smartrecruiters(slug)
+        # busca lista sem descrições primeiro
+        vagas = buscar_vagas_smartrecruiters(slug, buscar_descricao=False)
         interesse, bloqueio = carregar_filtros()
         vagas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
         print(f"  {len(vagas)} vagas relevantes após filtro")
         vagas_encontradas = len(vagas)
-        id_empresa = upsert_empresa(nome=nome, url_vagas="")
 
+        # busca descrição só das relevantes
         for vaga in vagas:
-            vaga["stacks"] = extrair_stacks(vaga["titulo"])
+            try:
+                job_id = vaga["link"].split("/")[-1]
+                rd = requests.get(
+                    f"https://api.smartrecruiters.com/v1/companies/{slug}/postings/{job_id}",
+                    timeout=10
+                )
+                if rd.status_code == 200:
+                    sections = rd.json().get('jobAd',{}).get('sections',{})
+                    desc = limpar_html(sections.get('jobDescription',{}).get('text',''))
+                    qual = limpar_html(sections.get('qualifications',{}).get('text',''))
+                    vaga["descricao"] = f"{desc} {qual}"
+            except:
+                vaga["descricao"] = ""
+
+            vaga["stacks"] = extrair_stacks(vaga.get("descricao","") or vaga["titulo"])
             vaga["nivel"] = detectar_nivel(vaga["titulo"])
             vaga["empresa"] = nome
 
@@ -252,7 +293,11 @@ def processar_empresa_smartrecruiters(nome: str, url: str):
             if existe:
                 continue
 
-            inserida = inserir_vaga(vaga, id_empresa)
+            permitidos, bloqueados = carregar_filtros_localizacao()
+            vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
+            print(f"  {len(vagas)} vagas após filtro de localização")
+
+            inserida = inserir_vaga(vaga, upsert_empresa(nome=nome, url_vagas=""))
             if inserida:
                 vagas_novas += 1
 

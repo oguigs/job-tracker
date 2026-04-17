@@ -27,19 +27,25 @@ def negar_vaga(id_vaga: int, observacao: str = None):
     con.close()
 
 def salvar_remuneracao(id_vaga: int, regime: str, moeda: str,
-                        salario_min: int, salario_max: int, salario_anual: bool,
+                        salario_mensal: int, salario_anual_total: int,
                         tem_vr: bool, valor_vr: int,
                         tem_va: bool, valor_va: int,
                         tem_vt: bool, valor_vt: int,
-                        outros_beneficios: str):
+                        tem_plano_saude: bool, tem_gympass: bool,
+                        tem_convenio_medico: bool, tem_convenio_odonto: bool,
+                        tem_prev_privada: bool, outros_beneficios: str):
     con = conectar()
     con.execute("""
         UPDATE fact_vaga SET
-            regime=?, moeda=?, salario_min=?, salario_max=?, salario_anual=?,
+            regime=?, moeda=?, salario_mensal=?, salario_anual_total=?,
             tem_vr=?, valor_vr=?, tem_va=?, valor_va=?,
-            tem_vt=?, valor_vt=?, outros_beneficios=?
+            tem_vt=?, valor_vt=?, tem_plano_saude=?, tem_gympass=?,
+            tem_convenio_medico=?, tem_convenio_odonto=?,
+            tem_prev_privada=?, outros_beneficios=?
         WHERE id=?
-    """, [regime, moeda, salario_min, salario_max, salario_anual,
-          tem_vr, valor_vr, tem_va, valor_va,
-          tem_vt, valor_vt, outros_beneficios, id_vaga])
-    con.close()    
+    """, [regime, moeda, salario_mensal, salario_anual_total,
+          tem_vr, valor_vr, tem_va, valor_va, tem_vt, valor_vt,
+          tem_plano_saude, tem_gympass, tem_convenio_medico,
+          tem_convenio_odonto, tem_prev_privada, outros_beneficios,
+          id_vaga])
+    con.close()

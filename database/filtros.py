@@ -35,3 +35,16 @@ def listar_filtros():
     """).df()
     con.close()
     return df
+
+def carregar_filtros_localizacao():
+    """Retorna listas de países/cidades permitidos e bloqueados."""
+    con = conectar()
+    df = con.execute("""
+        SELECT tipo, termo FROM config_filtros 
+        WHERE tipo IN ('pais_permitido', 'pais_bloqueado', 'cidade_permitida', 'cidade_bloqueada')
+    """).df()
+    con.close()
+    
+    permitidos = df[df["tipo"].isin(["pais_permitido","cidade_permitida"])]["termo"].tolist()
+    bloqueados = df[df["tipo"].isin(["pais_bloqueado","cidade_bloqueada"])]["termo"].tolist()
+    return permitidos, bloqueados

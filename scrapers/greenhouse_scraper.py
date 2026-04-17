@@ -1,58 +1,46 @@
 from playwright.sync_api import sync_playwright
 import re
 
+import requests, html, re
+
+def limpar_html(texto):
+    return re.sub('<[^>]+>', ' ', html.unescape(texto or ''))
+
 def buscar_vagas_greenhouse(empresa_slug: str) -> list:
-    """
-    Coleta vagas do Greenhouse para uma empresa.
-    URL padrão: https://boards.greenhouse.io/{empresa_slug}
-    """
-    url_base = f"https://boards.greenhouse.io/{empresa_slug}"
     vagas = []
+    try:
+        r = requests.get(
+            f"https://boards-api.greenhouse.io/v1/boards/{empresa_slug}/jobs?content=true",
+            timeout=15
+        )
+        if r.status_code != 200:
+            print(f"  Erro Greenhouse {empresa_slug}: {r.status_code}")
+            return []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+        for job in r.json().get("jobs", []):
+            descricao = limpar_html(job.get("content", ""))
+            location = job.get("location", {}).get("name", "")
 
-        try:
-            page.goto(url_base, wait_until="networkidle", timeout=30000)
+            modalidade = "não identificado"
+            texto_lower = (job["title"] + " " + location).lower()
+            if "remote" in texto_lower or "remoto" in texto_lower:
+                modalidade = "remoto"
+            elif "hybrid" in texto_lower:
+                modalidade = "hibrido"
 
-            links = page.query_selector_all(f'a[href*="/{empresa_slug}/jobs/"]')
+            vagas.append({
+                "titulo": job["title"],
+                "link": job["absolute_url"],
+                "modalidade": modalidade,
+                "fonte": "greenhouse",
+                "empresa": empresa_slug,
+                "descricao": descricao,
+            })
 
-            for link in links:
-                titulo = link.inner_text().strip()
-                href = link.get_attribute("href")
-
-                if not titulo or not href:
-                    continue
-
-                if not href.startswith("http"):
-                    href = f"https://boards.greenhouse.io{href}"
-
-                # detecta modalidade pelo título
-                modalidade = "não identificado"
-                titulo_lower = titulo.lower()
-                if "remote" in titulo_lower or "remoto" in titulo_lower:
-                    modalidade = "remoto"
-                elif "hybrid" in titulo_lower or "híbrido" in titulo_lower:
-                    modalidade = "hibrido"
-                elif "on-site" in titulo_lower or "presencial" in titulo_lower:
-                    modalidade = "presencial"
-
-                vagas.append({
-                    "titulo": titulo,
-                    "link": href,
-                    "modalidade": modalidade,
-                    "fonte": "greenhouse",
-                    "empresa": empresa_slug,
-                })
-
-        except Exception as e:
-            print(f"Erro ao coletar {empresa_slug}: {e}")
-        finally:
-            browser.close()
+    except Exception as e:
+        print(f"  Erro Greenhouse {empresa_slug}: {e}")
 
     return vagas
-
 
 if __name__ == "__main__":
     vagas = buscar_vagas_greenhouse("nubank")
