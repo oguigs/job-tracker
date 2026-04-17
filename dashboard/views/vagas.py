@@ -120,7 +120,7 @@ def render():
                 col_logo, col_info = st.columns([1, 5])
                 if favicon:
                     col_logo.image(favicon, width=40)
-                data_fmt = str(vaga['data_coleta'])[:10]
+                data_fmt = str(vaga['data_coleta'])[:10] if str(vaga['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
                 col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
                 render_score_breakdown(vaga["id"])
                 render_checklist_preparacao(vaga["id"])
