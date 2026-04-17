@@ -37,11 +37,31 @@ def render():
     elif status_sel == "Encerradas":
         df_f = df_f[df_f["ativa"] == False]
 
+    em_processo = df_f[df_f["candidatura_status"].isin(
+        ["chamado","recrutador","fase_1","fase_2","fase_3"]
+    )].shape[0]
+
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total de vagas", len(df_f))
-    col2.metric("Vagas ativas", df_f[df_f["ativa"] == True].shape[0])
-    col3.metric("Vagas encerradas", df_f[df_f["ativa"] == False].shape[0])
-    col4.metric("Empresas monitoradas", df_f["empresa"].nunique())
+    
+    if col1.button(f"**Total**\n\n{len(df_f)}", use_container_width=True):
+        st.session_state["filtro_rapido_dash"] = None
+    if col2.button(f"**Inscritas**\n\n{df_f[df_f['candidatura_status'] == 'inscrito'].shape[0]}", use_container_width=True):
+        st.session_state["filtro_rapido_dash"] = "inscrito"
+    if col3.button(f"**Não inscritas**\n\n{df_f[df_f['candidatura_status'] == 'nao_inscrito'].shape[0]}", use_container_width=True):
+        st.session_state["filtro_rapido_dash"] = "nao_inscrito"
+    if col4.button(f"**Em processo**\n\n{em_processo}", use_container_width=True):
+        st.session_state["filtro_rapido_dash"] = "em_processo"
+
+    filtro_dash = st.session_state.get("filtro_rapido_dash")
+    if filtro_dash == "inscrito":
+        df_f = df_f[df_f["candidatura_status"] == "inscrito"]
+    elif filtro_dash == "nao_inscrito":
+        df_f = df_f[df_f["candidatura_status"] == "nao_inscrito"]
+    elif filtro_dash == "em_processo":
+        df_f = df_f[df_f["candidatura_status"].isin(
+            ["chamado","recrutador","fase_1","fase_2","fase_3"]
+        )]
+
 
     st.divider()
     st.subheader("Stacks mais exigidas")
