@@ -88,15 +88,97 @@ def render():
     if total_novas > 0:
         st.success(f"🆕 {total_novas} vaga(s) nova(s) nas últimas 24h!")
 
+    vagas_list = list(df_f.iterrows())
+    for i in range(0, len(vagas_list), 4):
+        grupo = vagas_list[i:i+4]
+        cols = st.columns(4)
+        for j, (_, vaga) in enumerate(grupo):
+            status_icon = "🟢" if str(vaga["ativa"]) == "True" else "🔴"
+            status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
+            label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
+            score = int(scores.get(vaga["id"], 0))
+            is_nova = str(vaga["data_coleta"])[:10] >= ontem
+            nova_label = "🆕 " if is_nova else ""
+            nivel_str = str(vaga['nivel']) if str(vaga['nivel']) not in ['não identificado','nan','None'] else '—'
+            modal_str = str(vaga['modalidade']) if str(vaga['modalidade']) not in ['não identificado','nan','None'] else '—'
+            cor_score = "#1D9E75" if score >= 70 else "#BA7517" if score >= 40 else "#888"
+
+            with cols[j]:   
+                with st.container(border=True):
+                    col_emp, col_fav = st.columns([6, 0.4])
+                    col_emp.caption(f"{status_icon} {'🆕 ' if is_nova else ''}{vaga['empresa']}")
+                    favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
+                    if favicon:
+                        col_fav.image(favicon, width=20)
+                    
+                    st.markdown(
+                        f"<div style='min-height:48px; overflow:hidden'>"
+                        f"{vaga['titulo'][:100].replace('*','')}"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
+                    # nível · modalidade · score em linha
+                    col_n, col_m, col_s = st.columns([2, 2, 1])
+                    col_n.caption(nivel_str)
+                    col_m.caption(modal_str)
+                    if score > 0:
+                        col_s.markdown(
+                            f"<span style='color:{cor_score};font-weight:700;font-size:12px'>🎯{score}%</span>",
+                            unsafe_allow_html=True
+                        )
+                    
+                    if st.button("▼ detalhes", key=f"btn_detalhe_{vaga['id']}", use_container_width=True):
+                        st.session_state[f"dialog_{vaga['id']}"] = True
+
+    # dialogs de detalhe
     for _, vaga in df_f.iterrows():
-        status_icon = "🟢" if str(vaga["ativa"]) == "True" else "🔴"
-        status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
-        label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
-        favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
-        score = int(scores.get(vaga["id"], 0))
-        score_label = f"🎯 {score}%" if score > 0 else ""
-        is_nova = str(vaga["data_coleta"])[:10] >= ontem
-        nova_label = "🆕 " if is_nova else ""
+        if st.session_state.get(f"dialog_{vaga['id']}"):
+            @st.dialog(vaga['titulo'][:60], width="large")
+            def mostrar_detalhe(v=vaga):
+                status_cand_val = v.get("candidatura_status") or "nao_inscrito"
+                label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
+                data_fmt = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
+                col_info, col_link = st.columns([5, 1])
+                col_info.caption(f"📅 {data_fmt} · {v['empresa']} · {label_status}")
+                col_link.link_button("🔗 Ver vaga", v["link"], use_container_width=True)
+                render_score_breakdown(v["id"])
+                render_checklist_preparacao(v["id"])
+                render_stacks(v["stacks"])
+                st.divider()
+                fases = ["nao_inscrito","inscrito","chamado","recrutador","fase_1","fase_2","fase_3"]
+                cols_f = st.columns(len(fases))
+                for i, fase in enumerate(fases):
+                    ativo = fase == status_cand_val
+                    cols_f[i].markdown(
+                        f"<div style='text-align:center;padding:4px;border-radius:6px;"
+                        f"background:{'#1D9E75' if ativo else '#f0f0f0'};"
+                        f"color:{'white' if ativo else '#888'};font-size:11px'>"
+                        f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True)
+                st.write("")
+                with st.form(key=f"form_d_{v['id']}"):
+                    col_s, col_o = st.columns([2, 3])
+                    novo_status = col_s.selectbox("Status", options=TIMELINE,
+                        format_func=lambda x: TIMELINE_LABELS[x],
+                        index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
+                        key=f"sel_d_{v['id']}")
+                    observacao = col_o.text_input("Observação",
+                        value="" if str(v.get("candidatura_observacao") or "nan") == "nan" else str(v.get("candidatura_observacao") or ""),
+                        key=f"obs_d_{v['id']}")
+                    col_s2, col_n2 = st.columns(2)
+                    with col_s2:
+                        if st.form_submit_button("Salvar", use_container_width=True):
+                            atualizar_candidatura(v["id"], novo_status, novo_status, observacao)
+                            st.session_state[f"dialog_{v['id']}"] = False
+                            st.rerun()
+                    with col_n2:
+                        if st.form_submit_button("Negar", use_container_width=True, type="secondary"):
+                            negar_vaga(v["id"], observacao or f"Negada em: {status_cand_val}")
+                            st.session_state[f"dialog_{v['id']}"] = False
+                            st.rerun()
+                render_remuneracao(v)
+                render_diario(v["id"])
+            mostrar_detalhe()
 
         if modo_compacto:
             cor_bg = "#E8F5F0" if is_nova else "white"

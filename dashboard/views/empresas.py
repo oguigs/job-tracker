@@ -31,7 +31,7 @@ def render():
 
     col_busca, col_btn = st.columns([3, 1])
     nome_busca = col_busca.text_input("Nome da empresa", placeholder="Ex: Nubank")
-    if col_btn.button("Buscar", use_container_width=True):
+    if col_btn.button("Buscar", width="stretch"):
         if nome_busca:
             with st.spinner(f"Buscando informações de {nome_busca}..."):
                 dados = buscar_empresa(nome_busca)
@@ -91,6 +91,22 @@ def render():
 
     st.divider()
     st.subheader("Empresas cadastradas")
+
+    col_on, col_off = st.columns([1, 1])
+    with col_on:
+        if st.button("✅ Ativar todas", width="stretch"):
+            con = conectar_rw()
+            con.execute("UPDATE dim_empresa SET ativa = true")
+            con.close()
+            st.success("Todas as empresas ativadas!")
+            st.rerun()
+    with col_off:
+        if st.button("⏸ Pausar todas", width="stretch"):
+            con = conectar_rw()
+            con.execute("UPDATE dim_empresa SET ativa = false")
+            con.close()
+            st.warning("Todas as empresas pausadas!")
+            st.rerun()
 
     for _, emp in df_empresas.iterrows():
         ativa = str(emp.get("ativa","")) not in ["False","0","nan","None","<NA>","False"]
@@ -168,19 +184,19 @@ def render():
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
                 if ativa:
-                    if st.button("Pausar monitoramento", key=f"pausar_{int(emp['id'])}", use_container_width=True):
+                    if st.button("Pausar monitoramento", key=f"pausar_{int(emp['id'])}", width="stretch"):
                         con = conectar_rw()
                         con.execute("UPDATE dim_empresa SET ativa=false WHERE id=?", [int(emp['id'])])
                         con.close()
                         st.rerun()
                 else:
-                    if st.button("Reativar monitoramento", key=f"reativar_{int(emp['id'])}", use_container_width=True):
+                    if st.button("Reativar monitoramento", key=f"reativar_{int(emp['id'])}", width="stretch"):
                         con = conectar_rw()
                         con.execute("UPDATE dim_empresa SET ativa=true WHERE id=?", [int(emp['id'])])
                         con.close()
                         st.rerun()
             with col_btn2:
-                if st.button("Buscar vagas agora", key=f"buscar_{int(emp['id'])}", use_container_width=True):
+                if st.button("Buscar vagas agora", key=f"buscar_{int(emp['id'])}", width="stretch"):
                     with st.spinner(f"Coletando vagas de {emp['nome']}..."):
                         from main import processar_empresa
                         url = safe(emp.get("url_vagas"))

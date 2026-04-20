@@ -21,23 +21,32 @@ def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
     return True
 
 def localidade_relevante(vaga: dict, permitidos: list, bloqueados: list) -> bool:
-    """Filtra vaga por localização — país ou cidade."""
     if not permitidos and not bloqueados:
         return True
     
     local = (
         vaga.get("cidade", "") + " " + 
         vaga.get("pais", "") + " " +
-        vaga.get("modalidade", "")
+        vaga.get("modalidade", "") + " " +
+        vaga.get("titulo", "")
     ).lower()
     
-    # se tem bloqueados, rejeita se bater
-    if bloqueados and any(b.lower() in local for b in bloqueados):
-        return False
+    if bloqueados:
+        bloqueados_iso = {"india": "in", "china": "cn", "pakistan": "pk"}
+        for b in bloqueados:
+            if b.lower() in local:
+                return False
+            if b.lower() in bloqueados_iso and bloqueados_iso[b.lower()] == vaga.get("pais","").lower():
+                return False
     
-    # se tem permitidos, aceita só se bater
     if permitidos:
-        return any(p.lower() in local for p in permitidos) or "remoto" in local or "remote" in local
+        permitidos_iso = {"brazil": "br", "brasil": "br"}
+        for p in permitidos:
+            if p.lower() in local:
+                return True
+            if p.lower() in permitidos_iso and permitidos_iso[p.lower()] == vaga.get("pais","").lower():
+                return True
+        return "remoto" in local or "remote" in local
     
     return True
 
@@ -262,7 +271,12 @@ def processar_empresa_smartrecruiters(nome: str, url: str):
         vagas = buscar_vagas_smartrecruiters(slug, buscar_descricao=False)
         interesse, bloqueio = carregar_filtros()
         vagas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
-        print(f"  {len(vagas)} vagas relevantes após filtro")
+        print(f"  {len(vagas)} vagas relevantes após filtro de título")
+        
+        permitidos, bloqueados = carregar_filtros_localizacao()
+        vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
+        print(f"  {len(vagas)} vagas após filtro de localização")
+        
         vagas_encontradas = len(vagas)
 
         # busca descrição só das relevantes

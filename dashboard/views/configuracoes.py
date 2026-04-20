@@ -85,3 +85,45 @@ def render():
                     adicionar_filtro("pais_bloqueado", novo.lower())
                     st.success(f"'{novo}' bloqueado!")
                     st.rerun()
+
+        st.divider()
+        st.subheader("🧹 Limpeza da base")
+        st.caption("Remove vagas que não passam pelos filtros atuais de título e localização.")
+        
+        col_prev, col_btn = st.columns([3, 1])
+        
+        # preview de quantas seriam removidas
+        try:
+            from main import titulo_relevante, localidade_relevante
+            from database.filtros import carregar_filtros, carregar_filtros_localizacao
+            import duckdb
+            
+            interesse, bloqueio = carregar_filtros()
+            con = duckdb.connect("data/curated/jobs.duckdb")
+            vagas = con.execute("SELECT id, titulo FROM fact_vaga WHERE negada=false OR negada IS NULL").fetchall()
+            con.close()
+            
+            permitidos, bloqueados = carregar_filtros_localizacao()
+            
+            irrelevantes = []
+            for id_v, titulo in vagas:
+                vaga_dict = {"titulo": titulo, "modalidade": "", "cidade": "", "pais": ""}
+                if not titulo_relevante(titulo, interesse, bloqueio):
+                    irrelevantes.append(id_v)
+                elif not localidade_relevante(vaga_dict, permitidos, bloqueados):
+                    irrelevantes.append(id_v)
+                    
+            col_prev.info(f"**{len(irrelevantes)}** vagas seriam removidas de um total de **{len(vagas)}**.")
+        except:
+            irrelevantes = []
+            col_prev.info("Clique em reprocessar para ver o impacto.")
+        
+        if col_btn.button("🗑 Reprocessar", type="secondary", use_container_width=True):
+            if irrelevantes:
+                con = duckdb.connect("data/curated/jobs.duckdb")
+                con.execute(f"DELETE FROM fact_vaga WHERE id IN ({','.join(map(str, irrelevantes))})")
+                con.close()
+                st.success(f"✅ {len(irrelevantes)} vagas removidas!")
+                st.rerun()
+            else:
+                st.info("Nenhuma vaga para remover.")                    

@@ -5,6 +5,10 @@ import pandas as pd
 import plotly.express as px
 from dashboard.stack_config import get_stack_icon_url, get_stack_roadmap_url, get_categoria_cor
 import duckdb
+from database.score import calcular_score
+from database.candidato import carregar_perfil
+import uuid
+
 
 DB_PATH = "data/curated/jobs.duckdb"
 
@@ -418,8 +422,7 @@ def render_remuneracao(vaga: dict):
 
 def render_checklist_preparacao(id_vaga: int):
     """Checklist interativo de preparação para a vaga."""
-    from database.score import calcular_score
-    from database.candidato import carregar_perfil
+    uid = uuid.uuid4().hex[:8]
 
     df_perfil = carregar_perfil()
     if df_perfil.empty:
@@ -440,10 +443,11 @@ def render_checklist_preparacao(id_vaga: int):
         st.caption("✅ Você já tem — reforce antes da entrevista:")
         for m in matches:
             st.checkbox(f"{m['stack']} ({m['nivel']})", value=True,
-                key=f"check_match_{id_vaga}_{m['stack']}_{m['categoria']}")
+                key=f"cm_{id_vaga}_{m['stack']}_{uid}")
+
 
     if gaps:
         st.caption("📚 Estudar antes de se candidatar:")
         for g in gaps:
             st.checkbox(f"{g['stack']}", value=False,
-                key=f"check_gap_{id_vaga}_{g['stack']}_{g['categoria']}" )        
+                key=f"cg_{id_vaga}_{g['stack']}_{uid}")       

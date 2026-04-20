@@ -44,6 +44,8 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, b
                             descricao = f"{desc} {qual}"
                     except:
                         pass
+                else:
+                    descricao = ""
 
                 modalidade = "não identificado"
                 tipo = str(v.get("typeOfEmployment", {}).get("label", "")).lower()
@@ -59,8 +61,9 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, b
                     "fonte": "smartrecruiters",
                     "empresa": company_slug,
                     "descricao": descricao,
+                    "cidade": v.get("location", {}).get("city", ""),
+                    "pais": v.get("location", {}).get("country", ""),
                 })
-
             offset += limit
             if offset >= data.get("totalFound", 0):
                 break
