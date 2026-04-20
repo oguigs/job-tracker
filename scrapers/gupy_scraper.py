@@ -63,7 +63,9 @@ def buscar_vagas(url_empresa: str):
                         "empresa": nome_empresa,
                         "link": link,
                         "modalidade": modalidade,
-                        "fonte": "gupy"
+                        "fonte": "gupy",
+                        "cidade": "",
+                        "pais": "br",  # Gupy é 100% brasileiro
                     })
 
             # tenta ir para próxima página

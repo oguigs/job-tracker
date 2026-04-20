@@ -34,6 +34,8 @@ def buscar_vagas_inhire(url_base: str) -> list:
                     "modalidade": modalidade,
                     "fonte": "inhire",
                     "empresa": dominio.split(".")[0],
+                    "cidade": "",
+                    "pais": "br",  # Inhire é 100% brasileiro
                 })
         except Exception as e:
             print(f"Erro Inhire {url_base}: {e}")
