@@ -443,11 +443,10 @@ def render_checklist_preparacao(id_vaga: int):
         st.caption("✅ Você já tem — reforce antes da entrevista:")
         for m in matches:
             st.checkbox(f"{m['stack']} ({m['nivel']})", value=True,
-                key=f"cm_{id_vaga}_{m['stack']}_{uid}")
-
+                key=f"cm_{id_vaga}_{m['stack']}_{m['categoria']}_{uuid.uuid4().hex[:6]}")
 
     if gaps:
         st.caption("📚 Estudar antes de se candidatar:")
         for g in gaps:
             st.checkbox(f"{g['stack']}", value=False,
-                key=f"cg_{id_vaga}_{g['stack']}_{uid}")       
+                key=f"cg_{id_vaga}_{g['stack']}_{g['categoria']}_{uuid.uuid4().hex[:6]}")
