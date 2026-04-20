@@ -183,7 +183,16 @@ def processar_empresa_greenhouse(nome: str, slug: str):
 
     try:
         vagas = buscar_vagas_greenhouse(slug)
+        interesse, bloqueio = carregar_filtros()
+        vagas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
+        print(f"  {len(vagas)} vagas relevantes após filtro")
+        
+        permitidos, bloqueados = carregar_filtros_localizacao()
+        vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
+        print(f"  {len(vagas)} vagas após filtro de localização")
+        
         vagas_encontradas = len(vagas)
+
         id_empresa = upsert_empresa(nome=nome, url_vagas="")
 
         for vaga in vagas:
@@ -201,7 +210,6 @@ def processar_empresa_greenhouse(nome: str, slug: str):
 
             permitidos, bloqueados = carregar_filtros_localizacao()
             vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
-            print(f"  {len(vagas)} vagas após filtro de localização")
 
             inserida = inserir_vaga(vaga, id_empresa)
             if inserida:
@@ -309,7 +317,6 @@ def processar_empresa_smartrecruiters(nome: str, url: str):
 
             permitidos, bloqueados = carregar_filtros_localizacao()
             vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
-            print(f"  {len(vagas)} vagas após filtro de localização")
 
             inserida = inserir_vaga(vaga, upsert_empresa(nome=nome, url_vagas=""))
             if inserida:
