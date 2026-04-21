@@ -1,4 +1,4 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+cd ~/job-tracker
 source .venv/bin/activate
-streamlit run dashboard/app.py
+streamlit run dashboard/app.py --server.runOnSave true
