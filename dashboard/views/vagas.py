@@ -10,6 +10,9 @@ from dashboard.components import (
 )
 
 def render():
+    for key in list(st.session_state.keys()):
+        if key.startswith("dialog_"):
+            st.session_state[key] = False
     st.title("Vagas salvas")
     df = carregar_vagas()
     scores = calcular_scores_vagas()
@@ -136,59 +139,54 @@ def render():
                 render_vaga_card(vaga, score, is_nova, key_prefix="v")
 
 
-    # ── DIALOGS ────────────────────────────────────────────────
+# ── DIALOGS ────────────────────────────────────────────────
+    def _dialog_vaga(v):
+        status_cand_val = v.get("candidatura_status") or "nao_inscrito"
+        label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
+        data_fmt_v = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
+        col_info, col_link = st.columns([5, 1])
+        col_info.caption(f"📅 {data_fmt_v} · {v['empresa']} · {label_status}")
+        col_link.link_button("🔗 Ver vaga", v["link"], use_container_width=True)
+        render_score_breakdown(int(v["id"]))
+        render_checklist_preparacao(int(v["id"]))
+        render_stacks(v["stacks"])
+        st.divider()
+        fases = ["nao_inscrito","inscrito","chamado","recrutador","fase_1","fase_2","fase_3"]
+        cols_f = st.columns(len(fases))
+        for idx, fase in enumerate(fases):
+            ativo = fase == status_cand_val
+            cols_f[idx].markdown(
+                f"<div style='text-align:center;padding:4px;border-radius:6px;"
+                f"background:{'#1D9E75' if ativo else '#f0f0f0'};"
+                f"color:{'white' if ativo else '#888'};font-size:11px'>"
+                f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True)
+        st.write("")
+        with st.form(key=f"form_d_{v['id']}"):
+            col_s, col_o = st.columns([2, 3])
+            novo_status = col_s.selectbox("Status", options=TIMELINE,
+                format_func=lambda x: TIMELINE_LABELS[x],
+                index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
+                key=f"sel_d_{v['id']}")
+            observacao = col_o.text_input("Observação",
+                value="" if str(v.get("candidatura_observacao") or "nan") == "nan" else str(v.get("candidatura_observacao") or ""),
+                key=f"obs_d_{v['id']}")
+            col_s2, col_n2 = st.columns(2)
+            with col_s2:
+                if st.form_submit_button("Salvar", use_container_width=True):
+                    atualizar_candidatura(int(v["id"]), novo_status, novo_status, observacao)
+                    st.session_state[f"dialog_v_{v['id']}"] = False
+                    st.rerun()
+            with col_n2:
+                if st.form_submit_button("Negar", use_container_width=True, type="secondary"):
+                    negar_vaga(int(v["id"]), observacao or f"Negada em: {status_cand_val}")
+                    st.session_state[f"dialog_v_{v['id']}"] = False
+                    st.rerun()
+        render_remuneracao(v)
+        render_diario(int(v["id"]))
+
     for _, vaga in df_f.iterrows():
         if not st.session_state.get(f"dialog_v_{vaga['id']}"):
             continue
-
-        @st.dialog(vaga['titulo'][:60], width="large")
-        def mostrar_detalhe(v=vaga):
-            status_cand_val = v.get("candidatura_status") or "nao_inscrito"
-            label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
-            data_fmt = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
-
-            col_info, col_link = st.columns([5, 1])
-            col_info.caption(f"📅 {data_fmt} · {v['empresa']} · {label_status}")
-            col_link.link_button("🔗 Ver vaga", v["link"], use_container_width=True)
-
-            render_score_breakdown(v["id"])
-            render_checklist_preparacao(v["id"])
-            render_stacks(v["stacks"])
-            st.divider()
-
-            fases = ["nao_inscrito","inscrito","chamado","recrutador","fase_1","fase_2","fase_3"]
-            cols_f = st.columns(len(fases))
-            for idx, fase in enumerate(fases):
-                ativo = fase == status_cand_val
-                cols_f[idx].markdown(
-                    f"<div style='text-align:center;padding:4px;border-radius:6px;"
-                    f"background:{'#1D9E75' if ativo else '#f0f0f0'};"
-                    f"color:{'white' if ativo else '#888'};font-size:11px'>"
-                    f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True)
-            st.write("")
-
-            with st.form(key=f"form_d_{v['id']}"):
-                col_s, col_o = st.columns([2, 3])
-                novo_status = col_s.selectbox("Status", options=TIMELINE,
-                    format_func=lambda x: TIMELINE_LABELS[x],
-                    index=TIMELINE.index(status_cand_val) if status_cand_val in TIMELINE else 0,
-                    key=f"sel_d_{v['id']}")
-                observacao = col_o.text_input("Observação",
-                    value="" if str(v.get("candidatura_observacao") or "nan") == "nan" else str(v.get("candidatura_observacao") or ""),
-                    key=f"obs_d_{v['id']}")
-                col_s2, col_n2 = st.columns(2)
-                with col_s2:
-                    if st.form_submit_button("Salvar", use_container_width=True):
-                        atualizar_candidatura(v["id"], novo_status, novo_status, observacao)
-                        st.session_state[f"dialog_{v['id']}"] = False
-                        st.rerun()
-                with col_n2:
-                    if st.form_submit_button("Negar", use_container_width=True, type="secondary"):
-                        negar_vaga(v["id"], observacao or f"Negada em: {status_cand_val}")
-                        st.session_state[f"dialog_{v['id']}"] = False
-                        st.rerun()
-
-            render_remuneracao(v)
-            render_diario(v["id"])
-
-        mostrar_detalhe()
+        dialog_fn = st.dialog(vaga['titulo'][:60], width="large")(_dialog_vaga)
+        dialog_fn(vaga)
+        break  # só um dialog por vez
