@@ -100,7 +100,7 @@ def grafico_stacks(df_counts, titulo: str, cor: str):
     fig.update_traces(hovertemplate="<b>%{y}</b><br>%{x} vagas<extra></extra>")
     return fig
 
-@st.cache_data(ttl=60)
+# @st.cache_data(ttl=60)
 def carregar_vagas():
     con = conectar()
     df = con.execute("""
@@ -119,7 +119,7 @@ def carregar_vagas():
     con.close()
     return df
 
-@st.cache_data(ttl=60)
+# @st.cache_data(ttl=60)
 def carregar_empresas():
     con = conectar()
     df = con.execute("""

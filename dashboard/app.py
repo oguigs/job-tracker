@@ -21,7 +21,7 @@ if empresa_perfil:
     perfil_empresa.render(empresa_perfil)
 else:
     pagina = st.sidebar.radio("Navegação", [
-        "Dashboard", "Vagas", "Comparativo", "Tendências", 
+        "Dashboard", "Vagas", "Fila de Inscrição", "Comparativo", "Tendências", 
         "Funil", "Cadastrar Vaga",
         "Empresas", "Indicadores", "Pipeline", "Qualidade",
         "Configurações", "Vagas Negadas", "Meu Perfil"

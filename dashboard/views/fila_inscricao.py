@@ -7,6 +7,9 @@ from dashboard.components import (
     render_stacks, render_remuneracao
 )
 from utils import safe_str, data_fmt
+from datetime import datetime, timedelta
+
+
 
 def render():
     st.title("🎯 Fila de inscrição")
@@ -17,10 +20,12 @@ def render():
     df["score"] = df["id"].map(scores).fillna(0).astype(int)
 
     # só vagas não inscritas e ativas
+    ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+
     df_f = df[
         (df["candidatura_status"] == "nao_inscrito") &
-        (df["ativa"] == True)
-    ].sort_values("score", ascending=False)
+        (df["ativa"] != False)
+    ].sort_values(["data_coleta", "score"], ascending=[False, False])
 
     if df_f.empty:
         st.success("🎉 Todas as vagas foram processadas!")
@@ -32,6 +37,15 @@ def render():
     col2.metric("Score médio", f"{int(df_f['score'].mean())}%")
     col3.metric("Score máximo", f"{int(df_f['score'].max())}%")
     st.divider()
+
+    col_luck, col_reset = st.columns([1, 1])
+    if col_luck.button("🎲 Estou com sorte", use_container_width=True):
+        import random
+        st.session_state["fila_idx"] = random.randint(0, len(df_f)-1)
+        st.rerun()
+    if col_reset.button("⏮ Voltar ao início", use_container_width=True):
+        st.session_state["fila_idx"] = 0
+        st.rerun()
 
     # vaga atual — sempre a primeira da fila
     idx = st.session_state.get("fila_idx", 0)
@@ -69,8 +83,8 @@ def render():
         col_info3.caption(f"💼 {safe_str(vaga['modalidade'], '—')}")
 
         st.divider()
-        render_score_breakdown(vaga["id"])
-        render_checklist_preparacao(vaga["id"])
+        render_score_breakdown(int(vaga["id"]))
+        render_checklist_preparacao(int(vaga["id"]))
         render_stacks(vaga["stacks"])
         st.divider()
         render_remuneracao(vaga)
