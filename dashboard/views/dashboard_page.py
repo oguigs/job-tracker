@@ -1,12 +1,15 @@
 import streamlit as st
 import plotly.express as px
+from datetime import datetime, timedelta
 from database.schemas import TIMELINE, TIMELINE_LABELS
 from database.candidaturas import atualizar_candidatura, negar_vaga
 from dashboard.components import (
     carregar_vagas, carregar_logs, extrair_stacks_flat,
-    grafico_stacks, get_favicon, render_stacks, calcular_scores_vagas, 
-    render_score_breakdown, render_diario, render_remuneracao
+    grafico_stacks, get_favicon, render_stacks, calcular_scores_vagas,
+    render_score_breakdown, render_diario, render_remuneracao,
+    render_checklist_preparacao, render_vaga_card
 )
+
 
 def render():
     st.title("Job Tracker — Data Engineering")
@@ -112,77 +115,72 @@ def render():
     st.divider()
     st.subheader("Vagas")
 
+    ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+
+    vagas_list = list(df_f.iterrows())
+    num_colunas = 4
+    for i in range(0, len(vagas_list), num_colunas):
+        grupo = vagas_list[i:i+num_colunas]
+        cols = st.columns(num_colunas)
+        for j in range(num_colunas):
+            with cols[j]:
+                if j >= len(grupo):
+                    st.empty()
+                    continue
+                _, vaga = grupo[j]
+                score = int(vaga.get("score", 0))
+                is_nova = str(vaga["data_coleta"])[:10] >= ontem
+                render_vaga_card(vaga, score, is_nova, key_prefix="dash")
+
+    # dialogs
     for _, vaga in df_f.iterrows():
-        status_icon = "🟢" if str(vaga["ativa"]) == "True" else "🔴"
-        status_cand = vaga.get("candidatura_status") or "nao_inscrito"
-        label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
-        favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
-        score = int(vaga.get("score", 0))
-        score_label = f"🎯 {score}%" if score > 0 else ""
-        urgente = vaga.get("urgente", False)
-        urgente_label = "🔥 URGENTE" if str(urgente) == "True" else ""
-
-
-        with st.expander(f"{status_icon} {vaga['titulo']} — {vaga['empresa']} | {label_status} {score_label}"):
-            if st.button(f"Ver perfil de {vaga['empresa']}", key=f"perfil_d_{vaga['id']}"):
-                st.query_params["empresa"] = vaga["empresa"]
-                st.rerun()
-            col_logo, col_info = st.columns([1, 5])
-            if favicon:
-                col_logo.image(favicon, width=40)
-            data_fmt = str(vaga['data_coleta'])[:10]
-            col_info.markdown(f"**{vaga['empresa']}** — {vaga['nivel']} | {vaga['modalidade']} | {data_fmt}")
-
-            if score > 0:
-                cor_score = "#1D9E75" if score >= 70 else "#BA7517" if score >= 40 else "#D85A30"
-                st.markdown(
-                    f"<div style='margin:4px 0 8px 0;'>"
-                    f"<span style='font-size:11px; color:{cor_score}; font-weight:600;'>Score de fit: {score}%</span>"
-                    f"<div style='background:#f0f0f0; border-radius:6px; height:6px; margin-top:3px;'>"
-                    f"<div style='background:{cor_score}; width:{score}%; height:6px; border-radius:6px;'></div>"
-                    f"</div></div>",
-                    unsafe_allow_html=True
-                )
-
-            if str(vaga["ativa"]) != "True":
-                st.warning(f"Vaga encerrada em {vaga['data_encerramento']}")
-            render_stacks(vaga["stacks"])
-            st.link_button("Ver vaga", vaga["link"])
+        if not st.session_state.get(f"dialog_v_{vaga['id']}"):
+            continue
+        @st.dialog(vaga['titulo'][:60], width="large")
+        def mostrar_dash(v=vaga):
+            status_cand = v.get("candidatura_status") or "nao_inscrito"
+            label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
+            data_fmt = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
+            col_info, col_link = st.columns([5, 1])
+            col_info.caption(f"📅 {data_fmt} · {v['empresa']} · {label_status}")
+            col_link.link_button("🔗 Ver vaga", v["link"], use_container_width=True)
+            render_score_breakdown(v["id"])
+            render_checklist_preparacao(v["id"])
+            render_stacks(v["stacks"])
             st.divider()
-            st.write("**Candidatura:**")
-            fases = ["nao_inscrito", "inscrito", "chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
-            cols = st.columns(len(fases))
-            for i, fase in enumerate(fases):
+            fases = ["nao_inscrito","inscrito","chamado","recrutador","fase_1","fase_2","fase_3"]
+            cols_f = st.columns(len(fases))
+            for idx, fase in enumerate(fases):
                 ativo = fase == status_cand
-                cols[i].markdown(
-                    f"<div style='text-align:center; padding:4px; border-radius:6px; "
-                    f"background:{'#1D9E75' if ativo else '#f0f0f0'}; "
-                    f"color:{'white' if ativo else '#888'}; font-size:11px'>"
-                    f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True
-                )
+                cols_f[idx].markdown(
+                    f"<div style='text-align:center;padding:4px;border-radius:6px;"
+                    f"background:{'#1D9E75' if ativo else '#f0f0f0'};"
+                    f"color:{'white' if ativo else '#888'};font-size:11px'>"
+                    f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True)
             st.write("")
-            with st.form(key=f"form_d_{vaga['id']}"):
+            with st.form(key=f"form_dash_{v['id']}"):
                 col_s, col_o = st.columns([2, 3])
-                novo_status = col_s.selectbox("Atualizar status", options=TIMELINE,
+                novo_status = col_s.selectbox("Status", options=TIMELINE,
                     format_func=lambda x: TIMELINE_LABELS[x],
                     index=TIMELINE.index(status_cand) if status_cand in TIMELINE else 0,
-                    key=f"sel_d_{vaga['id']}")
+                    key=f"sel_dash_{v['id']}")
                 observacao = col_o.text_input("Observação",
-                    value="" if str(vaga.get("candidatura_observacao") or "nan") == "nan" else str(vaga.get("candidatura_observacao") or ""),
-                    key=f"obs_d_{vaga['id']}")
+                    value="" if str(v.get("candidatura_observacao") or "nan") == "nan" else str(v.get("candidatura_observacao") or ""),
+                    key=f"obs_dash_{v['id']}")
                 col_s2, col_n2 = st.columns(2)
                 with col_s2:
-                    if st.form_submit_button("Salvar status", use_container_width=True):
-                        atualizar_candidatura(vaga["id"], novo_status, novo_status, observacao)
-                        st.success("Status atualizado!")
+                    if st.form_submit_button("Salvar", use_container_width=True):
+                        atualizar_candidatura(v["id"], novo_status, novo_status, observacao)
+                        st.session_state[f"dialog_v_{v['id']}"] = False
                         st.rerun()
                 with col_n2:
-                    if st.form_submit_button("Negar vaga", use_container_width=True, type="secondary"):
-                        negar_vaga(vaga["id"], observacao or f"Negada em: {status_cand}")
-                        st.warning("Vaga negada.")
+                    if st.form_submit_button("Negar", use_container_width=True, type="secondary"):
+                        negar_vaga(v["id"], observacao or f"Negada em: {status_cand}")
+                        st.session_state[f"dialog_v_{v['id']}"] = False
                         st.rerun()
-            render_remuneracao(vaga)
-            render_diario(vaga["id"])
+            render_remuneracao(v)
+            render_diario(v["id"])
+        mostrar_dash()
 
     st.divider()
     st.subheader("Histórico de execuções")

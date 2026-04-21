@@ -5,7 +5,8 @@ from database.candidaturas import atualizar_candidatura, negar_vaga
 from dashboard.components import (
     carregar_vagas, get_favicon, render_stacks,
     render_score_breakdown, render_diario, calcular_scores_vagas,
-    render_preparacao_entrevista, render_remuneracao, render_checklist_preparacao
+    render_preparacao_entrevista, render_remuneracao, render_checklist_preparacao,
+    render_vaga_card
 )
 
 def render():
@@ -21,6 +22,9 @@ def render():
     so_novas = st.sidebar.checkbox("Só vagas novas (24h)")
     so_nao_inscrito = st.sidebar.checkbox("Só não inscritas")
     modo_compacto = st.sidebar.checkbox("Modo compacto")
+    num_colunas = st.sidebar.select_slider("Colunas", options=[2, 3, 4, 5, 6 ,8, 10], value=4)
+    ordenar_por = st.sidebar.selectbox("Ordenar por", 
+        ["Score ↓", "Score ↑", "Data ↓", "Data ↑", "Empresa A-Z"])
     sla_dias = st.sidebar.number_input("⏰ Alertar sem resposta (dias)", min_value=0, max_value=30, value=0, step=1)
     st.sidebar.divider()
     st.sidebar.header("Filtros")
@@ -105,51 +109,36 @@ def render():
                 c4.markdown(f"<span style='color:#1D9E75;font-size:11px'>{label_status}</span>", unsafe_allow_html=True)
         return
 
+    if ordenar_por == "Score ↓":
+        df_f = df_f.sort_values("score", ascending=False)
+    elif ordenar_por == "Score ↑":
+        df_f = df_f.sort_values("score", ascending=True)
+    elif ordenar_por == "Data ↓":
+        df_f = df_f.sort_values("data_coleta", ascending=False)
+    elif ordenar_por == "Data ↑":
+        df_f = df_f.sort_values("data_coleta", ascending=True)
+    elif ordenar_por == "Empresa A-Z":
+        df_f = df_f.sort_values("empresa", ascending=True)
+
     # ── MODO CARDS (4 por linha) ───────────────────────────────
     vagas_list = list(df_f.iterrows())
-    for i in range(0, len(vagas_list), 4):
-        grupo = vagas_list[i:i+4]
-        cols = st.columns(4)
-        for j in range(4):
+    for i in range(0, len(vagas_list), num_colunas):
+        grupo = vagas_list[i:i+num_colunas]
+        cols = st.columns(num_colunas)
+        for j in range(num_colunas):
             with cols[j]:
                 if j >= len(grupo):
                     st.empty()
                     continue
                 _, vaga = grupo[j]
-                status_icon = "🟢" if str(vaga["ativa"]) == "True" else "🔴"
-                status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
                 score = int(scores.get(vaga["id"], 0))
                 is_nova = str(vaga["data_coleta"])[:10] >= ontem
-                nivel_str = str(vaga['nivel']) if str(vaga['nivel']) not in ['não identificado','nan','None'] else '—'
-                modal_str = str(vaga['modalidade']) if str(vaga['modalidade']) not in ['não identificado','nan','None'] else '—'
-                cor_score = "#1D9E75" if score >= 70 else "#BA7517" if score >= 40 else "#888"
+                render_vaga_card(vaga, score, is_nova, key_prefix="v")
 
-                with st.container(border=True):
-                    col_emp, col_fav = st.columns([6, 0.4])
-                    col_emp.caption(f"{status_icon} {'🆕 ' if is_nova else ''}{vaga['empresa']}")
-                    favicon = get_favicon(vaga["empresa"], vaga.get("favicon_url") or "")
-                    if favicon:
-                        col_fav.image(favicon, width=20)
-
-                    st.markdown(
-                        f"<div style='min-height:48px;overflow:hidden'>"
-                        f"{vaga['titulo'][:100].replace('*','')}"
-                        f"</div>", unsafe_allow_html=True)
-
-                    col_n, col_m, col_s = st.columns([2, 2, 1])
-                    col_n.caption(nivel_str)
-                    col_m.caption(modal_str)
-                    if score > 0:
-                        col_s.markdown(
-                            f"<span style='color:{cor_score};font-weight:700;font-size:12px'>🎯{score}%</span>",
-                            unsafe_allow_html=True)
-
-                    if st.button("▼ detalhes", key=f"btn_{vaga['id']}", use_container_width=True):
-                        st.session_state[f"dialog_{vaga['id']}"] = True
 
     # ── DIALOGS ────────────────────────────────────────────────
     for _, vaga in df_f.iterrows():
-        if not st.session_state.get(f"dialog_{vaga['id']}"):
+        if not st.session_state.get(f"dialog_v_{vaga['id']}"):
             continue
 
         @st.dialog(vaga['titulo'][:60], width="large")

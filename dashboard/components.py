@@ -8,6 +8,8 @@ import duckdb
 from database.score import calcular_score
 from database.candidato import carregar_perfil
 import uuid
+from utils import safe_str, nivel_fmt, modal_fmt, status_badge, cor_score as get_cor_score
+
 
 
 DB_PATH = "data/curated/jobs.duckdb"
@@ -18,6 +20,7 @@ def conectar():
 def conectar_rw():
     return duckdb.connect(DB_PATH)
 
+@st.cache_data
 def get_favicon(nome: str, favicon_url: str = "") -> str:
     nome_arquivo = nome.lower().replace(" ", "_").replace("&", "e")
     caminho_local = f"dashboard/static/favicons/{nome_arquivo}.png"
@@ -97,6 +100,7 @@ def grafico_stacks(df_counts, titulo: str, cor: str):
     fig.update_traces(hovertemplate="<b>%{y}</b><br>%{x} vagas<extra></extra>")
     return fig
 
+@st.cache_data(ttl=60)
 def carregar_vagas():
     con = conectar()
     df = con.execute("""
@@ -115,6 +119,7 @@ def carregar_vagas():
     con.close()
     return df
 
+@st.cache_data(ttl=60)
 def carregar_empresas():
     con = conectar()
     df = con.execute("""
@@ -126,6 +131,7 @@ def carregar_empresas():
     con.close()
     return df
 
+@st.cache_data(ttl=120)
 def carregar_logs():
     con = conectar()
     df = con.execute("""
@@ -163,6 +169,7 @@ def carregar_perfil_empresa(nome: str):
     con.close()
     return empresa, vagas, logs, enderecos
 
+@st.cache_data(ttl=120)
 def calcular_scores_vagas():
     """Retorna dict {id_vaga: score} para todas as vagas ativas."""
     from database.candidato import carregar_perfil
@@ -450,3 +457,43 @@ def render_checklist_preparacao(id_vaga: int):
         for g in gaps:
             st.checkbox(f"{g['stack']}", value=False,
                 key=f"cg_{id_vaga}_{g['stack']}_{g['categoria']}_{uuid.uuid4().hex[:6]}")
+
+def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card"):
+    """Card de vaga reutilizável — usado em Vagas e Dashboard."""
+
+    status_cand = vaga.get("candidatura_status") or "nao_inscrito"
+    status_label, status_cor = status_badge(status_cand, is_nova)
+    nivel_str = nivel_fmt(vaga['nivel'])
+    modal_str = modal_fmt(vaga['modalidade'])
+    score_cor = get_cor_score(score)
+    favicon_url = safe_str(vaga.get("favicon_url"))
+
+    with st.container(border=True):
+        col_fav, col_emp, col_badge = st.columns([0.4, 4.5, 1.5])
+        if favicon_url:
+            col_fav.image(favicon_url, width=16)
+        col_emp.markdown(
+            f"<div style='font-size:12px;color:#888;padding-top:2px'>{vaga['empresa']}</div>",
+            unsafe_allow_html=True)
+        col_badge.markdown(
+            f"<div style='text-align:right'>"
+            f"<span style='background:{status_cor};color:white;font-size:10px;"
+            f"padding:2px 6px;border-radius:10px;font-weight:600'>{status_label}</span>"
+            f"</div>", unsafe_allow_html=True)
+
+        st.markdown(
+            f"<div style='min-height:48px;overflow:hidden'>"
+            f"{vaga['titulo'][:100].replace('*','')}"
+            f"</div>", unsafe_allow_html=True)
+
+        col_n, col_m, col_s = st.columns([2, 2, 1])
+        col_n.caption(nivel_str)
+        col_m.caption(modal_str)
+        if score > 0:
+            col_s.markdown(
+                f"<span style='color:{score_cor};font-weight:700;font-size:12px'>🎯{score}%</span>",
+                unsafe_allow_html=True)
+
+        if st.button("▼ detalhes", key=f"{key_prefix}_{vaga['id']}", use_container_width=True):
+            st.session_state[f"dialog_{key_prefix}_{vaga['id']}"] = True
+
