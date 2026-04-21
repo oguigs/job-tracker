@@ -7,7 +7,7 @@ from dashboard.views import (
     dashboard_page, vagas, cadastrar_vaga, empresas,
     pipeline, configuracoes, vagas_negadas,
     perfil_empresa, contatos, perfil_candidato, 
-    comparativo, tendencias, funil, qualidade
+    comparativo, tendencias, funil, qualidade, fila_inscricao
 )
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
@@ -28,17 +28,18 @@ else:
     ])
     pages = {
         "Dashboard":        dashboard_page.render,
-        "Vagas":            vagas.render,
-        "Comparativo":      comparativo.render,
-        "Cadastrar Vaga":   cadastrar_vaga.render,
-        "Empresas":         empresas.render,
-        "Tendências":       tendencias.render,
-        "Funil":            funil.render,
-        "Indicadores":      contatos.render,
-        "Pipeline":         pipeline.render,
-        "Configurações":    configuracoes.render,
-        "Vagas Negadas":    vagas_negadas.render,
-        "Meu Perfil":       perfil_candidato.render,
-        "Qualidade":        qualidade.render,
+        "Vagas":                vagas.render,
+        "Fila de Inscrição":    fila_inscricao.render,
+        "Comparativo":          comparativo.render,
+        "Cadastrar Vaga":       cadastrar_vaga.render,
+        "Empresas":             empresas.render,
+        "Tendências":           tendencias.render,
+        "Funil":                funil.render,
+        "Indicadores":          contatos.render,
+        "Pipeline":             pipeline.render,
+        "Configurações":        configuracoes.render,
+        "Vagas Negadas":        vagas_negadas.render,
+        "Meu Perfil":           perfil_candidato.render,
+        "Qualidade":            qualidade.render
     }
     pages[pagina]()
