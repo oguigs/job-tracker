@@ -6,8 +6,8 @@ def registrar_log(empresa: str, encontradas: int, novas: int,
     con = conectar()
     id_log = con.execute("SELECT nextval('seq_log')").fetchone()[0]
     con.execute("""
-        INSERT INTO log_coleta (id, empresa, vagas_encontradas, vagas_novas, status, erro)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO log_coleta (id, data_execucao, empresa, vagas_encontradas, vagas_novas, status, erro)
+        VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)
     """, [id_log, empresa, encontradas, novas, status, erro])
     con.close()
 
