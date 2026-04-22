@@ -7,7 +7,7 @@ from dashboard.views import (
     dashboard_page, vagas, cadastrar_vaga, empresas,
     pipeline, configuracoes, vagas_negadas,
     perfil_empresa, contatos, perfil_candidato, 
-    comparativo, tendencias, funil, qualidade, fila_inscricao
+    comparativo, tendencias, funil, qualidade, fila_inscricao, estudos
 )
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
@@ -21,15 +21,27 @@ if empresa_perfil:
     perfil_empresa.render(empresa_perfil)
 else:
     pagina = st.sidebar.radio("Navegação", [
-        "Dashboard", "Vagas", "Fila de Inscrição", "Comparativo", "Tendências", 
-        "Funil", "Cadastrar Vaga",
-        "Empresas", "Indicadores", "Pipeline", "Qualidade",
-        "Configurações", "Vagas Negadas", "Meu Perfil"
+        "Dashboard", 
+        "Vagas", 
+        "Fila de Inscrição", 
+        "Estudos",
+        "Comparativo", 
+        "Tendências", 
+        "Funil", 
+        "Cadastrar Vaga",
+        "Empresas", 
+        "Indicadores", 
+        "Pipeline", 
+        "Qualidade",
+        "Configurações", 
+        "Vagas Negadas", 
+        "Meu Perfil"
     ])
     pages = {
         "Dashboard":        dashboard_page.render,
         "Vagas":                vagas.render,
         "Fila de Inscrição":    fila_inscricao.render,
+        "Estudos":              estudos.render,
         "Comparativo":          comparativo.render,
         "Cadastrar Vaga":       cadastrar_vaga.render,
         "Empresas":             empresas.render,
