@@ -6,139 +6,178 @@ from database.logs import ultima_execucao_sucesso
 from database.schemas import criar_tabelas
 from main import processar_empresa, processar_empresa_greenhouse, processar_empresa_inhire, processar_empresa_smartrecruiters
 
+
+def detectar_plataforma(url: str) -> str:
+    if "gupy.io" in url: return "Gupy"
+    if "greenhouse.io" in url: return "Greenhouse"
+    if "inhire.app" in url: return "Inhire"
+    if "smartrecruiters.com" in url: return "SmartRecruiters"
+    return "—"
+
+
+def processar(nome, url):
+    url = url or ""
+    if "greenhouse.io" in url:
+        slug = url.split("greenhouse.io/")[-1].split("/")[0]
+        return processar_empresa_greenhouse(nome, slug)
+    elif "inhire.app" in url:
+        return processar_empresa_inhire(nome, url)
+    elif "smartrecruiters.com" in url:
+        return processar_empresa_smartrecruiters(nome, url)
+    else:
+        return processar_empresa(nome, url)
+
+
+def rodar_pipeline(empresas, estado, intervalo_min=0):
+    criar_tabelas()
+    total_enc = 0
+    total_nov = 0
+    total = len(empresas)
+
+    for idx, (nome, url) in enumerate(empresas):
+        estado["empresa_atual"] = nome
+        estado["progresso"] = idx / total
+
+        horas = ultima_execucao_sucesso(nome)
+        if horas < 12:
+            estado["log"].append(f"⏭ {nome} — pulada ({horas}h atrás)")
+            continue
+
+        estado["log"].append(f"▶ {nome}...")
+        encontradas, novas, erro = processar(nome, url)
+
+        if erro and "cooldown" not in erro and "bloqueado" not in erro:
+            estado["log"].append(f"✗ {nome} — {erro[:60]}")
+        else:
+            total_enc += encontradas
+            total_nov += novas
+            estado["log"].append(f"✓ {nome} — {encontradas} vagas | {novas} novas")
+
+        if intervalo_min > 0:
+            estado["log"].append(f"⏸ Aguardando {intervalo_min} min...")
+            time.sleep(intervalo_min * 60)
+
+    estado["total_encontradas"] = total_enc
+    estado["total_novas"] = total_nov
+    estado["progresso"] = 1.0
+    estado["empresa_atual"] = ""
+    estado["log"].append("✅ Pipeline concluído!")
+    estado["rodando"] = False
+    estado["concluido"] = True
+
+
 def render():
-    st.title("Pipeline")
-    st.caption("Dispare a coleta de vagas em background e acompanhe o status.")
+    st.title("🔄 Pipeline")
+    st.caption("Coleta automática de vagas em background.")
 
     con = duckdb.connect("data/curated/jobs.duckdb")
     empresas = con.execute("""
         SELECT nome, url_vagas FROM dim_empresa
         WHERE ativa = true AND url_vagas IS NOT NULL
+        ORDER BY nome
     """).fetchall()
     con.close()
 
-    st.metric("Empresas ativas", len(empresas))
-    for nome, url in empresas:
-        st.write(f"- {nome} — `{url}`")
-    st.divider()
-
     if "pipeline_estado" not in st.session_state:
         st.session_state.pipeline_estado = {
-            "rodando": False, "concluido": False,
-            "log": [], "total_encontradas": 0, "total_novas": 0
+            "rodando": False, "concluido": False, "log": [],
+            "total_encontradas": 0, "total_novas": 0,
+            "progresso": 0.0, "empresa_atual": ""
         }
-
     estado = st.session_state.pipeline_estado
 
-    def rodar_em_background(empresas, estado):
-        from main import processar_empresa
-        criar_tabelas()
-        total_encontradas = 0
-        total_novas = 0
-        for nome, url_vagas in empresas:
+    # ── EMPRESAS ativas ────────────────────────────────────────
+    st.subheader(f"Empresas ativas ({len(empresas)})")
+    if empresas:
+        cols = st.columns(5)
+        for i, (nome, url) in enumerate(empresas):
+            plat = detectar_plataforma(url or "")
             horas = ultima_execucao_sucesso(nome)
-            if horas < 12:
-                estado["log"].append(f"⏭ {nome} — pulada (última execução há {horas}h)")
-                continue
-            estado["log"].append(f"▶ Iniciando {nome}...")
-            url = url_vagas or ""
-            if "greenhouse.io" in url:
-                slug = url.split("greenhouse.io/")[-1].split("/")[0]
-                encontradas, novas, erro = processar_empresa_greenhouse(nome, slug)
-            elif "inhire.app" in url:
-                encontradas, novas, erro = processar_empresa_inhire(nome, url)
-            elif "smartrecruiters.com" in url:
-                encontradas, novas, erro = processar_empresa_smartrecruiters(nome, url)
-            else:
-                encontradas, novas, erro = processar_empresa(nome, url)
-            if erro and "cooldown" not in erro:
-                estado["log"].append(f"✗ {nome} — erro: {erro[:60]}")
-            else:
-                total_encontradas += encontradas
-                total_novas += novas
-                estado["log"].append(f"✓ {nome} — {encontradas} vagas | {novas} novas")
-        estado["total_encontradas"] = total_encontradas
-        estado["total_novas"] = total_novas
-        estado["log"].append("✓ Pipeline concluído!")
-        estado["rodando"] = False
-        estado["concluido"] = True
+            cor = "#1D9E75" if horas < 12 else "#378ADD" if horas < 48 else "#888"
+            label = f"{horas}h atrás" if horas < 999 else "nunca"
+            with cols[i % 5]:
+                st.markdown(
+                    f"<div style='border:1px solid #eee;border-radius:8px;padding:8px;margin:2px 0;"
+                    f"border-left:3px solid {cor}'>"
+                    f"<div style='font-size:12px;font-weight:600'>{nome}</div>"
+                    f"<div style='font-size:10px;color:#888'>{plat} · {label}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True)
+    st.divider()
 
-    col_btn1, col_btn2, col_btn3 = st.columns(3)
+    # ── CONTROLES ──────────────────────────────────────────────
+    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns([2, 1, 1, 1])
+
     with col_btn1:
-        if st.button("Rodar pipeline completo", type="primary",
+        if st.button("🚀 Rodar pipeline", type="primary",
                      use_container_width=True, disabled=estado["rodando"]):
-            estado["rodando"] = True
-            estado["concluido"] = False
-            estado["log"] = []
-            estado["total_encontradas"] = 0
-            estado["total_novas"] = 0
-            thread = threading.Thread(
-                target=rodar_em_background, args=(empresas, estado), daemon=True)
-            thread.start()
+            estado.update({"rodando": True, "concluido": False, "log": [],
+                          "total_encontradas": 0, "total_novas": 0,
+                          "progresso": 0.0, "empresa_atual": ""})
+            threading.Thread(target=rodar_pipeline, args=(empresas, estado), daemon=True).start()
             st.rerun()
 
     with col_btn2:
-        intervalo = st.number_input("Intervalo (min)", min_value=1, max_value=60, value=5, step=1)
-        if st.button("Rodar espaçado", use_container_width=True, disabled=estado["rodando"]):
-            estado["rodando"] = True
-            estado["concluido"] = False
-            estado["log"] = []
-            estado["total_encontradas"] = 0
-            estado["total_novas"] = 0
-            def rodar_espacado(empresas, estado, intervalo_min):
-                from main import processar_empresa
-                criar_tabelas()
-                for nome, url_vagas in empresas:
-                    horas = ultima_execucao_sucesso(nome)
-                    if horas < 12:
-                        estado["log"].append(f"⏭ {nome} — pulada ({horas}h)")
-                        continue
-                    estado["log"].append(f"▶ Iniciando {nome}...")
-                    if "greenhouse.io" in (url_vagas or ""):
-                        slug = url_vagas.split("greenhouse.io/")[-1].split("/")[0]
-                        encontradas, novas, erro = processar_empresa_greenhouse(nome, slug)
-                    elif "inhire.app" in (url_vagas or ""):
-                        encontradas, novas, erro = processar_empresa_inhire(nome, url_vagas)
-                    elif "smartrecruiters.com" in (url_vagas or ""):
-                        encontradas, novas, erro = processar_empresa_smartrecruiters(nome, url_vagas)
-                    else:
-                        encontradas, novas, erro = processar_empresa(nome, url_vagas)
-                    if erro and "cooldown" not in erro and "bloqueado" not in erro:
-                        estado["log"].append(f"✗ {nome} — {erro[:60]}")
-                    else:
-                        estado["total_encontradas"] += encontradas
-                        estado["total_novas"] += novas
-                        estado["log"].append(f"✓ {nome} — {encontradas} vagas | {novas} novas")
-                    estado["log"].append(f"⏸ Aguardando {intervalo_min} min...")
-                    import time
-                    time.sleep(intervalo_min * 60)
-                estado["log"].append("✓ Pipeline espaçado concluído!")
-                estado["rodando"] = False
-                estado["concluido"] = True
-            thread = threading.Thread(
-                target=rodar_espacado, args=(empresas, estado, intervalo), daemon=True)
-            thread.start()
-            st.rerun()
+        intervalo = st.number_input("⏱ Intervalo (min)", min_value=0, max_value=60, value=0, step=1,
+            label_visibility="collapsed", help="0 = sem intervalo")
+        st.caption("⏱ intervalo (min)")
 
     with col_btn3:
-        if st.button("Limpar log", use_container_width=True):
-            estado["log"] = []
-            estado["concluido"] = False
-            estado["total_encontradas"] = 0
-            estado["total_novas"] = 0
+        if st.button("⏰ Espaçado", use_container_width=True,
+                     disabled=estado["rodando"] or intervalo == 0):
+            estado.update({"rodando": True, "concluido": False, "log": [],
+                          "total_encontradas": 0, "total_novas": 0,
+                          "progresso": 0.0, "empresa_atual": ""})
+            threading.Thread(target=rodar_pipeline, args=(empresas, estado, intervalo), daemon=True).start()
             st.rerun()
 
+    with col_btn4:
+        if st.button("🗑 Limpar", use_container_width=True, disabled=estado["rodando"]):
+            estado.update({"log": [], "concluido": False,
+                          "total_encontradas": 0, "total_novas": 0})
+            st.rerun()
+
+    # ── STATUS ─────────────────────────────────────────────────
     if estado["rodando"]:
-        st.info("Pipeline rodando em background — você pode navegar normalmente.")
+        st.divider()
+        emp_atual = estado.get("empresa_atual", "")
+        prog = estado.get("progresso", 0.0)
+        st.info(f"⚙️ Processando: **{emp_atual}**" if emp_atual else "⚙️ Iniciando...")
+        st.progress(prog)
+        st.caption(f"{round(prog * 100)}% concluído")
+
     if estado["concluido"]:
+        st.divider()
         col1, col2 = st.columns(2)
         col1.metric("Vagas encontradas", estado["total_encontradas"])
         col2.metric("Vagas novas", estado["total_novas"])
-        st.success("Pipeline concluído!")
+        st.success("✅ Pipeline concluído!")
+
+    # ── LOG ────────────────────────────────────────────────────
     if estado["log"]:
         st.divider()
-        st.write("**Log de execução:**")
-        st.code("\n".join(estado["log"]), language=None)
+        st.subheader("Log")
+        log_html = ""
+        for linha in estado["log"]:
+            if linha.startswith("✓"):
+                cor = "#1D9E75"
+            elif linha.startswith("✗"):
+                cor = "#D85A30"
+            elif linha.startswith("⏭"):
+                cor = "#888"
+            elif linha.startswith("▶"):
+                cor = "#378ADD"
+            elif linha.startswith("⏸"):
+                cor = "#BA7517"
+            else:
+                cor = "#1D9E75"
+            log_html += f"<div style='font-size:12px;color:{cor};padding:1px 0'>{linha}</div>"
+
+        st.markdown(
+            f"<div style='background:#f8f8f8;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto'>"
+            f"{log_html}</div>",
+            unsafe_allow_html=True)
+
     if estado["rodando"]:
-        time.sleep(3)
+        time.sleep(2)
         st.rerun()
