@@ -495,5 +495,6 @@ def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card"):
                 unsafe_allow_html=True)
 
         if st.button("▼ detalhes", key=f"{key_prefix}_{vaga['id']}", use_container_width=True):
-            st.session_state[f"dialog_{key_prefix}_{vaga['id']}"] = True
+            st.session_state[f"dialog_{key_prefix}_{int(vaga['id'])}"] = True
+            st.session_state[f"dialog_{key_prefix}_atual"] = int(vaga['id'])
 

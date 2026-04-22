@@ -42,4 +42,9 @@ else:
         "Meu Perfil":           perfil_candidato.render,
         "Qualidade":            qualidade.render
     }
+    if st.session_state.get("pagina_atual") != pagina:
+        for key in list(st.session_state.keys()):
+            if key.startswith("dialog_"):
+                st.session_state[key] = False
+        st.session_state["pagina_atual"] = pagina
     pages[pagina]()
