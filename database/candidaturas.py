@@ -34,7 +34,18 @@ def salvar_remuneracao(id_vaga: int, regime: str, moeda: str,
                        tem_vt: bool, valor_vt: int,
                        tem_plano_saude: bool, tem_gympass: bool,
                        tem_convenio_medico: bool, tem_convenio_odonto: bool,
-                       tem_prev_privada: bool, outros_beneficios: str):
+                       tem_prev_privada: bool, outros_beneficios: str,
+                       tem_sal13: bool = False,
+                       tem_plr: bool = False, valor_plr: int = 0,
+                       tem_bonus: bool = False, valor_bonus: int = 0):
+    sal_mensal_total = (salario_mensal
+                        + (valor_vr if tem_vr else 0)
+                        + (valor_va if tem_va else 0)
+                        + (valor_vt if tem_vt else 0))
+    sal_anual = ((salario_mensal * 12)
+                 + (salario_mensal if tem_sal13 else 0)
+                 + (valor_plr if tem_plr else 0)
+                 + (valor_bonus if tem_bonus else 0))
     with db_connect() as con:
         con.execute("""
             UPDATE fact_vaga SET
@@ -42,10 +53,15 @@ def salvar_remuneracao(id_vaga: int, regime: str, moeda: str,
                 tem_vr=?, valor_vr=?, tem_va=?, valor_va=?,
                 tem_vt=?, valor_vt=?, tem_plano_saude=?, tem_gympass=?,
                 tem_convenio_medico=?, tem_convenio_odonto=?,
-                tem_prev_privada=?, outros_beneficios=?
+                tem_prev_privada=?, outros_beneficios=?,
+                tem_sal13=?, tem_plr=?, valor_plr=?,
+                tem_bonus=?, valor_bonus=?,
+                salario_min=?, salario_max=?
             WHERE id=?
-        """, [regime, moeda, salario_mensal, salario_anual_total,
+        """, [regime, moeda, salario_mensal, sal_mensal_total,
               tem_vr, valor_vr, tem_va, valor_va, tem_vt, valor_vt,
               tem_plano_saude, tem_gympass, tem_convenio_medico,
               tem_convenio_odonto, tem_prev_privada, outros_beneficios,
+              tem_sal13, tem_plr, valor_plr, tem_bonus, valor_bonus,
+              sal_mensal_total, sal_anual,
               id_vaga])

@@ -206,20 +206,42 @@ def render_remuneracao(vaga: dict):
             tem_plano_saude = st.checkbox("Plano de saúde", value=_sb(vaga.get("tem_plano_saude")), key=f"tps_{vaga['id']}")
             tem_gympass = st.checkbox("Gympass", value=_sb(vaga.get("tem_gympass")), key=f"tgym_{vaga['id']}")
             tem_convenio_medico = st.checkbox("Convênio médico", value=_sb(vaga.get("tem_convenio_medico")), key=f"tcm_{vaga['id']}")
+            tem_sal13 = st.checkbox("13º salário", value=_sb(vaga.get("tem_sal13")), key=f"tsal13_{vaga['id']}")
         with col_c:
             tem_convenio_odonto = st.checkbox("Convênio odontológico", value=_sb(vaga.get("tem_convenio_odonto")), key=f"tco_{vaga['id']}")
             tem_prev_privada = st.checkbox("Previdência privada", value=_sb(vaga.get("tem_prev_privada")), key=f"tpp_{vaga['id']}")
-        outros = st.text_input("Outros benefícios", value=_ss(vaga.get("outros_beneficios")),
-            placeholder="Ex: stock options, day off...", key=f"outros_{vaga['id']}")
+            tem_plr = st.checkbox("PLR", value=_sb(vaga.get("tem_plr")), key=f"tplr_{vaga['id']}")
+            valor_plr = st.number_input("Valor PLR", min_value=0, step=500, value=_si(vaga.get("valor_plr")), key=f"vplr_{vaga['id']}")
+            tem_bonus = st.checkbox("Bônus", value=_sb(vaga.get("tem_bonus")), key=f"tbonus_{vaga['id']}")
+            valor_bonus = st.number_input("Valor bônus", min_value=0, step=500, value=_si(vaga.get("valor_bonus")), key=f"vbonus_{vaga['id']}")
+            outros = st.text_input("Outros benefícios", value=_ss(vaga.get("outros_beneficios")),
+                placeholder="Ex: stock options, day off...", key=f"outros_{vaga['id']}")
+            # cálculo automático
+            sal_mensal_total = salario_mensal + (valor_vr if tem_vr else 0) + (valor_va if tem_va else 0) + (valor_vt if tem_vt else 0)
+            sal_anual = (salario_mensal * 12) + (salario_mensal if tem_sal13 else 0) + (valor_plr if tem_plr else 0) + (valor_bonus if tem_bonus else 0)
+
+        # totais calculados automaticamente
+        if salario_mensal > 0:
+            sal_mensal_total = salario_mensal + (valor_vr if tem_vr else 0) + (valor_va if tem_va else 0) + (valor_vt if tem_vt else 0)
+            sal_anual = (salario_mensal * 12) + (salario_mensal if tem_sal13 else 0) + (valor_plr if tem_plr else 0) + (valor_bonus if tem_bonus else 0)
+            st.divider()
+            col_t1, col_t2 = st.columns(2)
+            col_t1.metric("💰 Mensal total", f"R$ {sal_mensal_total:,.0f}")
+            col_t2.metric("📅 Anual total", f"R$ {sal_anual:,.0f}")
+        
+        
         if st.form_submit_button("Salvar remuneração", use_container_width=True):
             salvar_remuneracao(
                 id_vaga=vaga["id"], regime=regime, moeda=moeda,
-                salario_mensal=salario_mensal, salario_anual_total=salario_anual_total,
+                salario_mensal=salario_mensal, salario_anual_total=salario_mensal,
                 tem_vr=tem_vr, valor_vr=valor_vr, tem_va=tem_va, valor_va=valor_va,
                 tem_vt=tem_vt, valor_vt=valor_vt, tem_plano_saude=tem_plano_saude,
                 tem_gympass=tem_gympass, tem_convenio_medico=tem_convenio_medico,
                 tem_convenio_odonto=tem_convenio_odonto, tem_prev_privada=tem_prev_privada,
-                outros_beneficios=outros)
+                outros_beneficios=outros,
+                tem_sal13=tem_sal13, tem_plr=tem_plr, valor_plr=valor_plr,
+                tem_bonus=tem_bonus, valor_bonus=valor_bonus
+            )
             st.success("Remuneração salva!")
             st.rerun()
 

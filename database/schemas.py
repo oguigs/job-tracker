@@ -48,7 +48,7 @@ def criar_tabelas():
             ramo             VARCHAR,
             cidade           VARCHAR,
             estado           VARCHAR,
-            url_vagas         VARCHAR,
+            url_vagas        VARCHAR,
             url_linkedin     VARCHAR,
             url_site_vagas   VARCHAR,
             url_site_oficial VARCHAR,
@@ -60,13 +60,24 @@ def criar_tabelas():
     con.execute("CREATE SEQUENCE IF NOT EXISTS seq_empresa START 1")
 
     con.execute("""
+        CREATE TABLE IF NOT EXISTS dim_empresa_endereco (
+            id          INTEGER PRIMARY KEY,
+            id_empresa  INTEGER,
+            cidade      VARCHAR,
+            bairro      VARCHAR
+        )
+    """)
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_endereco START 1")
+
+    con.execute("""
         CREATE TABLE IF NOT EXISTS fact_vaga (
             id                     INTEGER PRIMARY KEY,
             hash                   VARCHAR UNIQUE,
             titulo                 VARCHAR,
             nivel                  VARCHAR,
             modalidade             VARCHAR,
-            stacks                 JSON,
+            stacks                 VARCHAR,
+            descricao              VARCHAR,
             link                   VARCHAR,
             fonte                  VARCHAR,
             id_empresa             INTEGER,
@@ -74,48 +85,69 @@ def criar_tabelas():
             ativa                  BOOLEAN DEFAULT true,
             data_encerramento      DATE,
             negada                 BOOLEAN DEFAULT false,
+            urgente                BOOLEAN DEFAULT false,
             candidatura_status     VARCHAR DEFAULT 'nao_inscrito',
             candidatura_fase       VARCHAR,
             candidatura_observacao VARCHAR,
             candidatura_data       DATE,
             origem                 VARCHAR,
-            contato                VARCHAR
+            contato                VARCHAR,
+            regime                 VARCHAR,
+            moeda                  VARCHAR,
+            salario_min            INTEGER,
+            salario_max            INTEGER,
+            salario_mensal         INTEGER,
+            salario_anual_total    INTEGER,
+            tem_vr                 BOOLEAN DEFAULT false,
+            valor_vr               INTEGER,
+            tem_va                 BOOLEAN DEFAULT false,
+            valor_va               INTEGER,
+            tem_vt                 BOOLEAN DEFAULT false,
+            valor_vt               INTEGER,
+            tem_plano_saude        BOOLEAN DEFAULT false,
+            tem_gympass            BOOLEAN DEFAULT false,
+            tem_convenio_medico    BOOLEAN DEFAULT false,
+            tem_convenio_odonto    BOOLEAN DEFAULT false,
+            tem_prev_privada       BOOLEAN DEFAULT false,
+            outros_beneficios      VARCHAR,
+            tem_sal13              BOOLEAN DEFAULT false,
+            tem_plr                BOOLEAN DEFAULT false,
+            valor_plr              INTEGER,
+            tem_bonus              BOOLEAN DEFAULT false,
+            valor_bonus            INTEGER,
+            
         )
     """)
     con.execute("CREATE SEQUENCE IF NOT EXISTS seq_vaga START 1")
 
     con.execute("""
-        CREATE TABLE IF NOT EXISTS log_coleta (
-            id                INTEGER PRIMARY KEY,
-            data_execucao     TIMESTAMP DEFAULT current_timestamp,
-            empresa           VARCHAR,
-            vagas_encontradas INTEGER,
-            vagas_novas       INTEGER,
-            status            VARCHAR,
-            erro              VARCHAR
+        CREATE TABLE IF NOT EXISTS dim_candidato (
+            id               INTEGER PRIMARY KEY,
+            nome             VARCHAR,
+            email            VARCHAR,
+            linkedin         VARCHAR,
+            cidade           VARCHAR,
+            nivel            VARCHAR,
+            modalidade_pref  VARCHAR,
+            pretensao_min    INTEGER,
+            pretensao_max    INTEGER,
+            resumo           VARCHAR,
+            data_atualizacao DATE DEFAULT current_date
         )
     """)
-    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_log START 1")
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_candidato START 1")
 
     con.execute("""
-        CREATE TABLE IF NOT EXISTS dim_empresa_endereco (
-            id         INTEGER PRIMARY KEY,
-            id_empresa INTEGER,
-            cidade     VARCHAR,
-            bairro     VARCHAR
-        )
-    """)
-    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_endereco START 1")
-
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS config_filtros (
+        CREATE TABLE IF NOT EXISTS dim_candidato_stack (
             id           INTEGER PRIMARY KEY,
-            tipo         VARCHAR,
-            termo        VARCHAR,
-            data_criacao DATE DEFAULT current_date
+            id_candidato INTEGER,
+            stack        VARCHAR,
+            categoria    VARCHAR,
+            nivel_stack  VARCHAR,
+            anos_exp     INTEGER
         )
     """)
-    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_filtro START 1")
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_candidato_stack START 1")
 
     con.execute("""
         CREATE TABLE IF NOT EXISTS dim_contato (
@@ -130,5 +162,49 @@ def criar_tabelas():
     """)
     con.execute("CREATE SEQUENCE IF NOT EXISTS seq_contato START 1")
 
-    print("Tabelas criadas com sucesso")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS log_coleta (
+            id                INTEGER PRIMARY KEY,
+            data_execucao     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            empresa           VARCHAR,
+            vagas_encontradas INTEGER,
+            vagas_novas       INTEGER,
+            status            VARCHAR,
+            erro              VARCHAR
+        )
+    """)
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_log START 1")
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS log_candidatura (
+            id        INTEGER PRIMARY KEY,
+            id_vaga   INTEGER,
+            data_nota DATE DEFAULT current_date,
+            nota      VARCHAR
+        )
+    """)
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_log_candidatura START 1")
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS config_filtros (
+            id           INTEGER PRIMARY KEY,
+            tipo         VARCHAR,
+            termo        VARCHAR,
+            data_criacao DATE DEFAULT current_date
+        )
+    """)
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_filtro START 1")
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS snapshot_mercado (
+            id         INTEGER PRIMARY KEY,
+            data_ref   DATE DEFAULT current_date,
+            stack      VARCHAR,
+            categoria  VARCHAR,
+            quantidade INTEGER
+        )
+    """)
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_snapshot START 1")
+
     con.close()
+    print("Tabelas criadas com sucesso")
