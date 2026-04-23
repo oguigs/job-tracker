@@ -12,6 +12,7 @@ from database.snapshots import salvar_snapshot
 from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
 from scrapers.inhire_scraper import buscar_vagas_inhire
 from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
+from database.connection import DB_PATH, conectar
 import requests, html, re
 TIMEOUT_EMPRESA_SEGUNDOS = 300
 

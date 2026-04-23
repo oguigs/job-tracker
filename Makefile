@@ -7,7 +7,7 @@ pipeline:
 	cd ~/job-tracker && source .venv/bin/activate && python main.py
 
 backup:
-	cd ~/job-tracker && source .venv/bin/activate && python -c "from database.backup import fazer_backup; fazer_backup()"
+	cd ~/job-tracker && source .venv/bin/activate && python -c "from database.schemas import fazer_backup; fazer_backup()"
 
 clean:
 	find . -name "*.pyc" -delete

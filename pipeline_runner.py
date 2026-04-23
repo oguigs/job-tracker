@@ -107,8 +107,8 @@ def rodar_pipeline_visual():
             log_etapa("Extraindo stacks", "iniciando")
             from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
             from database.empresas import upsert_empresa, gerar_hash
-from database.vagas import inserir_vaga, verificar_vagas_encerradas
-from database.logs import registrar_log
+            from database.vagas import inserir_vaga, verificar_vagas_encerradas
+            from database.logs import registrar_log
             import duckdb as ddb
 
             id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)

@@ -129,7 +129,7 @@ def render():
                                  ativa, data_cadastro, favicon_url, url_site_oficial)
                                 VALUES (?, ?, ?, ?, ?, ?, true, ?, ?, ?)
                             """, [id_novo, nome, ramo, cidade, estado,
-                                  url_gupy or url_greenhouse_url or url_inhire or "",
+                                  url_vagas,
                                   date.today(), favicon_url, url_site_oficial])
                             con.close()
                             st.session_state.modal_dados = {}
