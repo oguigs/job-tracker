@@ -202,12 +202,16 @@ def render():
             if not topicos_filtrados:
                 continue
 
-            with st.expander(f"{categoria} ({len(topicos_filtrados)})", expanded=False):
+            exp_key = f"exp_{categoria[:10]}"
+            if exp_key not in st.session_state:
+                st.session_state[exp_key] = False
+            with st.expander(f"{categoria} ({len(topicos_filtrados)})", 
+                           expanded=st.session_state.get(exp_key, False)):
                 for topico, (info, key, status_atual) in topicos_filtrados.items():
                     prio = info["prioridade"]
                     cor_prio = "#1D9E75" if prio == "alta" else "#BA7517" if prio == "media" else "#888"
 
-                    col_t, col_p, col_s = st.columns([4, 1, 2])
+                    col_t, col_p, col_b1, col_b2, col_b3 = st.columns([4, 1, 1, 1, 1])
                     col_t.markdown(f"**{topico}**")
                     col_t.caption(info["desc"])
                     col_p.markdown(
@@ -215,16 +219,24 @@ def render():
                         f"<span style='background:{cor_prio};color:white;font-size:10px;"
                         f"padding:2px 6px;border-radius:8px'>{prio}</span></div>",
                         unsafe_allow_html=True)
-
-                    novo_status = col_s.selectbox(
-                        "", STATUS_OPTIONS,
-                        index=STATUS_OPTIONS.index(status_atual) if status_atual in STATUS_OPTIONS else 0,
-                        key=f"sel_{key}"
-                    )
-                    if novo_status != status_atual:
-                        salvar_status_topico(key, novo_status)
+                    if col_b1.button("⬜", key=f"b1_{key}", use_container_width=True,
+                                     type="primary" if status_atual == "⬜ Para estudar" else "secondary",
+                                     help="Para estudar"):
+                        salvar_status_topico(key, "⬜ Para estudar")
+                        st.session_state[f"exp_{categoria[:10]}"] = True
                         st.rerun()
-
+                    if col_b2.button("📖", key=f"b2_{key}", use_container_width=True,
+                                     type="primary" if status_atual == "📖 Estudando" else "secondary",
+                                     help="Estudando"):
+                        salvar_status_topico(key, "📖 Estudando")
+                        st.session_state[f"exp_{categoria[:10]}"] = True
+                        st.rerun()
+                    if col_b3.button("✅", key=f"b3_{key}", use_container_width=True,
+                                     type="primary" if status_atual == "✅ Concluído" else "secondary",
+                                     help="Concluído"):
+                        salvar_status_topico(key, "✅ Concluído")
+                        st.session_state[f"exp_{categoria[:10]}"] = True
+                        st.rerun()
                     st.divider()
 
     # ── TAB LIVROS ─────────────────────────────────────────────
