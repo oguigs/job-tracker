@@ -9,63 +9,10 @@ from dashboard.components import (
     render_score_breakdown, render_diario, render_remuneracao,
     render_checklist_preparacao, render_vaga_card
 )
-
+from dashboard.ui_components import render_dialog_vaga
 
 def _dialog_dash(v):
-    status_cand = v.get("candidatura_status") or "nao_inscrito"
-    label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
-    data_fmt_v = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
-
-    col_info, col_link = st.columns([5, 1])
-    col_info.caption(f"📅 {data_fmt_v} · {v['empresa']} · {label_status}")
-    col_link.link_button("🔗 Ver vaga", v["link"], use_container_width=True)
-
-    tab_score, tab_cand, tab_rem, tab_diario = st.tabs([
-        "📊 Score & Stacks", "📋 Candidatura", "💰 Remuneração", "📓 Diário"
-    ])
-
-    with tab_score:
-        render_score_breakdown(int(v["id"]))
-        render_checklist_preparacao(int(v["id"]))
-        render_stacks(v["stacks"])
-
-    with tab_cand:
-        fases = ["nao_inscrito","inscrito","chamado","recrutador","fase_1","fase_2","fase_3"]
-        cols_f = st.columns(len(fases))
-        for idx, fase in enumerate(fases):
-            ativo = fase == status_cand
-            cols_f[idx].markdown(
-                f"<div style='text-align:center;padding:4px;border-radius:6px;"
-                f"background:{'#1D9E75' if ativo else '#f0f0f0'};"
-                f"color:{'white' if ativo else '#888'};font-size:11px'>"
-                f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True)
-        st.write("")
-        with st.form(key=f"form_dash_{v['id']}"):
-            col_s, col_o = st.columns([2, 3])
-            novo_status = col_s.selectbox("Status", options=TIMELINE,
-                format_func=lambda x: TIMELINE_LABELS[x],
-                index=TIMELINE.index(status_cand) if status_cand in TIMELINE else 0,
-                key=f"sel_dash_{v['id']}")
-            observacao = col_o.text_input("Observação",
-                value="" if str(v.get("candidatura_observacao") or "nan") == "nan" else str(v.get("candidatura_observacao") or ""),
-                key=f"obs_dash_{v['id']}")
-            col_s2, col_n2 = st.columns(2)
-            with col_s2:
-                if st.form_submit_button("Salvar", use_container_width=True):
-                    atualizar_candidatura(int(v["id"]), novo_status, novo_status, observacao)
-                    st.session_state["dialog_dash_atual"] = None
-                    st.rerun()
-            with col_n2:
-                if st.form_submit_button("Negar", use_container_width=True, type="secondary"):
-                    negar_vaga(int(v["id"]), observacao or f"Negada em: {status_cand}")
-                    st.session_state["dialog_dash_atual"] = None
-                    st.rerun()
-
-    with tab_rem:
-        render_remuneracao(v)
-
-    with tab_diario:
-        render_diario(int(v["id"]))
+    render_dialog_vaga(v, prefix="dash")
 
 
 def render():
