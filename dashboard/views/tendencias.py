@@ -53,7 +53,6 @@ def render():
                 df_total = (df_top.groupby("stack")["quantidade"]
                             .sum().reset_index()
                             .sort_values("quantidade", ascending=True))
-                import plotly.express as px
                 fig = px.bar(df_total, x="quantidade", y="stack",
                     orientation="h", title=f"Stacks — {categoria_sel} (snapshot único)",
                     color_discrete_sequence=[CATEGORIA_CORES.get(categoria_sel, "#888")],
