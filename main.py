@@ -12,7 +12,7 @@ from database.snapshots import salvar_snapshot
 from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
 from scrapers.inhire_scraper import buscar_vagas_inhire
 from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
-from database.connection import DB_PATH, conectar
+from database.connection import DB_PATH, conectar, db_connect
 import requests, html, re
 TIMEOUT_EMPRESA_SEGUNDOS = 300
 
@@ -150,11 +150,10 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
                 modalidade_coletada=vaga.get("modalidade", "não identificado")
             )
 
-            con_check = conectar()
-            negada = con_check.execute("""
-                SELECT id FROM fact_vaga WHERE hash = ? AND negada = true
-            """, [gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])]).fetchone()
-            con_check.close()
+            with db_connect(read_only=True) as con_check:
+                negada = con_check.execute("""
+                    SELECT id FROM fact_vaga WHERE hash = ? AND negada = true
+                """, [gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])]).fetchone()
 
             if negada:
                 continue
@@ -198,9 +197,8 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
             vaga["nivel"] = detectar_nivel(vaga["titulo"])
             vaga["empresa"] = nome
             h = gerar_hash(vaga["titulo"], nome, vaga["link"])
-            con_check = conectar()
-            existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
-            con_check.close()
+            with db_connect(read_only=True) as con_check:
+                existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
             if existe:
                 continue
             if inserir_vaga(vaga, id_empresa):
@@ -234,11 +232,11 @@ def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, st
 def rodar_pipeline() -> None:
     criar_tabelas()
     
-    con = conectar()
-    empresas = con.execute("""
-        SELECT nome, url_vagas FROM dim_empresa
-        WHERE ativa = true AND url_vagas IS NOT NULL AND url_vagas != ''
-    """).fetchall()
+    with db_connect(read_only=True) as con:
+        empresas = con.execute("""
+            SELECT nome, url_vagas FROM dim_empresa
+            WHERE ativa = true AND url_vagas IS NOT NULL AND url_vagas != ''
+        """).fetchall()
     con.close()
 
     if not empresas:

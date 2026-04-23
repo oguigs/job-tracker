@@ -6,6 +6,10 @@ from dashboard.stack_config import get_stack_icon_url, get_stack_roadmap_url, ge
 from database.score import calcular_score
 from database.candidato import carregar_perfil
 from utils import safe_str, nivel_fmt, modal_fmt, status_badge, cor_score as get_cor_score
+from database.diario import adicionar_nota, listar_notas, deletar_nota
+from database.contatos import listar_contatos
+from database.connection import db_connect
+from database.candidaturas import salvar_remuneracao
 
 
 @st.cache_data
@@ -91,7 +95,7 @@ def render_score_breakdown(id_vaga: int):
 
 
 def render_diario(id_vaga: int):
-    from database.diario import adicionar_nota, listar_notas, deletar_nota
+
     st.divider()
     st.write("**Diário de candidatura:**")
     df_notas = listar_notas(id_vaga)
@@ -118,11 +122,10 @@ def render_preparacao_entrevista(id_vaga: int, id_empresa_nome: str, status_cand
     fases_entrevista = ["chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
     if status_cand not in fases_entrevista:
         return
-    from database.contatos import listar_contatos
-    from database.connection import conectar
-    con = conectar()
-    id_empresa = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [id_empresa_nome]).fetchone()
-    con.close()
+
+
+    with db_connect(read_only=True) as con:
+        id_empresa = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [id_empresa_nome]).fetchone()
     if not id_empresa:
         return
     id_empresa = id_empresa[0]
@@ -162,7 +165,7 @@ def render_preparacao_entrevista(id_vaga: int, id_empresa_nome: str, status_cand
 
 
 def render_remuneracao(vaga: dict):
-    from database.candidaturas import salvar_remuneracao
+
 
     def _si(val):
         try: return 0 if val is None or str(val) == 'nan' else int(val)

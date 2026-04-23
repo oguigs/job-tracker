@@ -3,7 +3,8 @@ import streamlit as st
 from database.vagas import inserir_vaga_manual
 from database.empresas import inserir_endereco
 from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
-from dashboard.components import conectar, conectar_rw, render_stacks
+from database.connection import db_connect
+from dashboard.ui_components import render_stacks
 from datetime import date
 
 
@@ -11,12 +12,9 @@ def render():
     st.title("Cadastrar vaga manualmente")
     st.caption("Para vagas recebidas por indicação, headhunter ou LinkedIn direto.")
 
-    con = conectar()
-    empresas_db = con.execute("""
-        SELECT id, nome FROM dim_empresa WHERE ativa = true ORDER BY nome
-    """).fetchall()
-    con.close()
-
+    with db_connect(read_only=True) as con:
+        empresas_db = con.execute("SELECT id, nome FROM dim_empresa ORDER BY nome").fetchall()
+    
     nomes_empresas = [e[1] for e in empresas_db]
     mapa_empresas = {e[1]: e[0] for e in empresas_db}
 
@@ -117,8 +115,8 @@ def render():
                         if url_site_oficial:
                             dominio = url_site_oficial.replace("https://www.", "").replace("https://", "").split("/")[0]
                             favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
-                        con = conectar_rw()
-                        existente = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [nome]).fetchone()
+                        with db_connect() as con:   
+                            existente = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [nome]).fetchone()
                         if existente:
                             st.warning(f"{nome} já está cadastrada.")
                         else:
@@ -131,7 +129,6 @@ def render():
                             """, [id_novo, nome, ramo, cidade, estado,
                                   url_vagas,
                                   date.today(), favicon_url, url_site_oficial])
-                            con.close()
                             st.session_state.modal_dados = {}
                             st.success(f"{nome} cadastrada!")
                             st.rerun()

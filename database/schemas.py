@@ -2,7 +2,7 @@ import shutil
 from database.connection import DB_PATH
 import os
 from datetime import datetime
-from database.connection import conectar
+from database.connection import conectar, db_connect
 
 BACKUP_DIR = "data/curated/backups"
 MAX_BACKUPS = 7

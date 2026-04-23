@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-from database.connection import conectar
+from database.connection import db_connect
 
 ESTUDOS = {
     "🔤 Fundamentos": {
@@ -83,10 +83,9 @@ def get_status_key(categoria, topico):
     return f"estudo_{categoria[:10]}_{topico[:15]}".replace(" ","_").replace("/","_")
 
 def carregar_todos_status():
-    con = conectar()
     try:
-        rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'estudo_status'").fetchall()
-        con.close()
+        with db_connect(read_only=True) as con:
+            rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'estudo_status'").fetchall()
         result = {}
         for (termo,) in rows:
             if "=" in termo:
@@ -94,23 +93,20 @@ def carregar_todos_status():
                 result[k] = v
         return result
     except Exception:
-        con.close()
         return {}
 
 def salvar_status_topico(key, novo_status):
-    con = conectar()
     try:
-        con.execute("DELETE FROM config_filtros WHERE tipo='estudo_status' AND termo LIKE ?", [f"{key}=%"])
-        con.execute("INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'estudo_status', ?)", [f"{key}={novo_status}"])
+        with db_connect() as con:
+            con.execute("DELETE FROM config_filtros WHERE tipo='estudo_status' AND termo LIKE ?", [f"{key}=%"])
+            con.execute("INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'estudo_status', ?)", [f"{key}={novo_status}"])
     except Exception as e:
         st.error(f"Erro ao salvar: {e}")
-    con.close()
 
 def carregar_livros():
-    con = conectar()
     try:
-        rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'livro'").fetchall()
-        con.close()
+        with db_connect(read_only=True) as con:
+            rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'livro'").fetchall()
         livros = []
         for (termo,) in rows:
             try:
@@ -119,49 +115,45 @@ def carregar_livros():
                 pass
         return livros
     except Exception:
-        con.close()
         return []
 
 def salvar_livro(livro: dict):
-    con = conectar()
     try:
-        con.execute("INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'livro', ?)", [json.dumps(livro)])
+        with db_connect() as con:
+            con.execute("INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'livro', ?)", [json.dumps(livro)])
     except Exception as e:
         st.error(f"Erro ao salvar livro: {e}")
-    con.close()
 
 def atualizar_livro(livro_id: str, pagina_atual: int):
-    con = conectar()
     try:
-        rows = con.execute("SELECT id, termo FROM config_filtros WHERE tipo='livro'").fetchall()
-        for row_id, termo in rows:
-            try:
-                l = json.loads(termo)
-                if l.get("id") == livro_id:
-                    l["pagina_atual"] = pagina_atual
-                    con.execute("UPDATE config_filtros SET termo=? WHERE id=?", [json.dumps(l), row_id])
-                    break
-            except Exception:
-                pass
+        with db_connect() as con:
+            rows = con.execute("SELECT id, termo FROM config_filtros WHERE tipo='livro'").fetchall()
+            for row_id, termo in rows:
+                try:
+                    l = json.loads(termo)
+                    if l.get("id") == livro_id:
+                        l["pagina_atual"] = pagina_atual
+                        con.execute("UPDATE config_filtros SET termo=? WHERE id=?", [json.dumps(l), row_id])
+                        break
+                except Exception:
+                    pass
     except Exception as e:
         st.error(f"Erro: {e}")
-    con.close()
 
 def deletar_livro(livro_id: str):
-    con = conectar()
     try:
-        rows = con.execute("SELECT id, termo FROM config_filtros WHERE tipo='livro'").fetchall()
-        for row_id, termo in rows:
-            try:
-                l = json.loads(termo)
-                if l.get("id") == livro_id:
-                    con.execute("DELETE FROM config_filtros WHERE id=?", [row_id])
-                    break
-            except Exception:
-                pass
+        with db_connect() as con:
+            rows = con.execute("SELECT id, termo FROM config_filtros WHERE tipo='livro'").fetchall()
+            for row_id, termo in rows:
+                try:
+                    l = json.loads(termo)
+                    if l.get("id") == livro_id:
+                        con.execute("DELETE FROM config_filtros WHERE id=?", [row_id])
+                        break
+                except Exception:
+                    pass
     except Exception:
         pass
-    con.close()
 
 
 def render():
