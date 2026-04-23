@@ -3,7 +3,7 @@ from database.candidato import (
     salvar_perfil, carregar_perfil,
     salvar_stack, carregar_stacks, deletar_stack
 )
-
+from dashboard.ui_components import render_empty_state
 NIVEIS = ["Junior", "Pleno", "Sênior", "Especialista"]
 MODALIDADES = ["Remoto", "Híbrido", "Presencial", "Indiferente"]
 NIVEIS_STACK = ["Básico", "Intermediário", "Avançado", "Especialista"]
@@ -86,7 +86,11 @@ def render():
                     st.rerun()
 
         if df_stacks.empty:
-            st.info("Nenhuma stack cadastrada ainda.")
+            render_empty_state(
+                "Nenhuma stack cadastrada",
+                "Adicione suas stacks para calcular o score de fit com as vagas coletadas.",
+                "Adicionar stacks", "Meu Perfil"
+            )
             return
 
         st.divider()

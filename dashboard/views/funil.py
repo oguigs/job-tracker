@@ -28,7 +28,12 @@ def render():
         """).df()
 
     if df.empty:
-        st.info("Nenhuma candidatura registrada ainda.")
+        from dashboard.ui_components import render_empty_state
+        render_empty_state(
+            "Nenhuma candidatura ainda",
+            "Candidate-se às vagas na Fila de Inscrição e acompanhe seu progresso aqui.",
+            "Ir para Fila de Inscrição", "Fila de Inscrição"
+        )
         return
 
     conv = df_conv.iloc[0]

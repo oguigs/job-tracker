@@ -2,7 +2,7 @@ import streamlit as st
 import plotly.express as px
 from database.connection import db_connect
 from dashboard.charts import extrair_stacks_flat, grafico_stacks
-
+from dashboard.ui_components import render_empty_state
 
 def render():
     st.title("Comparativo entre empresas")
@@ -17,7 +17,11 @@ def render():
         """).fetchall()]
 
     if len(nomes) < 2:
-        st.info("Cadastre pelo menos 2 empresas com vagas para usar o comparativo.")
+        render_empty_state(
+            "Empresas insuficientes",
+            "Cadastre pelo menos 2 empresas com vagas coletadas para usar o comparativo.",
+            "Ir para Empresas", "Empresas"
+        )
         return
 
     col1, col2 = st.columns(2)

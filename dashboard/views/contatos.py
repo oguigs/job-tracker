@@ -42,7 +42,11 @@ def render():
     df = listar_contatos() if empresa_filtro == "Todas" else listar_contatos(mapa_empresas[empresa_filtro])
 
     if df.empty:
-        st.info("Nenhum contato cadastrado ainda.")
+        from dashboard.ui_components import render_empty_state
+        render_empty_state(
+            "Nenhum contato cadastrado",
+            "Adicione pessoas que podem te indicar — aparecem automaticamente ao avançar em entrevistas."
+        )
         return
 
     st.metric("Total de contatos", len(df))

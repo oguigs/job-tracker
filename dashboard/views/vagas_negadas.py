@@ -10,7 +10,11 @@ def render():
     df_negadas = listar_vagas_negadas()
 
     if df_negadas.empty:
-        st.info("Nenhuma vaga negada ainda.")
+        from dashboard.ui_components import render_empty_state
+        render_empty_state(
+            "Nenhuma vaga negada",
+            "Vagas que você negar aparecem aqui para referência futura."
+        )
         return
 
     st.metric("Total de vagas negadas", len(df_negadas))

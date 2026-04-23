@@ -371,3 +371,20 @@ def render_dialog_vaga(v, prefix: str = "v"):
 
     with tab_diario:
         render_diario(int(v["id"]))
+
+
+def render_empty_state(titulo: str, descricao: str, acao_label: str = None, acao_pagina: str = None):
+    """Estado vazio com instrução clara — substitui st.info() genérico."""
+    st.markdown(
+        f"<div style='text-align:center;padding:40px 20px;color:#767676'>"
+        f"<div style='font-size:48px;margin-bottom:16px'>🔍</div>"
+        f"<div style='font-size:18px;font-weight:600;color:#333;margin-bottom:8px'>{titulo}</div>"
+        f"<div style='font-size:14px;max-width:400px;margin:0 auto'>{descricao}</div>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+    if acao_label and acao_pagina:
+        col = st.columns([1, 2, 1])[1]
+        if col.button(acao_label, use_container_width=True, type="primary"):
+            st.session_state["pagina"] = acao_pagina
+            st.rerun()

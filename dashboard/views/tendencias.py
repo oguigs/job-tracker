@@ -2,6 +2,8 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 from database.snapshots import carregar_historico, listar_stacks_snapshot, salvar_snapshot
+from dashboard.ui_components import render_empty_state
+
 
 CATEGORIAS = ["linguagens", "cloud", "processamento", "orquestracao", "armazenamento", "infraestrutura"]
 
@@ -27,7 +29,11 @@ def render():
 
     stacks_disponiveis = listar_stacks_snapshot()
     if not stacks_disponiveis:
-        st.info("Nenhum snapshot disponível ainda. Clique em 'Salvar snapshot hoje' para começar.")
+       
+        render_empty_state(
+            "Nenhum snapshot ainda",
+            "Clique em 'Salvar snapshot hoje' e volte em alguns dias para ver a evolução das stacks no mercado."
+        )
         return
 
     st.divider()
