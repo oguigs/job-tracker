@@ -2,7 +2,7 @@ import json
 import time as _time
 import duckdb
 from scrapers.gupy_scraper import buscar_vagas
-from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
+from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia
 from database.schemas import criar_tabelas
 from database.empresas import upsert_empresa, listar_empresas_ativas, gerar_hash
 from database.vagas import inserir_vaga, verificar_vagas_encerradas
@@ -147,6 +147,7 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
         for vaga in vagas:
             vaga["stacks"] = extrair_stacks(vaga.get("descricao", "") or vaga["titulo"])
             vaga["nivel"] = detectar_nivel(vaga["titulo"])
+            vaga["urgente"] = detectar_urgencia(vaga.get("descricao", ""), vaga["titulo"])
             vaga["empresa"] = nome
             h = gerar_hash(vaga["titulo"], nome, vaga["link"])
             with db_connect(read_only=True) as con_check:

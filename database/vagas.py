@@ -16,14 +16,16 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
         id_vaga = con.execute("SELECT nextval('seq_vaga')").fetchone()[0]
         con.execute("""
             INSERT INTO fact_vaga
-            (id, hash, titulo, nivel, modalidade, stacks, link, fonte, id_empresa, ativa, negada, candidatura_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true, false, 'nao_inscrito')
+            (id, hash, titulo, nivel, modalidade, stacks, link, fonte, id_empresa, ativa, negada, candidatura_status, urgente, descricao)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true, false, 'nao_inscrito', ?, ?)
         """, [id_vaga, hash_vaga,
               vaga["titulo"],
               vaga.get("nivel", "não identificado"),
               vaga.get("modalidade", "não identificado"),
               json.dumps(vaga.get("stacks", {})),
-              vaga["link"], vaga["fonte"], id_empresa])
+              vaga["link"], vaga["fonte"], id_empresa,
+              vaga.get("urgente", False),
+              vaga.get("descricao", "")])
     return True
 
 
