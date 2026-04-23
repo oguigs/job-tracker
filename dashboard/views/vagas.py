@@ -22,27 +22,28 @@ def render():
     df["score"] = df["id"].map(scores).fillna(0).astype(int)
     df = df.sort_values("score", ascending=False)
 
+# ── SIDEBAR ────────────────────────────────────────────────
     st.sidebar.divider()
     st.sidebar.subheader("⚡ Ação rápida")
-    so_novas = st.sidebar.checkbox("Só vagas novas (24h)")
-    so_nao_inscrito = st.sidebar.checkbox("Só não inscritas")
-    modo_compacto = st.sidebar.checkbox("Modo compacto")
-    num_colunas = st.sidebar.select_slider("Colunas", options=[2, 3, 4, 5, 6, 8], value=4)
+    so_novas = st.sidebar.checkbox("Só vagas novas (24h)", key="f_so_novas")
+    so_nao_inscrito = st.sidebar.checkbox("Só não inscritas", key="f_so_nao_inscrito")
+    modo_compacto = st.sidebar.checkbox("Modo compacto", key="f_modo_compacto")
+    num_colunas = st.sidebar.select_slider("Colunas", options=[2, 3, 4, 5, 6, 8], value=4, key="f_num_colunas")
     ordenar_por = st.sidebar.selectbox("Ordenar por",
-        ["Score ↓", "Score ↑", "Data ↓", "Data ↑", "Empresa A-Z"])
-    sla_dias = st.sidebar.number_input("⏰ Alertar sem resposta (dias)", min_value=0, max_value=30, value=0, step=1)
+        ["Score ↓", "Score ↑", "Data ↓", "Data ↑", "Empresa A-Z"], key="f_ordenar_por")
+    sla_dias = st.sidebar.number_input("⏰ Alertar sem resposta (dias)", min_value=0, max_value=30, value=0, step=1, key="f_sla_dias")
     st.sidebar.divider()
     st.sidebar.header("Filtros")
     empresas = ["Todas"] + sorted(df["empresa"].unique().tolist())
-    empresa_sel = st.sidebar.selectbox("Empresa", empresas)
+    empresa_sel = st.sidebar.selectbox("Empresa", empresas, key="f_empresa")
     niveis = ["Todos"] + sorted(df["nivel"].dropna().unique().tolist())
-    nivel_sel = st.sidebar.selectbox("Nível", niveis)
+    nivel_sel = st.sidebar.selectbox("Nível", niveis, key="f_nivel")
     modalidades = ["Todas"] + sorted(df["modalidade"].dropna().unique().tolist())
-    modalidade_sel = st.sidebar.selectbox("Modalidade", modalidades)
+    modalidade_sel = st.sidebar.selectbox("Modalidade", modalidades, key="f_modalidade")
     status_cand = ["Todos"] + list(TIMELINE_LABELS.values())
-    status_cand_sel = st.sidebar.selectbox("Status candidatura", status_cand)
-    status_vaga = st.sidebar.radio("Status da vaga", ["Ativas", "Encerradas", "Todas"])
-    busca = st.sidebar.text_input("Buscar no título")
+    status_cand_sel = st.sidebar.selectbox("Status candidatura", status_cand, key="f_status_cand")
+    status_vaga = st.sidebar.radio("Status da vaga", ["Ativas", "Encerradas", "Todas"], key="f_status_vaga")
+    busca = st.sidebar.text_input("Buscar no título", key="f_busca")
 
     df_f = df.copy()
     ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
@@ -76,15 +77,26 @@ def render():
     if "filtro_rapido_vagas" not in st.session_state:
         st.session_state["filtro_rapido_vagas"] = None
 
+    filtro_rapido = st.session_state.get("filtro_rapido_vagas")
     col1, col2, col3, col4 = st.columns(4)
-    if col1.button(f"**Total**\n\n{len(df_f)}", use_container_width=True):
+    if col1.button(f"**Total**\n\n{len(df_f)}", use_container_width=True,
+                   type="primary" if filtro_rapido is None else "secondary"):
         st.session_state["filtro_rapido_vagas"] = None
-    if col2.button(f"**Não inscritas**\n\n{df_f[df_f['candidatura_status'] == 'nao_inscrito'].shape[0]}", use_container_width=True):
+        st.rerun()
+    if col2.button(f"**Não inscritas**\n\n{df_f[df_f['candidatura_status'] == 'nao_inscrito'].shape[0]}",
+                   use_container_width=True,
+                   type="primary" if filtro_rapido == "nao_inscrito" else "secondary"):
         st.session_state["filtro_rapido_vagas"] = "nao_inscrito"
-    if col3.button(f"**Inscritas**\n\n{df_f[df_f['candidatura_status'] == 'inscrito'].shape[0]}", use_container_width=True):
+        st.rerun()
+    if col3.button(f"**Inscritas**\n\n{df_f[df_f['candidatura_status'] == 'inscrito'].shape[0]}",
+                   use_container_width=True,
+                   type="primary" if filtro_rapido == "inscrito" else "secondary"):
         st.session_state["filtro_rapido_vagas"] = "inscrito"
-    if col4.button(f"**Em processo**\n\n{em_processo}", use_container_width=True):
+        st.rerun()
+    if col4.button(f"**Em processo**\n\n{em_processo}", use_container_width=True,
+                   type="primary" if filtro_rapido == "em_processo" else "secondary"):
         st.session_state["filtro_rapido_vagas"] = "em_processo"
+        st.rerun()
 
     filtro_rapido = st.session_state.get("filtro_rapido_vagas")
     if filtro_rapido == "nao_inscrito":
