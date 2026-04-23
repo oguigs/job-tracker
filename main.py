@@ -14,7 +14,7 @@ from scrapers.inhire_scraper import buscar_vagas_inhire
 from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
 from database.connection import DB_PATH, conectar, db_connect
 from playwright.sync_api import sync_playwright
-from playwright_stealth import stealth_sync
+from playwright_stealth import stealth as stealth_sync
 import requests, html, re
 from scrapers.gupy_detalhes import coletar_descricoes_lote
 TIMEOUT_EMPRESA_SEGUNDOS = 300

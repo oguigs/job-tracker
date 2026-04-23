@@ -1,62 +1,71 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import streamlit as st
 from dashboard.views import (
     dashboard_page, vagas, cadastrar_vaga, empresas,
     pipeline, configuracoes, vagas_negadas,
-    perfil_empresa, contatos, perfil_candidato, 
+    perfil_empresa, contatos, perfil_candidato,
     comparativo, tendencias, funil, qualidade, fila_inscricao, estudos
 )
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
 
-empresa_perfil = st.query_params.get("empresa", None)
+pages = {
+    "Dashboard":         dashboard_page.render,
+    "Vagas":             vagas.render,
+    "Fila de Inscrição": fila_inscricao.render,
+    "Estudos":           estudos.render,
+    "Comparativo":       comparativo.render,
+    "Tendências":        tendencias.render,
+    "Funil":             funil.render,
+    "Cadastrar Vaga":    cadastrar_vaga.render,
+    "Empresas":          empresas.render,
+    "Indicadores":       contatos.render,
+    "Meu Perfil":        perfil_candidato.render,
+    "Pipeline":          pipeline.render,
+    "Qualidade":         qualidade.render,
+    "Configurações":     configuracoes.render,
+    "Vagas Negadas":     vagas_negadas.render,
+}
 
+GRUPOS = {
+    "🎯 Trabalho diário": ["Dashboard", "Fila de Inscrição", "Vagas"],
+    "📚 Estudo":          ["Estudos", "Comparativo", "Tendências"],
+    "📋 Cadastros":       ["Cadastrar Vaga", "Empresas", "Indicadores", "Meu Perfil"],
+    "⚙️ Operações":       ["Pipeline", "Qualidade", "Configurações", "Funil", "Vagas Negadas"],
+}
+
+empresa_perfil = st.query_params.get("empresa", None)
 if empresa_perfil:
     if st.sidebar.button("← Voltar"):
         st.query_params.clear()
         st.rerun()
     perfil_empresa.render(empresa_perfil)
 else:
-    pagina = st.sidebar.radio("Navegação", [
-        "Dashboard", 
-        "Vagas", 
-        "Fila de Inscrição", 
-        "Estudos",
-        "Comparativo", 
-        "Tendências", 
-        "Funil", 
-        "Cadastrar Vaga",
-        "Empresas", 
-        "Indicadores", 
-        "Pipeline", 
-        "Qualidade",
-        "Configurações", 
-        "Vagas Negadas", 
-        "Meu Perfil"
-    ])
-    pages = {
-        "Dashboard":        dashboard_page.render,
-        "Vagas":                vagas.render,
-        "Fila de Inscrição":    fila_inscricao.render,
-        "Estudos":              estudos.render,
-        "Comparativo":          comparativo.render,
-        "Cadastrar Vaga":       cadastrar_vaga.render,
-        "Empresas":             empresas.render,
-        "Tendências":           tendencias.render,
-        "Funil":                funil.render,
-        "Indicadores":          contatos.render,
-        "Pipeline":             pipeline.render,
-        "Configurações":        configuracoes.render,
-        "Vagas Negadas":        vagas_negadas.render,
-        "Meu Perfil":           perfil_candidato.render,
-        "Qualidade":            qualidade.render
-    }
-    if st.session_state.get("pagina_atual") != pagina:
-        for key in list(st.session_state.keys()):
-            if key.startswith("dialog_"):
-                st.session_state[key] = False
-        st.session_state["pagina_atual"] = pagina
+    st.sidebar.markdown("### Job Tracker")
+    st.sidebar.divider()
+
+    if "pagina" not in st.session_state:
+        st.session_state["pagina"] = "Dashboard"
+
+    for grupo, itens in GRUPOS.items():
+        expanded = any(st.session_state["pagina"] == item for item in itens)
+        with st.sidebar.expander(grupo, expanded=expanded):
+            for item in itens:
+                ativo = st.session_state["pagina"] == item
+                if st.button(
+                    item,
+                    key=f"nav_{item}",
+                    use_container_width=True,
+                    type="primary" if ativo else "secondary"
+                ):
+                    st.session_state["pagina"] = item
+                    # reset dialogs ao trocar página
+                    for key in list(st.session_state.keys()):
+                        if key.startswith("dialog_"):
+                            st.session_state[key] = False
+                    st.rerun()
+
+    pagina = st.session_state["pagina"]
     pages[pagina]()

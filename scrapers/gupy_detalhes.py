@@ -75,7 +75,7 @@ def coletar_descricoes_lote(vagas: list, headless: bool = True) -> list:
     Extrai stacks, nível e urgência de cada descrição.
     """
     from playwright.sync_api import sync_playwright
-    from playwright_stealth import stealth_sync
+    from playwright_stealth import stealth as stealth_sync
     from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_urgencia
     import random, time
 
