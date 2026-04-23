@@ -316,7 +316,14 @@ def render_dialog_vaga(v, prefix: str = "v"):
     from database.schemas import TIMELINE, TIMELINE_LABELS
     from database.candidaturas import atualizar_candidatura, negar_vaga
 
-    status_cand = v.get("candidatura_status") or "nao_inscrito"
+    # busca status atual do banco — não do cache do dataframe
+    from database.connection import db_connect
+    with db_connect(read_only=True) as _con:
+        _row = _con.execute("SELECT candidatura_status, candidatura_observacao FROM fact_vaga WHERE id=?", 
+                           [int(v["id"])]).fetchone()
+    status_cand = (_row[0] if _row and _row[0] else None) or "nao_inscrito"
+    # atualiza observacao com valor atual do banco
+    _obs_atual = _row[1] if _row and _row[1] else ""
     label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
     data_fmt_v = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
 
@@ -338,33 +345,38 @@ def render_dialog_vaga(v, prefix: str = "v"):
         cols_f = st.columns(len(fases))
         for idx, fase in enumerate(fases):
             ativo = fase == status_cand
-            cols_f[idx].markdown(
-                f"<div style='text-align:center;padding:4px;border-radius:6px;"
-                f"background:{'#1D9E75' if ativo else '#f0f0f0'};"
-                f"color:{'white' if ativo else '#888'};font-size:11px'>"
-                f"{TIMELINE_LABELS[fase]}</div>", unsafe_allow_html=True)
+            if cols_f[idx].button(
+                TIMELINE_LABELS[fase],
+                key=f"fase_{prefix}_{fase}_{v['id']}",
+                use_container_width=True,
+                type="primary" if ativo else "secondary"
+            ):
+                atualizar_candidatura(int(v["id"]), fase, fase,
+                    str(v.get("candidatura_observacao") or ""))
+                st.session_state[f"dialog_{prefix}_atual"] = int(v["id"])
+                st.toast(f"✅ {TIMELINE_LABELS[fase]}")
+                st.rerun()
         st.write("")
-        with st.form(key=f"form_{prefix}_{v['id']}"):
-            col_s, col_o = st.columns([2, 3])
-            novo_status = col_s.selectbox("Status", options=TIMELINE,
-                format_func=lambda x: TIMELINE_LABELS[x],
-                index=TIMELINE.index(status_cand) if status_cand in TIMELINE else 0,
-                key=f"sel_{prefix}_{v['id']}")
-            observacao = col_o.text_input("Observação",
-                value="" if str(v.get("candidatura_observacao") or "nan") == "nan" else str(v.get("candidatura_observacao") or ""),
-                key=f"obs_{prefix}_{v['id']}")
-            col_s2, col_n2 = st.columns(2)
-            with col_s2:
-                if st.form_submit_button("Salvar", use_container_width=True):
-                    atualizar_candidatura(int(v["id"]), novo_status, novo_status, observacao)
-                    st.session_state[f"dialog_{prefix}_atual"] = None
-                    st.toast("✅ Candidatura atualizada!")
-                    st.rerun()
-            with col_n2:
-                if st.form_submit_button("Negar", use_container_width=True, type="secondary"):
-                    negar_vaga(int(v["id"]), observacao or f"Negada em: {status_cand}")
-                    st.session_state[f"dialog_{prefix}_atual"] = None
-                    st.rerun()
+
+        # observação separada do form
+        obs_key = f"obs_inline_{prefix}_{v['id']}"
+        observacao = st.text_input("Observação",
+            value=_obs_atual,
+            key=obs_key)
+        if st.button("💾 Salvar observação", key=f"salvar_obs_{prefix}_{v['id']}",
+                    use_container_width=True):
+            atualizar_candidatura(int(v["id"]), status_cand, status_cand, observacao)
+            st.session_state[f"dialog_{prefix}_atual"] = int(v["id"])
+            st.toast("✅ Observação salva!")
+            st.rerun()
+
+        st.divider()
+        if st.button("❌ Negar vaga", key=f"negar_{prefix}_{v['id']}",
+                    use_container_width=True, type="secondary"):
+            negar_vaga(int(v["id"]), observacao or f"Negada em: {status_cand}")
+            st.session_state[f"dialog_{prefix}_atual"] = None
+            st.toast("❌ Vaga negada.")
+            st.rerun()
 
     with tab_rem:
         render_remuneracao(v)
