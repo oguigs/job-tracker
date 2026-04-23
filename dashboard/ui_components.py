@@ -5,7 +5,8 @@ import streamlit as st
 from dashboard.stack_config import get_stack_icon_url, get_stack_roadmap_url, get_categoria_cor
 from database.score import calcular_score
 from database.candidato import carregar_perfil
-from utils import safe_str, nivel_fmt, modal_fmt, status_badge, cor_score as get_cor_score
+from utils import safe_str, nivel_fmt, modal_fmt
+from dashboard.theme import status_badge, cor_score as get_cor_score
 from database.diario import adicionar_nota, listar_notas, deletar_nota
 from database.contatos import listar_contatos
 from database.connection import db_connect

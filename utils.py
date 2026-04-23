@@ -67,3 +67,9 @@ def cor_score(score: int) -> str:
     if score >= 40:
         return '#BA7517'
     return '#888'
+
+
+# re-exporta do theme para compatibilidade
+def cor_score(score: int) -> str:
+    from dashboard.theme import cor_score as _cor_score
+    return _cor_score(score)
