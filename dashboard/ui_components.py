@@ -295,7 +295,7 @@ def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card"):
             f"</div>", unsafe_allow_html=True)
         st.markdown(
             f"<div style='min-height:48px;overflow:hidden'>"
-            f"{'🔥 ' if vaga.get('urgente') else ''}{vaga['titulo'][:100].replace('*','')}"
+            f"{'🔥 ' if vaga.get('urgente') is True else ''}{vaga['titulo'][:100].replace('*','')}"
             f"</div>", unsafe_allow_html=True)
         col_n, col_m, col_s = st.columns([2, 2, 1])
         col_n.caption(nivel_str)

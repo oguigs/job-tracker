@@ -2,7 +2,7 @@ import json
 import time as _time
 import duckdb
 from scrapers.gupy_scraper import buscar_vagas
-from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia, coletar_descricoes_lote
+from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia
 from database.schemas import criar_tabelas
 from database.empresas import upsert_empresa, listar_empresas_ativas, gerar_hash
 from database.vagas import inserir_vaga, verificar_vagas_encerradas

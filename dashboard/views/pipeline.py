@@ -1,5 +1,5 @@
 import streamlit as st
-from database.connection import DB_PATH
+from database.connection import DB_PATH, db_connect
 import threading
 import time
 import duckdb
@@ -183,6 +183,52 @@ def render():
             f"<div style='background:#f8f8f8;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto'>"
             f"{log_html}</div>",
             unsafe_allow_html=True)
+
+    # ── SAÚDE DO PIPELINE ──────────────────────────────────────
+    st.divider()
+    st.subheader("📊 Saúde do pipeline")
+    with db_connect(read_only=True) as con:
+        df_saude = con.execute("""
+            SELECT
+                empresa,
+                COUNT(*) as total_execucoes,
+                SUM(CASE WHEN status = 'sucesso' THEN 1 ELSE 0 END) as sucessos,
+                SUM(CASE WHEN status = 'erro' THEN 1 ELSE 0 END) as erros,
+                SUM(CASE WHEN status = 'bloqueado' THEN 1 ELSE 0 END) as bloqueios,
+                MAX(data_execucao) as ultima_execucao,
+                ROUND(AVG(vagas_encontradas), 0) as media_vagas
+            FROM log_coleta
+            GROUP BY empresa
+            ORDER BY erros DESC, ultima_execucao DESC
+        """).df()
+
+    if df_saude.empty:
+        st.caption("Nenhuma execução registrada ainda.")
+    else:
+        col1, col2, col3 = st.columns(3)
+        total_empresas = len(df_saude)
+        com_erro = df_saude[df_saude["erros"] > 0].shape[0]
+        bloqueadas = df_saude[df_saude["bloqueios"] > 0].shape[0]
+        col1.metric("Empresas monitoradas", total_empresas)
+        col2.metric("⚠️ Com erros recentes", com_erro)
+        col3.metric("🚫 Bloqueadas", bloqueadas)
+        st.divider()
+
+        for _, row in df_saude.iterrows():
+            taxa = round(row["sucessos"] / row["total_execucoes"] * 100) if row["total_execucoes"] > 0 else 0
+            cor = "#1D9E75" if taxa >= 80 else "#BA7517" if taxa >= 50 else "#D85A30"
+            ultima = str(row["ultima_execucao"])[:16] if row["ultima_execucao"] else "—"
+            st.markdown(
+                f"<div style='display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0'>"
+                f"<span style='flex:2;font-weight:600'>{row['empresa']}</span>"
+                f"<span style='flex:1;text-align:center'>"
+                f"<span style='color:{cor};font-weight:700'>{taxa}%</span> sucesso</span>"
+                f"<span style='flex:1;text-align:center;color:#888;font-size:12px'>"
+                f"✓{int(row['sucessos'])} ✗{int(row['erros'])} 🚫{int(row['bloqueios'])}</span>"
+                f"<span style='flex:1;text-align:right;color:#888;font-size:11px'>{ultima}</span>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
     if estado["rodando"]:
         time.sleep(2)
