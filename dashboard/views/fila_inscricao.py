@@ -99,7 +99,7 @@ def render():
     if col_inscrito.button("✅ Inscrito", use_container_width=True, type="primary"):
         atualizar_candidatura(int(vaga["id"]), "inscrito", "inscrito", "")
         st.session_state["fila_idx"] = idx  # mantém posição, vaga some da fila
-        st.success(f"✅ Inscrito em {vaga['empresa']}!")
+        st.toast(f"✅ Inscrito em {vaga['empresa']}! {len(df_f)-1} vagas restantes.")
         st.rerun()
 
     if col_pular.button("⏭ Pular", use_container_width=True):
@@ -109,7 +109,7 @@ def render():
     if col_negar.button("❌ Negar", use_container_width=True, type="secondary"):
         negar_vaga(int(vaga["id"]), "Negada pela fila de inscrição")
         st.session_state["fila_idx"] = idx
-        st.warning("Vaga negada!")
+        st.toast("❌ Vaga negada.")
         st.rerun()
 
     st.divider()
