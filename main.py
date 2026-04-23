@@ -2,7 +2,7 @@ import json
 import time as _time
 import duckdb
 from scrapers.gupy_scraper import buscar_vagas
-from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia
+from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia, coletar_descricoes_lote
 from database.schemas import criar_tabelas
 from database.empresas import upsert_empresa, listar_empresas_ativas, gerar_hash
 from database.vagas import inserir_vaga, verificar_vagas_encerradas
@@ -16,7 +16,7 @@ from database.connection import DB_PATH, conectar, db_connect
 from playwright.sync_api import sync_playwright
 from playwright_stealth import stealth as stealth_sync
 import requests, html, re
-from scrapers.gupy_detalhes import coletar_descricoes_lote
+
 TIMEOUT_EMPRESA_SEGUNDOS = 300
 
 def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
@@ -148,6 +148,10 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
             vaga["stacks"] = extrair_stacks(vaga.get("descricao", "") or vaga["titulo"])
             vaga["nivel"] = detectar_nivel(vaga["titulo"])
             vaga["urgente"] = detectar_urgencia(vaga.get("descricao", ""), vaga["titulo"])
+            sal_min, sal_max = detectar_salario(vaga.get("descricao", ""))
+            if sal_min > 0:
+                vaga["salario_min"] = sal_min
+                vaga["salario_max"] = sal_max
             vaga["empresa"] = nome
             h = gerar_hash(vaga["titulo"], nome, vaga["link"])
             with db_connect(read_only=True) as con_check:

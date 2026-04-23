@@ -150,3 +150,39 @@ def detectar_urgencia(descricao: str, titulo: str = "") -> bool:
 
 if __name__ == "__main__":
     processar_vagas("data/raw/vagas_enriquecidas.json")
+
+def detectar_salario(descricao: str) -> tuple[int, int]:
+    """
+    Extrai faixa salarial da descrição da vaga.
+    Retorna (salario_min, salario_max) em reais/mês.
+    Retorna (0, 0) se não encontrar.
+    """
+    import re
+
+    texto = descricao.lower().replace(".", "").replace(",", ".")
+
+    # padrões: R$ 5.000 a R$ 8.000 / entre 5000 e 8000 / 5k a 8k
+    padroes = [
+        r"r\$\s*(\d+\.?\d*)\s*(?:a|até|–|-)\s*r\$\s*(\d+\.?\d*)",
+        r"(?:entre|de)\s*r\$\s*(\d+\.?\d*)\s*(?:e|a|até)\s*r\$\s*(\d+\.?\d*)",
+        r"salário[:\s]+r\$\s*(\d+\.?\d*)\s*(?:a|até|–|-)\s*r\$\s*(\d+\.?\d*)",
+        r"(\d+)k\s*(?:a|até|–|-)\s*(\d+)k",
+        r"(\d{4,6})\s*(?:a|até|–|-)\s*(\d{4,6})",
+    ]
+
+    for padrao in padroes:
+        match = re.search(padrao, texto)
+        if match:
+            try:
+                v1 = float(match.group(1).replace(".", ""))
+                v2 = float(match.group(2).replace(".", ""))
+                # converte k para reais
+                if v1 < 100: v1 *= 1000
+                if v2 < 100: v2 *= 1000
+                # sanity check — salários entre R$1k e R$50k
+                if 1000 <= v1 <= 50000 and 1000 <= v2 <= 50000:
+                    return int(min(v1, v2)), int(max(v1, v2))
+            except Exception:
+                continue
+
+    return 0, 0
