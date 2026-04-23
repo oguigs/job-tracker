@@ -1,260 +1,251 @@
 # Job Tracker — Backlog
-
 > v1.1 lançado · v1.2 em desenvolvimento · Abril 2026
+> Última atualização: análise técnica completa do código
 
 ---
 
 ## ✅ v1.0 — Concluído
-
 - Pipeline Gupy com cooldown, timeout, backup automático
 - Dashboard 12 páginas com Plotly
 - Score de fit com breakdown matches/gaps
-- Diário de candidatura por data
-- Preparação para entrevista com gaps
-- Remuneração CLT/PJ/Exterior com benefícios completos
-- Comparativo entre empresas
-- Tendências com snapshots automáticos
-- Perfil do candidato com stacks
-- Base de indicadores e contatos
-- Cadastro manual de vagas
-- Alerta urgente 🔥
+- Diário de candidatura, preparação para entrevista
+- Remuneração CLT/PJ/Exterior com benefícios
+- Comparativo, tendências, funil, perfil candidato
 - Refatoração modular database/ e dashboard/views/
 
 ---
 
 ## ✅ v1.1 — Concluído
-
 - Stack extractor 80+ tecnologias em 8 categorias
-- Modo compacto na listagem
-- Filtros ação rápida (novas 24h, não inscritas, SLA)
-- Marcar inscrito direto no modo compacto
-- Checklist de preparação interativo
-- Funil de candidaturas com taxa de conversão
-- playwright-stealth + delays humanizados
-- Detecção de bloqueio 403/429/Cloudflare
-- Cooldown 48h empresa bloqueada
-- Coleta espaçada com intervalo configurável
+- Filtros ação rápida, SLA, checklist de preparação
+- playwright-stealth, anti-detecção, cooldown 48h
 - Medallion Architecture Bronze/Silver/Gold
 - Great Expectations — 6 validações de qualidade
-- Página de Qualidade no dashboard
-- Scraper Greenhouse via API REST
-- Scraper Inhire via Playwright
-- Scraper SmartRecruiters via API REST
-- URL de vagas unificada com auto-detecção de plataforma
-- Descrições automáticas via API — stacks reais extraídas
+- Greenhouse + Inhire + SmartRecruiters + URL unificada
+- Descrições automáticas via API — stacks reais
 - Filtros de localização país/cidade
-- Botões ativar/pausar todas empresas
-- Limpeza da base por filtros
 
 ---
 
-## ✅ v1.2 (parcial) — Em andamento
-
-- Cards 4 colunas com st.dialog para detalhes
-- Badges de status (Novo/Não inscrito/Inscrito/Em processo)
-- Favicon inline nos cards
-- Seletor de colunas (2/3/4)
-- Ordenação por score/data/empresa
+## ✅ v1.2 (parcial) — Concluído
+- Cards 4 colunas com st.dialog, badges de status
+- Favicon inline, seletor de colunas, ordenação
 - Métricas clicáveis Dashboard e Vagas
-- Linha colorida de status nos cards
-- Dashboard com mesmo padrão de cards
+- render_vaga_card — componente único reutilizável
+- utils.py — helpers safe_str, safe_bool, status_badge
+- Cache Streamlit @st.cache_data nas funções principais
+- Connection manager DuckDB com context manager
+- Makefile + hot reload no start.sh
+- Fila de inscrição com score e ações rápidas
+- Página de Estudos com roadmap DE e tracker de livros
+- Redesign Empresas, Pipeline e Configurações
+- candidatura_status=nao_inscrito padrão no inserir_vaga
+- fix: registrar_log com data_execucao — cooldown funcionando
+- Tabs no dialog de detalhes (Score/Candidatura/Remuneração/Diário)
 
 ---
 
-## ⚡ v1.2 — Pendente
+## 🔴 Sprint 1 — Refatoração técnica (ALTA PRIORIDADE)
+> Base para tudo que vem depois. Resolve bugs latentes e melhora performance.
 
-### 🎯 Facilitar inscrições (Prioridade máxima)
-- [ ] **Fila de inscrição** — lista ordenada por score para trabalhar sequencialmente
-- [ ] **Abrir todas não inscritas** — botão que abre todas as vagas relevantes em abas
-- [ ] **Exportar lista CSV** — para compartilhar com mentores/recrutadores
-- [ ] **Follow-up automático** — lembrar de fazer follow-up após X dias inscrito
-- [ ] **Prep kit por vaga** — resumo empresa + perguntas prováveis + gaps
+### 1.1 Mover imports para topo dos arquivos
+- [ ] `main.py` — 35+ imports dentro de funções processar_empresa_*
+- [ ] `dashboard/views/` — imports dentro de funções render()
+- **Impacto:** performance (módulos recarregados a cada chamada) + legibilidade
+- **Esforço:** 1 sessão
 
-### 🎨 UX/UI — Páginas pendentes
-- [ ] **Empresas** — formulário mais limpo, feedback visual
-- [ ] **Pipeline** — progresso visual, log menos técnico
-- [ ] **Configurações** — preview do impacto dos filtros
-- [ ] **Perfil Candidato** — atualizar visualmente
-- [ ] **Comparativo** — mais interatividade
-- [ ] **Tendências** — gráficos mais ricos
+### 1.2 Substituir duckdb.connect() por db_connect()
+- [ ] `main.py` — 5 conexões diretas
+- [ ] `dashboard/components.py` — 2 conexões diretas
+- [ ] `dashboard/views/configuracoes.py` — 2 conexões diretas
+- [ ] `dashboard/views/pipeline.py` — 1 conexão direta
+- **Impacto:** elimina ConnectionException, garante fechamento de conexões
+- **Esforço:** 1 sessão
 
-### ⚡ Performance — Revisão de código
-- [ ] **Cache Streamlit** — `@st.cache_data` em `calcular_scores_vagas`, `carregar_vagas`, `get_favicon`
-- [ ] **Connection pooling DuckDB** — uma conexão por sessão em vez de abrir/fechar em cada função
-- [ ] **Loop de dialogs** — percorre todas as vagas a cada render, otimizar para 100+ vagas
-- [ ] **Imports no topo** — remover `from main import...` dentro de funções
-- [ ] **Tratamento de NA** — padronizar em um único helper em vez de repetir em todo lugar
-- [ ] **Constantes** — criar arquivo constants.py para strings repetidas
+### 1.3 Centralizar DB_PATH
+- [ ] Remover `"data/curated/jobs.duckdb"` hardcoded de 10 arquivos
+- [ ] Usar `from database.connection import DB_PATH` em todos
+- **Impacto:** facilita mudança de ambiente (dev/prod)
+- **Esforço:** 30 min
 
-### 🏗 Design patterns
-- [ ] **Separar lógica de apresentação** — criar `services/` para candidatura, score, pipeline
-- [ ] **Padronizar conexões DB** — context manager para DuckDB
-- [ ] **Testes unitários** — cobertura básica dos scrapers e transformers
+### 1.4 Deletar db_manager.py
+- [ ] Verificar se pipeline_runner.py ainda usa db_manager
+- [ ] Migrar qualquer função única para os módulos corretos
+- [ ] Deletar database/db_manager.py (459 linhas de duplicata)
+- **Impacto:** elimina confusão sobre qual função usar
+- **Esforço:** 1 sessão
 
-### 📊 Qualidade de dados (aprender)
-- [ ] **Data contracts** — definir esquema esperado entre camadas Bronze/Silver/Gold
-- [ ] **Data lineage** — rastrear origem de cada campo
-- [ ] **SLAs de pipeline** — alertar quando pipeline não rodar em X horas
-- [ ] **Anomaly detection** — detectar quando número de vagas cai muito
-- [ ] **Reconciliação** — comparar contagem entre coleta e banco
-- [ ] **dbt tests** — quando Python 3.14 for suportado
+### 1.5 Unificar 4 funções processar_empresa_*
+- [ ] Criar `pipeline/processors/base.py` com classe base
+- [ ] Criar `pipeline/processors/gupy.py`, `greenhouse.py`, `inhire.py`, `smartrecruiters.py`
+- [ ] Substituir 4 funções por uma única com Factory Pattern
+- **Impacto:** 80% menos código duplicado, fácil adicionar Lever
+- **Esforço:** 2 sessões
 
-### 🔧 Scrapers
-- [ ] **Scraper Lever** — jobs.lever.co
-- [ ] **Notificação desktop** — quando novas vagas aparecerem
-- [ ] **Reprocessar stacks** — vagas sem descrição
-
-### 📝 Score e análise
-- [ ] **Score ATS** — análise currículo vs vaga
-- [ ] **Carta de apresentação** automática por vaga
-- [ ] **Cronômetro** processo seletivo
+### 1.6 Tratar except: genéricos (16 ocorrências)
+- [ ] Substituir `except:` por exceções específicas com logging
+- [ ] Adicionar `logging.getLogger()` em vez de `print()`
+- **Impacto:** bugs não ficam mais silenciosos
+- **Esforço:** 1 sessão
 
 ---
 
-## 🔮 v2 — Cloud
+## 🟡 Sprint 2 — Separação de responsabilidades
+> Alinha com padrões de mercado DE. Facilita manutenção e testes.
+
+### 2.1 Separar dashboard/components.py (500 linhas)
+- [ ] `dashboard/data_loaders.py` — carregar_vagas, carregar_empresas, calcular_scores
+- [ ] `dashboard/ui_components.py` — render_stacks, render_score_breakdown, render_vaga_card
+- [ ] `dashboard/charts.py` — grafico_stacks, extrair_stacks_flat
+- **Impacto:** cada arquivo tem responsabilidade única (SRP)
+- **Esforço:** 2 sessões
+
+### 2.2 Repository Pattern no database/
+- [ ] `database/repositories/vagas_repo.py`
+- [ ] `database/repositories/empresas_repo.py`
+- [ ] `database/repositories/candidaturas_repo.py`
+- **Impacto:** SQL isolado das views, testável, padrão de mercado
+- **Esforço:** 3 sessões
+
+### 2.3 Limpar data/raw/
+- [ ] Verificar se vagas_processadas.json, urls_validadas.json são usados
+- [ ] Remover arquivos obsoletos
+- [ ] Atualizar .gitignore
+- **Esforço:** 30 min
+
+### 2.4 Type hints em todas as funções públicas
+- [ ] database/*.py
+- [ ] scrapers/*.py
+- [ ] transformers/stack_extractor.py
+- **Impacto:** documentação automática + detecção de bugs pelo IDE
+- **Esforço:** 2 sessões
+
+---
+
+## 🟢 Sprint 3 — Features pendentes
+> Funcionalidades que melhoram a experiência de busca de emprego.
+
+### 3.1 Melhorias de scrapers
+- [ ] Gupy — extrair localização, regime, salário, data de encerramento
+- [ ] Greenhouse — melhorar detecção de modalidade, extrair departamento
+- [ ] Inhire — extrair localização e nível
+- [ ] SmartRecruiters — extrair departamento e data de publicação
+- [ ] Padronizar campos entre todas as plataformas
+- [ ] Scraper Lever — jobs.lever.co
+
+### 3.2 Facilitar inscrições
+- [ ] Exportar lista CSV das vagas filtradas
+- [ ] Follow-up automático após X dias inscrito
+- [ ] Prep kit por vaga — resumo empresa + perguntas + gaps
+
+### 3.3 Score e análise
+- [ ] Score ATS do currículo vs vaga
+- [ ] Carta de apresentação automática por vaga
+- [ ] Cronômetro de processo seletivo
+
+### 3.4 UX restante
+- [ ] Perfil Candidato — atualizar visualmente
+- [ ] Comparativo — mais interatividade
+- [ ] Tendências — gráficos mais ricos
+
+---
+
+## 🔵 Sprint 4 — Qualidade de dados (aprender + implementar)
+
+### 4.1 Expandir Great Expectations
+- [ ] Validações para Greenhouse e SmartRecruiters
+- [ ] Validação de stacks não vazias para vagas com descrição
+- [ ] Alertas automáticos quando qualidade cai
+
+### 4.2 Data Contracts
+- [ ] Definir esquema esperado entre Bronze/Silver/Gold
+- [ ] Documentar contrato de cada scraper
+
+### 4.3 Observabilidade do pipeline
+- [ ] SLA — alertar quando pipeline não rodar em 24h
+- [ ] Anomaly detection — queda brusca no número de vagas
+- [ ] Métricas de qualidade por plataforma (% com stacks, % com modalidade)
+- [ ] Logging estruturado — substituir print() por logging
+
+### 4.4 Reconciliação
+- [ ] Comparar contagem entre coleta e banco
+- [ ] Relatório diário de qualidade automático
+
+### 4.5 dbt
+- [ ] Aguardar compatibilidade com Python 3.14
+- [ ] Implementar models Silver e Gold com testes
+
+---
+
+## 🔮 Sprint 5 — Testes automatizados
+
+- [ ] pytest para scrapers (mock de responses HTTP)
+- [ ] pytest para transformers (stack_extractor)
+- [ ] pytest para database (operações CRUD)
+- [ ] pre-commit hooks — ruff + mypy antes de cada commit
+- [ ] GitHub Actions — CI rodando testes em cada PR
+
+---
+
+## 🔮 v2 — Cloud & Deploy
 
 - [ ] Deploy Streamlit Cloud
-- [ ] Storage S3
+- [ ] Storage S3 para o banco DuckDB
 - [ ] Docker + docker-compose
 - [ ] Prefect DAGs com retry e alertas
 - [ ] GitHub Actions CI/CD
-- [ ] Notificações por email
-- [ ] Onboarding wizard
+- [ ] Notificações por email/push
+- [ ] Onboarding wizard para novos usuários
 
 ---
 
 ## 🔮 v3/v4 — Longo prazo
 
 - [ ] Raspberry Pi 24/7
-- [ ] Apache Spark / Kafka
+- [ ] Apache Spark / Kafka para processamento em escala
 - [ ] Delta Lake / Iceberg
 - [ ] Robô de candidatura automática
 - [ ] Analytics de mercado — tendências por stack
 
 ---
 
-## 📋 Roadmap sugerido
-
-| Sprint | Foco | Itens |
-|---|---|---|
-| Sprint 1 | Inscrição fácil | Fila de inscrição, abrir todas, exportar CSV |
-| Sprint 2 | Performance | Cache Streamlit, connection pooling, refactor |
-| Sprint 3 | Qualidade dados | Data contracts, SLAs, anomaly detection |
-| Sprint 4 | UX restante | Empresas, Pipeline, Configurações |
-| Sprint 5 | v2 | Deploy, Docker, CI/CD |
-
----
-
-## 🐛 Débitos técnicos
+## 🐛 Débitos técnicos conhecidos
 
 - dbt — incompatível Python 3.14
-- Favicon local vs URL — inconsistência
-- Vagas novas nascem com ativa=NULL em alguns scrapers
-- Sequences do banco resetadas após recriação
-- `salario_min/max` vs `salario_mensal/anual_total` — campos duplicados legados
+- Favicon local vs URL — inconsistência entre empresas
+- salario_min/max vs salario_mensal/anual_total — campos legados duplicados
+- Sequences do banco podem dessincronizar após recriação manual
+- data/raw/ com arquivos JSON obsoletos
 
 ---
 
-## 🛠 Boas práticas de desenvolvimento
+## 📋 Roadmap resumido
 
-### Alta prioridade (baixo esforço)
-- [ ] **Cache Streamlit** — `@st.cache_data` em carregar_vagas, calcular_scores_vagas, get_favicon
-- [ ] **utils.py** — helper `safe_bool`, `safe_str` para eliminar repetição de tratamento NA
-- [ ] **Makefile** — comandos `make run`, `make pipeline`, `make backup`
-- [ ] **hot reload** — `--server.runOnSave true` no start.sh
-
-### Média prioridade (médio esforço)
-- [ ] **render_vaga_card** — componente único reutilizado em vagas.py e dashboard_page.py
-- [ ] **Connection manager DuckDB** — context manager `with db_connect() as con:`
-- [ ] **config.py** — variáveis de ambiente DB_PATH, DEBUG
-
-### Baixa prioridade (alto esforço)
-- [ ] **services/** — separar lógica de negócio das views
-- [ ] **tests/** — testes unitários básicos scrapers e transformers
-- [ ] **Convenção de commits** — feat/fix/refactor/perf/docs
-
-### Página de Estudos — Data Engineering
-- [ ] Fundamentos — SQL avançado, Python, Git
-- [ ] Cloud — AWS (S3, Glue, Athena, Lambda, EMR), Azure (Data Factory, Synapse, Databricks), GCP (BigQuery, Dataflow)
-- [ ] Processing — Spark, PySpark, Kafka, Flink, dbt
-- [ ] Orchestration — Airflow, Prefect, Dagster
-- [ ] Storage — Delta Lake, Iceberg, Hudi, Data Lakehouse
-- [ ] Quality — Great Expectations, data contracts, data lineage, SLAs
-- [ ] Architecture — Medallion, Data Mesh, Lambda, Kappa
-- [ ] ML/AI — MLflow, Feature Store, MLOps básico
-- [ ] Status por tópico — Para estudar / Estudando / Concluído
-- [ ] Conexão com vagas — "esse tópico aparece em X vagas da sua base"
-- [ ] Prioridade baseada nas stacks mais exigidas nas suas vagas
+| Sprint | Foco | Quando |
+|---|---|---|
+| Sprint 1 | Refatoração técnica — imports, conexões, duplicatas | Agora |
+| Sprint 2 | Separação responsabilidades — SRP, Repository Pattern | Próximo |
+| Sprint 3 | Features — scrapers, inscrições, score ATS | Em seguida |
+| Sprint 4 | Qualidade dados — GE, contracts, observabilidade | Depois |
+| Sprint 5 | Testes + CI/CD | Antes do v2 |
+| v2 | Cloud, Docker, deploy | Futuro |
 
 ---
 
-## 🕷 Melhorias de Scrapers
+## 🏆 Padrões de mercado já implementados
 
-### Gupy
-- [ ] Extrair localização (cidade/estado) da vaga
-- [ ] Extrair regime de contratação (CLT/PJ)
-- [ ] Extrair salário quando disponível
-- [ ] Extrair data de encerramento da vaga
-- [ ] Detectar vagas encerradas e marcar no banco
-
-### Greenhouse
-- [ ] Extrair departamento/área da vaga
-- [ ] Extrair localização completa (cidade, estado, país)
-- [ ] Melhorar detecção de modalidade (remoto/híbrido/presencial)
-- [ ] Paginação — verificar se há mais de 500 vagas
-
-### Inhire
-- [ ] Extrair localização da vaga
-- [ ] Extrair nível da vaga
-- [ ] Extrair regime de contratação
-
-### SmartRecruiters
-- [ ] Extrair departamento/área
-- [ ] Melhorar detecção de modalidade via campos da API
-- [ ] Extrair data de publicação
-
-### Geral
-- [ ] Padronizar campos extraídos entre todas as plataformas
-- [ ] Detectar vagas duplicadas entre plataformas
-- [ ] Alertar quando scraper falha repetidamente
-- [ ] Métricas de qualidade da coleta por plataforma
-- [ ] Scraper Lever — jobs.lever.co
-
----
-
-## ✅ Concluído recentemente (v1.2 em andamento)
-
-- Cache Streamlit `@st.cache_data` em funções principais
-- utils.py — helpers safe_bool, safe_str, safe_int, nivel_fmt, modal_fmt, status_badge
-- render_vaga_card — componente único reutilizado em vagas.py e dashboard_page.py
-- Connection manager DuckDB com context manager
-- Makefile com make run, make pipeline, make backup
-- hot reload no start.sh
-- Fila de inscrição com score, checklist e ações rápidas
-- candidatura_status=nao_inscrito padrão no inserir_vaga
-
----
-
-## 📋 Sprint atual — Prioridades definidas
-
-### 1. 🎯 Detalhes da vaga com tabs (Alta prioridade)
-- [ ] Tabs no dialog: 📊 Score / 📋 Candidatura / 💰 Remuneração / 📓 Diário
-- [ ] Botão "Ver vaga" no topo do dialog
-- [ ] Score e checklist visíveis sem scroll
-- [ ] Ação rápida — inscrever/negar com um clique no topo
-
-### 2. 🎯 Fila de inscrição — ajustes finais
-- [ ] Botão "Estou com sorte" — vaga aleatória
-- [ ] Corrigir contagem de vagas na fila
-- [ ] Mostrar progresso visual da fila
-
-### 3. 📚 Página de Estudos — Data Engineering
-- [ ] Roadmap por categoria com status
-- [ ] Prioridade baseada nas stacks das vagas
-- [ ] Links para recursos e documentação
-- [ ] Conexão com vagas da base
-
-### 4. 🎨 UX outras páginas
-- [ ] Empresas — formulário mais limpo
-- [ ] Pipeline — progresso visual
-- [ ] Configurações — preview de impacto
+| Padrão | Status |
+|---|---|
+| Medallion Architecture | ✅ |
+| Great Expectations | ✅ |
+| Context Manager DB | ✅ |
+| Cache de dados | ✅ |
+| Componentes reutilizáveis | ✅ |
+| utils.py centralizado | ✅ |
+| Backup automático | ✅ |
+| Factory Pattern scrapers | ❌ Sprint 1 |
+| Repository Pattern DB | ❌ Sprint 2 |
+| Logging estruturado | ❌ Sprint 4 |
+| Type hints | ❌ Sprint 2 |
+| Testes automatizados | ❌ Sprint 5 |
+| CI/CD | ❌ v2 |
