@@ -67,3 +67,72 @@ def enriquecer_vagas(caminho_json: str):
 
 if __name__ == "__main__":
     enriquecer_vagas("data/raw/vagas_gupy.json")
+
+def coletar_descricoes_lote(vagas: list, headless: bool = True) -> list:
+    """
+    Coleta descrições de uma lista de vagas usando Playwright.
+    Retorna a mesma lista com campo 'descricao' preenchido.
+    Extrai stacks, nível e urgência de cada descrição.
+    """
+    from playwright.sync_api import sync_playwright
+    from playwright_stealth import stealth_sync
+    from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_urgencia
+    import random, time
+
+    if not vagas:
+        return vagas
+
+    print(f"  Coletando descrições de {len(vagas)} vagas...")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=headless)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            viewport={"width": 1280, "height": 800}
+        )
+        page = context.new_page()
+        stealth_sync(page)
+
+        for i, vaga in enumerate(vagas):
+            try:
+                response = page.goto(vaga["link"], wait_until="networkidle", timeout=60000)
+                if response and response.status in [403, 429]:
+                    print(f"  Bloqueado ({response.status}): {vaga['titulo'][:40]}")
+                    continue
+
+                content = page.content()
+                if "cloudflare" in content.lower() and "checking your browser" in content.lower():
+                    print(f"  Cloudflare detectado: {vaga['titulo'][:40]}")
+                    continue
+
+                page.wait_for_selector(
+                    "[class*='description'], [class*='jobDescription'], section, .job-description",
+                    timeout=8000
+                )
+                el = page.query_selector(
+                    "[class*='description'], [class*='jobDescription'], section, .job-description"
+                )
+                descricao = el.inner_text().strip() if el else ""
+                vaga["descricao"] = descricao
+
+                if descricao:
+                    stacks_desc = extrair_stacks(descricao)
+                    for cat, termos in stacks_desc.items():
+                        if cat in vaga.get("stacks", {}):
+                            vaga["stacks"][cat] = list(set(vaga["stacks"][cat] + termos))
+                        else:
+                            if "stacks" not in vaga:
+                                vaga["stacks"] = {}
+                            vaga["stacks"][cat] = termos
+                    vaga["urgente"] = detectar_urgencia(descricao, vaga.get("titulo", ""))
+
+                time.sleep(random.uniform(1.5, 3.0))
+
+            except Exception as e:
+                print(f"  Erro descrição {vaga['titulo'][:40]}: {e}")
+                continue
+
+        browser.close()
+
+    print(f"  Descrições coletadas.")
+    return vagas

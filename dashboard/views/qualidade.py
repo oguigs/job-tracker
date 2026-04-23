@@ -21,8 +21,8 @@ def render():
         col2.metric("Passaram", resultado["passed"])
         col3.metric("Falharam", resultado["failed"])
 
-        if resultado["detalhes"]:
+        if resultado["results"]:
             st.divider()
             st.subheader("Falhas encontradas")
-            for d in resultado["detalhes"]:
+            for d in resultado["results"]:
                 st.warning(f"**{d['coluna']}** — {d['expectativa']}")

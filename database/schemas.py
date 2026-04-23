@@ -114,7 +114,7 @@ def criar_tabelas():
             tem_plr                BOOLEAN DEFAULT false,
             valor_plr              INTEGER,
             tem_bonus              BOOLEAN DEFAULT false,
-            valor_bonus            INTEGER,
+            valor_bonus            INTEGER
             
         )
     """)

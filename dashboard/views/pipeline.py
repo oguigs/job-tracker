@@ -6,7 +6,7 @@ import duckdb
 from database.logs import ultima_execucao_sucesso
 from database.schemas import criar_tabelas
 from main import processar_empresa, processar_empresa_greenhouse, processar_empresa_inhire, processar_empresa_smartrecruiters
-
+from streamlit import cache_data
 
 def detectar_plataforma(url: str) -> str:
     if "gupy.io" in url: return "Gupy"
@@ -65,6 +65,11 @@ def rodar_pipeline(empresas, estado, intervalo_min=0):
     estado["log"].append("✅ Pipeline concluído!")
     estado["rodando"] = False
     estado["concluido"] = True
+    # invalida cache do Streamlit para refletir novas vagas
+    try:
+        cache_data.clear()
+    except Exception:
+        pass
 
 
 def render():

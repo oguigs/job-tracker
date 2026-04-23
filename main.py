@@ -13,7 +13,10 @@ from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
 from scrapers.inhire_scraper import buscar_vagas_inhire
 from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
 from database.connection import DB_PATH, conectar, db_connect
+from playwright.sync_api import sync_playwright
+from playwright_stealth import stealth_sync
 import requests, html, re
+from scrapers.gupy_detalhes import coletar_descricoes_lote
 TIMEOUT_EMPRESA_SEGUNDOS = 300
 
 def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
@@ -78,64 +81,13 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
         vagas_filtradas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
         print(f"  {len(vagas_filtradas)} vagas relevantes de {vagas_encontradas} após filtro")
 
-        vagas_enriquecidas = []
-        from playwright.sync_api import sync_playwright
 
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                viewport={"width": 1366, "height": 768},
-                locale="pt-BR",
-                timezone_id="America/Sao_Paulo",
-                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            page = context.new_page()
-            try:
-                from playwright_stealth import stealth_sync
-                stealth_sync(page)
-            except ImportError:
-                pass
+        vagas_enriquecidas = coletar_descricoes_lote(vagas_filtradas)
 
-            inicio_coleta = _time.time()
-            for vaga in vagas_filtradas:
-                if _time.time() - inicio_coleta > TIMEOUT_EMPRESA_SEGUNDOS:
-                    print(f"  Timeout de {TIMEOUT_EMPRESA_SEGUNDOS}s atingido")
-                    break 
-                try:
-                    response = page.goto(vaga["link"], wait_until="networkidle", timeout=60000)
-                    
-                    # detecção de bloqueio
-                    if response and response.status in [403, 429]:
-                        print(f"  Bloqueado ({response.status}) — parando coleta de {nome}")
-                        registrar_log(nome, vagas_encontradas, vagas_novas, "bloqueado", f"HTTP {response.status}")
-                        break
-
-                    # detecção Cloudflare
-                    content = page.content()
-                    if "cloudflare" in content.lower() and "checking your browser" in content.lower():
-                        print(f"  Cloudflare detectado — parando coleta de {nome}")
-                        registrar_log(nome, vagas_encontradas, vagas_novas, "bloqueado", "Cloudflare")
-                        break
-
-                    page.wait_for_selector(
-                        "[class*='description'], [class*='jobDescription'], section",
-                        timeout=10000
-                    )
-                    el = page.query_selector(
-                        "[class*='description'], [class*='jobDescription'], section"
-                    )
-                    vaga["descricao"] = el.inner_text().strip() if el else ""
-                except Exception as e:
-                    print(f"  Erro na vaga {vaga['titulo'][:40]}: {str(e)[:60]}")
-                    vaga["descricao"] = ""
-
-                import random, time as _t
-                _t.sleep(random.uniform(1.5, 3.5))
-
-                vagas_enriquecidas.append(vaga)
-
-            context.close()
-            browser.close() 
+        id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)
+        for vaga in vagas_enriquecidas:
+            descricao = vaga.get("descricao", "")
+            titulo = vaga.get("titulo", "")
 
         id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)
 
@@ -220,7 +172,6 @@ def processar_empresa_greenhouse(nome: str, slug: str) -> tuple[int, int, str]:
 
 
 def processar_empresa_inhire(nome: str, url_inhire: str) -> tuple[int, int, str]:
-    from scrapers.inhire_scraper import buscar_vagas_inhire
     vagas_raw = buscar_vagas_inhire(url_inhire)
     return _processar_empresa_generica(nome, vagas_raw)
 
@@ -237,7 +188,6 @@ def rodar_pipeline() -> None:
             SELECT nome, url_vagas FROM dim_empresa
             WHERE ativa = true AND url_vagas IS NOT NULL AND url_vagas != ''
         """).fetchall()
-    con.close()
 
     if not empresas:
         print("Nenhuma empresa ativa no banco.")
