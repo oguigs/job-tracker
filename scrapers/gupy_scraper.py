@@ -2,7 +2,7 @@ from playwright.sync_api import sync_playwright
 import json
 import time
 
-def buscar_vagas(url_empresa: str):
+def buscar_vagas(url_empresa: str) -> list:
     vagas = []
     nome_empresa = url_empresa.replace("https://", "").split(".gupy.io")[0].capitalize()
 

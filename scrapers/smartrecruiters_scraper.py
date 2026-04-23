@@ -1,6 +1,6 @@
 import requests, html, re
 
-def limpar_html(texto):
+def limpar_html(texto: str) -> str:
     return re.sub('<[^>]+>', ' ', html.unescape(texto or ''))
 
 

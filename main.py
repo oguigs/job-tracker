@@ -53,7 +53,7 @@ def localidade_relevante(vaga: dict, permitidos: list, bloqueados: list) -> bool
     
     return True
 
-def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12):
+def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tuple[int, int, str]:
     if empresa_bloqueada(nome):
         print(f"  {nome} bloqueada — aguardando 48h")
         return 0, 0, "bloqueada (48h)"
@@ -230,7 +230,7 @@ def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, st
     vagas_raw = buscar_vagas_smartrecruiters(url)
     return _processar_empresa_generica(nome, vagas_raw)
 
-def rodar_pipeline():
+def rodar_pipeline() -> None:
     criar_tabelas()
     
     con = conectar()
