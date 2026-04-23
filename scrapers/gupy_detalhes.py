@@ -27,7 +27,7 @@ def coletar_descricao(page, url: str) -> str:
         return ""
 
 def enriquecer_vagas(caminho_json: str):
-    from database.db_manager import carregar_filtros
+    from database.filtros import carregar_filtros
 
     with open(caminho_json, "r", encoding="utf-8") as f:
         vagas = json.load(f)

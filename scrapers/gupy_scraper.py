@@ -80,7 +80,7 @@ def buscar_vagas(url_empresa: str):
                     page.wait_for_load_state("networkidle")
                     time.sleep(2)
                     pagina_atual += 1
-                except:
+                except Exception:
                     break
             else:
                 # tenta scroll para sites com carregamento infinito

@@ -42,7 +42,7 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, b
                             desc = limpar_html(sections.get('jobDescription',{}).get('text',''))
                             qual = limpar_html(sections.get('qualifications',{}).get('text',''))
                             descricao = f"{desc} {qual}"
-                    except:
+                    except Exception:
                         pass
                 else:
                     descricao = ""

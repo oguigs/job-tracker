@@ -11,7 +11,7 @@ from rich import print as rprint
 
 console = Console()
 
-DB_PATH = "data/curated/jobs.duckdb"
+from database.connection import DB_PATH
 
 def log_etapa(nome: str, status: str, duracao: float = None, detalhe: str = ""):
     icon = {
@@ -95,7 +95,7 @@ def rodar_pipeline_visual():
                                 "[class*='description'], [class*='jobDescription'], section"
                             )
                             vaga["descricao"] = el.inner_text().strip() if el else ""
-                        except:
+                        except Exception:
                             vaga["descricao"] = ""
                         vagas_enriquecidas.append(vaga)
                         progress.advance(task)
@@ -106,7 +106,9 @@ def rodar_pipeline_visual():
             t = time.time()
             log_etapa("Extraindo stacks", "iniciando")
             from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
-            from database.db_manager import upsert_empresa, inserir_vaga, gerar_hash, verificar_vagas_encerradas, registrar_log
+            from database.empresas import upsert_empresa, gerar_hash
+from database.vagas import inserir_vaga, verificar_vagas_encerradas
+from database.logs import registrar_log
             import duckdb as ddb
 
             id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)

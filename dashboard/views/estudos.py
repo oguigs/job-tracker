@@ -93,7 +93,7 @@ def carregar_todos_status():
                 k, v = termo.split("=", 1)
                 result[k] = v
         return result
-    except:
+    except Exception:
         con.close()
         return {}
 
@@ -115,10 +115,10 @@ def carregar_livros():
         for (termo,) in rows:
             try:
                 livros.append(json.loads(termo))
-            except:
+            except Exception:
                 pass
         return livros
-    except:
+    except Exception:
         con.close()
         return []
 
@@ -141,7 +141,7 @@ def atualizar_livro(livro_id: str, pagina_atual: int):
                     l["pagina_atual"] = pagina_atual
                     con.execute("UPDATE config_filtros SET termo=? WHERE id=?", [json.dumps(l), row_id])
                     break
-            except:
+            except Exception:
                 pass
     except Exception as e:
         st.error(f"Erro: {e}")
@@ -157,9 +157,9 @@ def deletar_livro(livro_id: str):
                 if l.get("id") == livro_id:
                     con.execute("DELETE FROM config_filtros WHERE id=?", [row_id])
                     break
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
     con.close()
 

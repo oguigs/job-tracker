@@ -28,7 +28,7 @@ def ultima_execucao_sucesso(nome_empresa: str) -> float:
             ultima = ultima.replace(tzinfo=timezone.utc)
         agora = datetime.now(timezone.utc)
         return round((agora - ultima).total_seconds() / 3600, 1)
-    except:
+    except Exception:
         return 999
     
 def empresa_bloqueada(nome_empresa: str) -> bool:

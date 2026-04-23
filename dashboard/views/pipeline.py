@@ -1,4 +1,5 @@
 import streamlit as st
+from database.connection import DB_PATH
 import threading
 import time
 import duckdb
@@ -70,7 +71,7 @@ def render():
     st.title("🔄 Pipeline")
     st.caption("Coleta automática de vagas em background.")
 
-    con = duckdb.connect("data/curated/jobs.duckdb")
+    con = duckdb.connect(DB_PATH)
     empresas = con.execute("""
         SELECT nome, url_vagas FROM dim_empresa
         WHERE ativa = true AND url_vagas IS NOT NULL

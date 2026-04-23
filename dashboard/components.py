@@ -12,7 +12,7 @@ from utils import safe_str, nivel_fmt, modal_fmt, status_badge, cor_score as get
 
 
 
-DB_PATH = "data/curated/jobs.duckdb"
+from database.connection import DB_PATH
 
 def conectar():
     return duckdb.connect(DB_PATH)
@@ -69,7 +69,7 @@ def render_stacks(stacks_json):
                     )
             badges_html += "</div>"
             st.markdown(badges_html, unsafe_allow_html=True)
-    except:
+    except Exception:
         pass
 
 def extrair_stacks_flat(df, categoria):
@@ -78,7 +78,7 @@ def extrair_stacks_flat(df, categoria):
         try:
             stacks = json.loads(stacks_json) if isinstance(stacks_json, str) else stacks_json
             todas.extend(stacks.get(categoria, []))
-        except:
+        except Exception:
             pass
     return pd.Series(todas).value_counts().reset_index().rename(
         columns={"index": "stack", 0: "count", "count": "count"}
@@ -344,19 +344,19 @@ def render_remuneracao(vaga: dict):
         try:
             if val is None or str(val) == 'nan': return 0
             return int(val)
-        except: return 0
+        except Exception: return 0
 
     def safe_bool(val):
         try:
             if val is None or str(val) == 'nan': return False
             return bool(val)
-        except: return False
+        except Exception: return False
 
     def safe_str(val):
         try:
             if val is None or str(val) == 'nan': return ""
             return str(val)
-        except: return ""
+        except Exception: return ""
 
     st.divider()
     st.write("**💰 Remuneração:**")

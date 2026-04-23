@@ -1,4 +1,5 @@
 import streamlit as st
+from database.connection import DB_PATH
 import duckdb
 from database.filtros import adicionar_filtro, remover_filtro, listar_filtros, carregar_filtros, carregar_filtros_localizacao
 from main import titulo_relevante, localidade_relevante
@@ -159,7 +160,7 @@ def render():
         try:
             interesse, bloqueio = carregar_filtros()
             permitidos, bloqueados = carregar_filtros_localizacao()
-            con = duckdb.connect("data/curated/jobs.duckdb")
+            con = duckdb.connect(DB_PATH)
             vagas = con.execute("SELECT id, titulo FROM fact_vaga WHERE negada=false OR negada IS NULL").fetchall()
             con.close()
 
@@ -180,7 +181,7 @@ def render():
                 pct = round(len(irrelevantes) / len(vagas) * 100)
                 st.warning(f"⚠️ {pct}% das vagas não passam pelos filtros atuais.")
                 if st.button("🗑 Executar limpeza", type="secondary", use_container_width=False):
-                    con = duckdb.connect("data/curated/jobs.duckdb")
+                    con = duckdb.connect(DB_PATH)
                     con.execute(f"DELETE FROM fact_vaga WHERE id IN ({','.join(map(str, irrelevantes))})")
                     con.close()
                     st.success(f"✅ {len(irrelevantes)} vagas removidas!")

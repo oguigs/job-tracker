@@ -30,7 +30,7 @@ def salvar_snapshot():
                 for termo in termos:
                     key = (termo.lower(), categoria)
                     contagem[key] = contagem.get(key, 0) + 1
-        except:
+        except Exception:
             pass
 
     # insere snapshot

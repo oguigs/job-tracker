@@ -32,7 +32,7 @@ def calcular_score(id_vaga: int, id_candidato: int) -> dict:
     # monta lista de stacks da vaga
     try:
         stacks_vaga = json.loads(stacks_vaga_raw[0]) if isinstance(stacks_vaga_raw[0], str) else stacks_vaga_raw[0]
-    except:
+    except Exception:
         return {"score": 0, "breakdown": {}, "matches": [], "gaps": []}
 
     vaga_lista = []

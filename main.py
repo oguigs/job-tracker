@@ -9,7 +9,10 @@ from database.vagas import inserir_vaga, verificar_vagas_encerradas
 from database.logs import registrar_log, ultima_execucao_sucesso, empresa_bloqueada
 from database.filtros import carregar_filtros, carregar_filtros_localizacao
 from database.snapshots import salvar_snapshot
-
+from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
+from scrapers.inhire_scraper import buscar_vagas_inhire
+from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
+import requests, html, re
 TIMEOUT_EMPRESA_SEGUNDOS = 300
 
 def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
@@ -146,7 +149,7 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12):
                 modalidade_coletada=vaga.get("modalidade", "não identificado")
             )
 
-            con_check = duckdb.connect("data/curated/jobs.duckdb")
+            con_check = conectar()
             negada = con_check.execute("""
                 SELECT id FROM fact_vaga WHERE hash = ? AND negada = true
             """, [gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])]).fetchone()
@@ -174,167 +177,63 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12):
 
     return vagas_encontradas, vagas_novas, erro
 
-def processar_empresa_greenhouse(nome: str, slug: str):
-    from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
-    from transformers.stack_extractor import extrair_stacks, detectar_nivel
-
-    vagas_encontradas = 0
+def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, str]:
+    """Processa vagas já coletadas — filtra, enriquece e insere no banco."""
     vagas_novas = 0
-
     try:
-        vagas = buscar_vagas_greenhouse(slug)
         interesse, bloqueio = carregar_filtros()
-        vagas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
-        print(f"  {len(vagas)} vagas relevantes após filtro")
-        
+        vagas = [v for v in vagas_raw if titulo_relevante(v["titulo"], interesse, bloqueio)]
+        print(f"  {len(vagas)} vagas relevantes após filtro de título")
+
         permitidos, bloqueados = carregar_filtros_localizacao()
         vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
         print(f"  {len(vagas)} vagas após filtro de localização")
-        
-        vagas_encontradas = len(vagas)
 
+        vagas_encontradas = len(vagas)
         id_empresa = upsert_empresa(nome=nome, url_vagas="")
 
         for vaga in vagas:
             vaga["stacks"] = extrair_stacks(vaga.get("descricao", "") or vaga["titulo"])
             vaga["nivel"] = detectar_nivel(vaga["titulo"])
             vaga["empresa"] = nome
-
-            from database.vagas import gerar_hash
             h = gerar_hash(vaga["titulo"], nome, vaga["link"])
-            con_check = duckdb.connect("data/curated/jobs.duckdb")
+            con_check = conectar()
             existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
             con_check.close()
             if existe:
                 continue
-
-            permitidos, bloqueados = carregar_filtros_localizacao()
-            vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
-
-            inserida = inserir_vaga(vaga, id_empresa)
-            if inserida:
+            if inserir_vaga(vaga, id_empresa):
                 vagas_novas += 1
 
         registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
         print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
+        return vagas_encontradas, vagas_novas, ""
 
     except Exception as e:
         registrar_log(nome, 0, 0, "erro", str(e))
         print(f"  Erro: {e}")
+        return 0, 0, str(e)
 
-    return vagas_encontradas, vagas_novas, ""
 
-def processar_empresa_inhire(nome: str, url_inhire: str):
+def processar_empresa_greenhouse(nome: str, slug: str) -> tuple[int, int, str]:
+    vagas_raw = buscar_vagas_greenhouse(slug)
+    return _processar_empresa_generica(nome, vagas_raw)
+
+
+def processar_empresa_inhire(nome: str, url_inhire: str) -> tuple[int, int, str]:
     from scrapers.inhire_scraper import buscar_vagas_inhire
-    from transformers.stack_extractor import extrair_stacks, detectar_nivel
+    vagas_raw = buscar_vagas_inhire(url_inhire)
+    return _processar_empresa_generica(nome, vagas_raw)
 
-    vagas_encontradas = 0
-    vagas_novas = 0
 
-    try:
-        vagas = buscar_vagas_inhire(url_inhire)
-        vagas_encontradas = len(vagas)
-        id_empresa = upsert_empresa(nome=nome, url_vagas="")
-
-        for vaga in vagas:
-            vaga["stacks"] = extrair_stacks(vaga["titulo"])
-            vaga["nivel"] = detectar_nivel(vaga["titulo"])
-            vaga["empresa"] = nome
-
-            from database.vagas import gerar_hash
-            h = gerar_hash(vaga["titulo"], nome, vaga["link"])
-            con_check = duckdb.connect("data/curated/jobs.duckdb")
-            existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
-            con_check.close()
-            if existe:
-                continue
-
-            inserida = inserir_vaga(vaga, id_empresa)
-            if inserida:
-                vagas_novas += 1
-
-        registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
-        print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
-
-    except Exception as e:
-        registrar_log(nome, 0, 0, "erro", str(e))
-        print(f"  Erro: {e}")
-
-    return vagas_encontradas, vagas_novas, ""
-
-def processar_empresa_smartrecruiters(nome: str, url: str):
-    from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
-    from transformers.stack_extractor import extrair_stacks, detectar_nivel
-    import requests, html, re
-
-    def limpar_html(texto):
-        return re.sub('<[^>]+>', ' ', html.unescape(texto or ''))
-
-    slug = url.split("smartrecruiters.com/")[-1].split("/")[0]
-    vagas_encontradas = 0
-    vagas_novas = 0
-
-    try:
-        # busca lista sem descrições primeiro
-        vagas = buscar_vagas_smartrecruiters(slug, buscar_descricao=False)
-        interesse, bloqueio = carregar_filtros()
-        vagas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
-        print(f"  {len(vagas)} vagas relevantes após filtro de título")
-        
-        permitidos, bloqueados = carregar_filtros_localizacao()
-        vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
-        print(f"  {len(vagas)} vagas após filtro de localização")
-        
-        vagas_encontradas = len(vagas)
-
-        # busca descrição só das relevantes
-        for vaga in vagas:
-            try:
-                job_id = vaga["link"].split("/")[-1]
-                rd = requests.get(
-                    f"https://api.smartrecruiters.com/v1/companies/{slug}/postings/{job_id}",
-                    timeout=10
-                )
-                if rd.status_code == 200:
-                    sections = rd.json().get('jobAd',{}).get('sections',{})
-                    desc = limpar_html(sections.get('jobDescription',{}).get('text',''))
-                    qual = limpar_html(sections.get('qualifications',{}).get('text',''))
-                    vaga["descricao"] = f"{desc} {qual}"
-            except:
-                vaga["descricao"] = ""
-
-            vaga["stacks"] = extrair_stacks(vaga.get("descricao","") or vaga["titulo"])
-            vaga["nivel"] = detectar_nivel(vaga["titulo"])
-            vaga["empresa"] = nome
-
-            from database.vagas import gerar_hash
-            h = gerar_hash(vaga["titulo"], nome, vaga["link"])
-            con_check = duckdb.connect("data/curated/jobs.duckdb")
-            existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
-            con_check.close()
-            if existe:
-                continue
-
-            permitidos, bloqueados = carregar_filtros_localizacao()
-            vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
-
-            inserida = inserir_vaga(vaga, upsert_empresa(nome=nome, url_vagas=""))
-            if inserida:
-                vagas_novas += 1
-
-        registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
-        print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
-
-    except Exception as e:
-        registrar_log(nome, 0, 0, "erro", str(e))
-        print(f"  Erro: {e}")
-
-    return vagas_encontradas, vagas_novas, ""
+def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, str]:
+    vagas_raw = buscar_vagas_smartrecruiters(url)
+    return _processar_empresa_generica(nome, vagas_raw)
 
 def rodar_pipeline():
     criar_tabelas()
     
-    con = duckdb.connect("data/curated/jobs.duckdb")
+    con = conectar()
     empresas = con.execute("""
         SELECT nome, url_vagas FROM dim_empresa
         WHERE ativa = true AND url_vagas IS NOT NULL AND url_vagas != ''

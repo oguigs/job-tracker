@@ -107,7 +107,7 @@ async def testar_url(page, nome, url):
             await page.wait_for_selector("a[href*='/job']", timeout=8000)
             total = len(await page.query_selector_all("a[href*='/job']"))
             return {"nome": nome, "url": url, "status": "válida", "codigo": 200, "vagas": total}
-        except:
+        except Exception:
             return {"nome": nome, "url": url, "status": "válida_sem_vagas", "codigo": 200, "vagas": 0}
 
     except Exception as e:

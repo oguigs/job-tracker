@@ -1,4 +1,5 @@
 import shutil
+from database.connection import DB_PATH
 import os
 from datetime import datetime
 from database.connection import conectar
@@ -25,12 +26,12 @@ TIMELINE_LABELS = {
 }
 
 def fazer_backup():
-    if not os.path.exists("data/curated/jobs.duckdb"):
+    if not os.path.exists(DB_PATH):
         return
     os.makedirs(BACKUP_DIR, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     destino = f"{BACKUP_DIR}/jobs_{timestamp}.duckdb"
-    shutil.copy2("data/curated/jobs.duckdb", destino)
+    shutil.copy2(DB_PATH, destino)
     print(f"Backup criado: {destino}")
     backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith(".duckdb")])
     while len(backups) > MAX_BACKUPS:
