@@ -75,6 +75,28 @@ def render():
 
     st.divider()
 
+     # ── TERMÔMETRO DE EMPREGABILIDADE ─────────────────────────
+    scores_todos = calcular_scores_vagas()
+    if scores_todos:
+        vagas_70 = sum(1 for s in scores_todos.values() if s >= 70)
+        vagas_40 = sum(1 for s in scores_todos.values() if 40 <= s < 70)
+        total_scores = len(scores_todos)
+        pct_70 = round(vagas_70 / total_scores * 100) if total_scores > 0 else 0
+        cor_term = "#1D9E75" if pct_70 >= 20 else "#BA7517" if pct_70 >= 10 else "#D85A30"
+        st.markdown(
+            f"<div style='background:#f8f8f8;border-radius:8px;padding:12px 16px;"
+            f"border-left:4px solid {cor_term};margin:8px 0'>"
+            f"<span style='font-size:13px;font-weight:600;color:{cor_term}'>"
+            f"🎯 Empregabilidade atual: {vagas_70} vaga(s) com 70%+ de fit"
+            f"</span>"
+            f"<span style='font-size:12px;color:#888;margin-left:12px'>"
+            f"{vagas_40} com 40-69% · {pct_70}% do total acima do limiar"
+            f"</span></div>",
+            unsafe_allow_html=True
+        )
+
+    st.divider()   
+
     # ── STACKS ─────────────────────────────────────────────────
     st.subheader("Stacks mais exigidas")
     col_a, col_b, col_c = st.columns(3)
