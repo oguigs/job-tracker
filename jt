@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""
+jt — Job Tracker CLI Assistant
+Assistente de terminal para acelerar o desenvolvimento do Job Tracker.
+
+Uso:
+    jt status          # Estado atual do projeto (git, testes, banco)
+    jt backlog         # Próximas tasks do backlog
+    jt test            # Roda os testes
+    jt commit "msg"    # Add + commit + push
+    jt branch          # Mostra branch atual e branches
+    jt merge           # Merge da branch atual para main
+    jt claude          # Abre sessão com Claude no terminal (via API)
+"""
+
+import sys
+import os
+import subprocess
+import json
+from pathlib import Path
+
+PROJECT_DIR = Path.home() / "job-tracker"
+BACKLOG_FILE = PROJECT_DIR / "BACKLOG.md"
+
+
+def run(cmd, capture=True):
+    result = subprocess.run(cmd, shell=True, cwd=PROJECT_DIR,
+                            capture_output=capture, text=True)
+    return result.stdout.strip(), result.stderr.strip(), result.returncode
+
+
+def status():
+    print("\n🎯 Job Tracker — Status\n")
+
+    # git
+    branch, _, _ = run("git branch --show-current")
+    status_out, _, _ = run("git status --short")
+    print(f"📌 Branch: {branch}")
+    if status_out:
+        lines = status_out.split("\n")
+        print(f"📝 Arquivos modificados: {len(lines)}")
+        for l in lines[:5]:
+            print(f"   {l}")
+        if len(lines) > 5:
+            print(f"   ... e mais {len(lines)-5}")
+    else:
+        print("✅ Working tree limpo")
+
+    # testes
+    print("\n🧪 Testes:")
+    out, err, code = run("python -m pytest tests/ -q --tb=no 2>&1")
+    lines = [l for l in out.split("\n") if l.strip()]
+    if lines:
+        print(f"   {lines[-1]}")
+
+    # banco
+    print("\n🗄 Banco:")
+    out, _, _ = run("""python -c "
+from database.connection import db_connect
+with db_connect() as con:
+    vagas = con.execute('SELECT COUNT(*) FROM fact_vaga').fetchone()[0]
+    empresas = con.execute('SELECT COUNT(*) FROM dim_empresa WHERE ativa=true').fetchone()[0]
+    cands = con.execute(\"SELECT COUNT(*) FROM fact_vaga WHERE candidatura_status != 'nao_inscrito'\").fetchone()[0]
+    print(f'  Vagas: {vagas} | Empresas ativas: {empresas} | Candidaturas: {cands}')
+" 2>/dev/null""")
+    print(out or "   erro ao conectar")
+    print()
+
+
+def backlog():
+    if not BACKLOG_FILE.exists():
+        print("BACKLOG.md não encontrado")
+        return
+
+    content = BACKLOG_FILE.read_text()
+    lines = content.split("\n")
+
+    print("\n📋 Próximas tasks do backlog:\n")
+    onda_atual = ""
+    count = 0
+    for line in lines:
+        if line.startswith("## 🔴") or line.startswith("## 🟠"):
+            onda_atual = line.replace("##", "").strip()
+            print(f"\n{onda_atual}")
+        elif line.startswith("- [ ]") and count < 10:
+            print(f"  {line}")
+            count += 1
+
+    if count == 0:
+        print("  Nenhuma task pendente encontrada!")
+    print()
+
+
+def test():
+    print("\n🧪 Rodando testes...\n")
+    out, err, code = run(
+        "source .venv/bin/activate && python -m pytest tests/ -v --tb=short 2>&1",
+        capture=False
+    )
+
+
+def commit(msg=None):
+    if not msg:
+        print("Uso: jt commit \"mensagem do commit\"")
+        return
+
+    print(f"\n📦 Commitando: {msg}\n")
+    _, _, _ = run("git add .", capture=False)
+    out, err, code = run(f'git commit -m "{msg}"', capture=False)
+    if code == 0:
+        branch, _, _ = run("git branch --show-current")
+        out, err, push_code = run(f"git push --set-upstream origin {branch} 2>&1",
+                                   capture=False)
+    print()
+
+
+def branch():
+    print("\n🌿 Branches:\n")
+    out, _, _ = run("git branch -a")
+    current, _, _ = run("git branch --show-current")
+    for line in out.split("\n"):
+        marker = "👉" if current in line else "  "
+        print(f"{marker} {line}")
+    print()
+
+
+def merge():
+    current, _, _ = run("git branch --show-current")
+    if current == "main":
+        print("Já está na main!")
+        return
+    print(f"\n🔀 Merge de '{current}' para main...\n")
+    run("git checkout main", capture=False)
+    run(f"git merge {current}", capture=False)
+    run("git push", capture=False)
+    print(f"\n✅ Merge concluído!")
+    print()
+
+
+def claude_session():
+    """Abre sessão interativa com Claude via API."""
+    try:
+        import anthropic
+    except ImportError:
+        print("Instalando anthropic SDK...")
+        os.system("pip install anthropic --break-system-packages -q")
+        import anthropic
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        print("❌ ANTHROPIC_API_KEY não definida.")
+        print("   export ANTHROPIC_API_KEY='sua-chave'")
+        return
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    # contexto do projeto
+    context = ""
+    if BACKLOG_FILE.exists():
+        content = BACKLOG_FILE.read_text()
+        # só primeiras 3000 chars
+        context = content[:3000]
+
+    branch_atual, _, _ = run("git branch --show-current")
+    git_status, _, _ = run("git status --short")
+
+    system = f"""Você é um assistente especialista em Python e Data Engineering ajudando a desenvolver o Job Tracker.
+
+Contexto do projeto:
+- Stack: Python 3.14, DuckDB, Streamlit, Plotly, Playwright, Prefect 2
+- Branch atual: {branch_atual}
+- Arquivos modificados: {git_status or 'nenhum'}
+- Projeto em: ~/job-tracker
+
+Backlog atual (resumo):
+{context[:1500]}
+
+Seja direto e objetivo. Quando sugerir código, use blocos markdown. 
+Quando sugerir comandos bash, use blocos ```bash.
+Foque no que está na Onda 8 (próxima) do backlog."""
+
+    print("\n🤖 Claude — Job Tracker Assistant")
+    print("   Digite 'sair' para encerrar\n")
+
+    messages = []
+
+    while True:
+        try:
+            user_input = input("Você: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\nAté logo!")
+            break
+
+        if user_input.lower() in ["sair", "exit", "quit"]:
+            print("Até logo!")
+            break
+
+        if not user_input:
+            continue
+
+        messages.append({"role": "user", "content": user_input})
+
+        try:
+            response = client.messages.create(
+                model="claude-opus-4-5",
+                max_tokens=2048,
+                system=system,
+                messages=messages
+            )
+            reply = response.content[0].text
+            messages.append({"role": "assistant", "content": reply})
+            print(f"\nClaude: {reply}\n")
+        except Exception as e:
+            print(f"Erro: {e}")
+            break
+
+
+def help_msg():
+    print("""
+🎯 jt — Job Tracker CLI
+
+Comandos:
+  jt status          Estado do projeto (git, testes, banco)
+  jt backlog         Próximas tasks do backlog
+  jt test            Roda pytest
+  jt commit "msg"    git add + commit + push
+  jt branch          Lista branches
+  jt merge           Merge branch atual para main
+  jt claude          Sessão interativa com Claude (requer ANTHROPIC_API_KEY)
+  jt help            Esta mensagem
+""")
+
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+
+    if not args or args[0] == "help":
+        help_msg()
+    elif args[0] == "status":
+        status()
+    elif args[0] == "backlog":
+        backlog()
+    elif args[0] == "test":
+        test()
+    elif args[0] == "commit":
+        commit(" ".join(args[1:]) if len(args) > 1 else None)
+    elif args[0] == "branch":
+        branch()
+    elif args[0] == "merge":
+        merge()
+    elif args[0] == "claude":
+        claude_session()
+    else:
+        print(f"Comando desconhecido: {args[0]}")
+        help_msg()
