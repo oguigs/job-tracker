@@ -186,3 +186,57 @@ def detectar_salario(descricao: str) -> tuple[int, int]:
                 continue
 
     return 0, 0
+
+
+def extrair_sinais_descricao(descricao: str) -> dict:
+    """
+    Extrai sinais qualitativos da descrição da vaga além de stacks.
+    Retorna dict com tamanho de equipe, volume de dados, cultura e estágio.
+    """
+    import re
+    texto = descricao.lower()
+    sinais = {
+        "tamanho_equipe": None,
+        "volume_dados": None,
+        "cultura": [],
+        "estagio_empresa": None,
+    }
+
+    # tamanho da equipe
+    match = re.search(r'time\s+de\s+(\d+)|equipe\s+de\s+(\d+)|squad\s+de\s+(\d+)|(\d+)\s+engenheiros', texto)
+    if match:
+        val = next(v for v in match.groups() if v)
+        sinais["tamanho_equipe"] = int(val)
+
+    # volume de dados
+    if any(x in texto for x in ["petabyte", "pb de", "bilhões de"]):
+        sinais["volume_dados"] = "muito alto"
+    elif any(x in texto for x in ["terabyte", "tb de", "milhões de eventos", "centenas de milhões"]):
+        sinais["volume_dados"] = "alto"
+    elif any(x in texto for x in ["gigabyte", "milhares de", "dezenas de milhões"]):
+        sinais["volume_dados"] = "médio"
+
+    # cultura de engenharia
+    termos_cultura = {
+        "pair programming": "pair programming",
+        "code review": "code review",
+        "tdd": "TDD",
+        "on-call": "on-call",
+        "post-mortem": "post-mortem",
+        "agile": "agile",
+        "scrum": "scrum",
+        "kanban": "kanban",
+        "ci/cd": "CI/CD",
+        "devops": "devops",
+    }
+    sinais["cultura"] = [label for termo, label in termos_cultura.items() if termo in texto]
+
+    # estágio da empresa
+    if any(x in texto for x in ["série a", "serie a", "series a", "seed", "startup em early"]):
+        sinais["estagio_empresa"] = "early stage"
+    elif any(x in texto for x in ["série b", "serie b", "series b", "série c", "scale-up"]):
+        sinais["estagio_empresa"] = "growth stage"
+    elif any(x in texto for x in ["empresa consolidada", "20 anos", "30 anos", "empresa de grande porte", "multinacional"]):
+        sinais["estagio_empresa"] = "empresa consolidada"
+
+    return sinais

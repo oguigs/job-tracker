@@ -16,6 +16,8 @@ from database.connection import DB_PATH, conectar, db_connect
 from playwright.sync_api import sync_playwright
 from playwright_stealth import stealth as stealth_sync
 import requests, html, re
+from transformers.stack_extractor import extrair_sinais_descricao
+
 
 TIMEOUT_EMPRESA_SEGUNDOS = 300
 
@@ -148,6 +150,14 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
             vaga["stacks"] = extrair_stacks(vaga.get("descricao", "") or vaga["titulo"])
             vaga["nivel"] = detectar_nivel(vaga["titulo"])
             vaga["urgente"] = detectar_urgencia(vaga.get("descricao", ""), vaga["titulo"])
+            
+            sinais = extrair_sinais_descricao(vaga.get("descricao", ""))
+            if sinais["tamanho_equipe"]:
+                vaga["tamanho_equipe"] = sinais["tamanho_equipe"]
+            if sinais["volume_dados"]:
+                vaga["volume_dados"] = sinais["volume_dados"]
+            if sinais["estagio_empresa"]:
+                vaga["estagio_empresa"] = sinais["estagio_empresa"]
             sal_min, sal_max = detectar_salario(vaga.get("descricao", ""))
             if sal_min > 0:
                 vaga["salario_min"] = sal_min
