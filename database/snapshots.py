@@ -1,3 +1,5 @@
+from logger import get_logger
+log = get_logger("snapshots")
 import json
 from database.connection import db_connect
 
@@ -10,7 +12,7 @@ def salvar_snapshot():
             "SELECT COUNT(*) FROM snapshot_mercado WHERE data_ref = ?", [hoje]
         ).fetchone()[0]
         if existente > 0:
-            print(f"Snapshot de {hoje} já existe.")
+            log.info(f"Snapshot de {hoje} já existe.")
             return
         vagas = con.execute("""
             SELECT stacks FROM fact_vaga
@@ -32,7 +34,7 @@ def salvar_snapshot():
                 INSERT INTO snapshot_mercado (id, data_ref, stack, categoria, quantidade)
                 VALUES (?, ?, ?, ?, ?)
             """, [id_snap, hoje, stack, categoria, quantidade])
-    print(f"Snapshot salvo: {len(contagem)} stacks em {hoje}")
+    log.info(f"Snapshot salvo: {len(contagem)} stacks em {hoje}")
 
 
 def carregar_historico(stack: str = None, categoria: str = None):

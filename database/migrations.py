@@ -1,3 +1,5 @@
+from logger import get_logger
+log = get_logger("migrations")
 """
 migrations.py — Corrige tipos errados no banco existente.
 Seguro para rodar múltiplas vezes (idempotente).
@@ -26,18 +28,18 @@ def migrar_v1_tipos_fact_vaga():
         for coluna, tipo_correto in correcoes:
             tipo_atual = tipos_atuais.get(coluna)
             if tipo_atual and tipo_atual != tipo_correto:
-                print(f"  Migrando {coluna}: {tipo_atual} → {tipo_correto}")
+                log.info(f"  Migrando {coluna}: {tipo_atual} → {tipo_correto}")
                 try:
                     con.execute(f"""
                         ALTER TABLE fact_vaga
                         ALTER COLUMN {coluna} SET DATA TYPE {tipo_correto}
                         USING CAST({coluna} AS {tipo_correto})
                     """)
-                    print(f"  ✓ {coluna} migrado")
+                    log.info(f"  ✓ {coluna} migrado")
                 except Exception as e:
-                    print(f"  ✗ {coluna} erro: {e}")
+                    log.error(f"  ✗ {coluna} erro: {e}")
             else:
-                print(f"  ✓ {coluna} já está correto ({tipo_atual})")
+                log.info(f"  ✓ {coluna} já está correto ({tipo_atual})")
 
 
 def migrar_v2_adicionar_colunas_faltantes():
@@ -55,23 +57,23 @@ def migrar_v2_adicionar_colunas_faltantes():
 
         for coluna, definicao in novas_colunas:
             if coluna not in colunas_existentes:
-                print(f"  Adicionando {coluna}...")
+                log.info(f"  Adicionando {coluna}...")
                 con.execute(f"ALTER TABLE fact_vaga ADD COLUMN {coluna} {definicao}")
-                print(f"  ✓ {coluna} adicionada")
+                log.info(f"  ✓ {coluna} adicionada")
 
 
 def rodar_migracoes():
     """Ponto de entrada — roda todas as migrações em ordem."""
-    print("=== Iniciando migrações ===")
-    print("\n[v1] Corrigindo tipos de fact_vaga...")
+    log.info("=== Iniciando migrações ===")
+    log.info("\n[v1] Corrigindo tipos de fact_vaga...")
     migrar_v1_tipos_fact_vaga()
-    print("\n[v2] Verificando colunas faltantes...")
+    log.info("\n[v2] Verificando colunas faltantes...")
     migrar_v2_adicionar_colunas_faltantes()
-    print("\n[v3] Corrigindo tipos de dim_contato...")
+    log.info("\n[v3] Corrigindo tipos de dim_contato...")
     migrar_v3_tipos_dim_contato()
-    print("\n[v4] Corrigindo tipos de log_candidatura...")
+    log.info("\n[v4] Corrigindo tipos de log_candidatura...")
     migrar_v4_tipos_log_candidatura()
-    print("\n=== Migrações concluídas ===")
+    log.info("\n=== Migrações concluídas ===")
 
 
 if __name__ == "__main__":
@@ -92,15 +94,15 @@ def migrar_v3_tipos_dim_contato():
         for coluna, tipo_correto in correcoes:
             tipo_atual = tipos_atuais.get(coluna)
             if tipo_atual and tipo_atual != tipo_correto:
-                print(f"  Migrando dim_contato.{coluna}: {tipo_atual} → {tipo_correto}")
+                log.info(f"  Migrando dim_contato.{coluna}: {tipo_atual} → {tipo_correto}")
                 con.execute(f"""
                     ALTER TABLE dim_contato
                     ALTER COLUMN {coluna} SET DATA TYPE {tipo_correto}
                     USING CAST({coluna} AS {tipo_correto})
                 """)
-                print(f"  ✓ {coluna} migrado")
+                log.info(f"  ✓ {coluna} migrado")
             else:
-                print(f"  ✓ {coluna} já correto")
+                log.info(f"  ✓ {coluna} já correto")
 
 
 def migrar_v4_tipos_log_candidatura():
@@ -109,12 +111,12 @@ def migrar_v4_tipos_log_candidatura():
         info = con.execute("PRAGMA table_info(log_candidatura)").fetchall()
         tipos_atuais = {row[1]: row[2] for row in info}
         if tipos_atuais.get("nota") != "VARCHAR":
-            print("  Migrando log_candidatura.nota: INTEGER → VARCHAR")
+            log.info("  Migrando log_candidatura.nota: INTEGER → VARCHAR")
             con.execute("""
                 ALTER TABLE log_candidatura
                 ALTER COLUMN nota SET DATA TYPE VARCHAR
                 USING CAST(nota AS VARCHAR)
             """)
-            print("  ✓ nota migrado")
+            log.info("  ✓ nota migrado")
         else:
-            print("  ✓ nota já correto")
+            log.info("  ✓ nota já correto")

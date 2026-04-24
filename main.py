@@ -18,6 +18,8 @@ from playwright_stealth import stealth as stealth_sync
 import requests, html, re
 from transformers.stack_extractor import extrair_sinais_descricao
 
+from logger import get_logger
+log = get_logger("pipeline")
 
 TIMEOUT_EMPRESA_SEGUNDOS = 300
 
@@ -61,7 +63,7 @@ def localidade_relevante(vaga: dict, permitidos: list, bloqueados: list) -> bool
 
 def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tuple[int, int, str]:
     if empresa_bloqueada(nome):
-        print(f"  {nome} bloqueada — aguardando 48h")
+        log.info(f"  {nome} bloqueada — aguardando 48h")
         return 0, 0, "bloqueada (48h)"
 
     vagas_encontradas = 0
@@ -70,10 +72,10 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
 
     horas_desde_ultima = ultima_execucao_sucesso(nome)
     if horas_desde_ultima < cooldown_horas:
-        print(f"  Pulando {nome} — última execução há {horas_desde_ultima}h")
+        log.info(f"  Pulando {nome} — última execução há {horas_desde_ultima}h")
         return 0, 0, f"cooldown ({horas_desde_ultima}h)"
 
-    print(f"  Última execução: {horas_desde_ultima}h atrás")
+    log.info(f"  Última execução: {horas_desde_ultima}h atrás")
 
     try:
         vagas = buscar_vagas(url_vagas)
@@ -81,7 +83,7 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
 
         interesse, bloqueio = carregar_filtros()
         vagas_filtradas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
-        print(f"  {len(vagas_filtradas)} vagas relevantes de {vagas_encontradas} após filtro")
+        log.info(f"  {len(vagas_filtradas)} vagas relevantes de {vagas_encontradas} após filtro")
 
 
         vagas_enriquecidas = coletar_descricoes_lote(vagas_filtradas)
@@ -113,15 +115,15 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
         links_ativos = [v["link"] for v in vagas_enriquecidas]
         encerradas = verificar_vagas_encerradas(id_empresa, links_ativos)
         if encerradas:
-            print(f"  {len(encerradas)} vaga(s) encerrada(s)")
+            log.info(f"  {len(encerradas)} vaga(s) encerrada(s)")
 
         registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
-        print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
+        log.info(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
 
     except Exception as e:
         erro = str(e)
         registrar_log(nome, vagas_encontradas, vagas_novas, "erro", erro)
-        print(f"  Erro: {erro}")
+        log.error(f"  Erro: {erro}")
 
     return vagas_encontradas, vagas_novas, erro
 
@@ -131,11 +133,11 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
     try:
         interesse, bloqueio = carregar_filtros()
         vagas = [v for v in vagas_raw if titulo_relevante(v["titulo"], interesse, bloqueio)]
-        print(f"  {len(vagas)} vagas relevantes após filtro de título")
+        log.info(f"  {len(vagas)} vagas relevantes após filtro de título")
 
         permitidos, bloqueados = carregar_filtros_localizacao()
         vagas = [v for v in vagas if localidade_relevante(v, permitidos, bloqueados)]
-        print(f"  {len(vagas)} vagas após filtro de localização")
+        log.info(f"  {len(vagas)} vagas após filtro de localização")
 
         vagas_encontradas = len(vagas)
         id_empresa = upsert_empresa(nome=nome, url_vagas="")
@@ -166,12 +168,12 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
                 vagas_novas += 1
 
         registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
-        print(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
+        log.info(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")
         return vagas_encontradas, vagas_novas, ""
 
     except Exception as e:
         registrar_log(nome, 0, 0, "erro", str(e))
-        print(f"  Erro: {e}")
+        log.error(f"  Erro: {e}")
         return 0, 0, str(e)
 
 
@@ -199,13 +201,13 @@ def rodar_pipeline() -> None:
         """).fetchall()
 
     if not empresas:
-        print("Nenhuma empresa ativa no banco.")
+        log.warning("Nenhuma empresa ativa no banco.")
         return
 
-    print(f"\n{len(empresas)} empresa(s) ativa(s)")
+    log.info(f"\n{len(empresas)} empresa(s) ativa(s)")
 
     for nome, url_vagas in empresas:
-        print(f"\nProcessando {nome}...")
+        log.info(f"\nProcessando {nome}...")
         if "gupy.io" in url_vagas:
             processar_empresa(nome, url_vagas)
         elif "greenhouse.io" in url_vagas:
@@ -216,11 +218,11 @@ def rodar_pipeline() -> None:
         elif "smartrecruiters.com" in url_vagas:
             processar_empresa_smartrecruiters(nome, url_vagas)    
         else:
-            print(f"  Plataforma não reconhecida: {url_vagas}")
+            log.info(f"  Plataforma não reconhecida: {url_vagas}")
 
-    print("\nSalvando snapshot...")
+    log.info("\nSalvando snapshot...")
     salvar_snapshot()
-    print("\nPipeline concluído.")
+    log.info("\nPipeline concluído.")
 
 
 if __name__ == "__main__":

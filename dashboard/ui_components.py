@@ -463,6 +463,30 @@ def render_dialog_vaga(v, prefix: str = "v"):
                 if diff["gaps"]:
                     st.divider()
                     st.caption("💡 Adicione essas stacks ao CV antes de candidatar — ou certifique-se de mencionar experiência relevante durante a entrevista.")
+            # exportar diff como markdown
+                st.divider()
+                md = f"# Diff Currículo × {v['titulo'][:50]}\n"
+                md += f"**Empresa:** {v['empresa']}  \n"
+                md += f"**Cobertura:** {diff['pct_cobertura']}%\n\n"
+                md += "## ✅ Você menciona no CV\n"
+                for m in diff["matches"]:
+                    md += f"- {m['stack']} ({m['categoria']})\n"
+                md += "\n## ❌ Faltam no CV\n"
+                for g in diff["gaps"]:
+                    md += f"- {g['stack']} ({g['categoria']})\n"
+                if diff["gaps"]:
+                    md += "\n## 💡 Ações recomendadas\n"
+                    for g in diff["gaps"]:
+                        md += f"- Adicione **{g['stack']}** ao CV ou mencione durante a entrevista\n"
+
+                st.download_button(
+                    "📥 Exportar diff como Markdown",
+                    data=md,
+                    file_name=f"diff_{v['empresa'].lower().replace(' ','_')}.md",
+                    mime="text/markdown",
+                    use_container_width=True
+                )
+            
             finally:
                 os.unlink(tmp_path)
         else:

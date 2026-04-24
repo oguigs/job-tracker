@@ -1,3 +1,5 @@
+from logger import get_logger
+log = get_logger("gupy_detalhes")
 from playwright.sync_api import sync_playwright
 import json
 import time
@@ -23,7 +25,7 @@ def coletar_descricao(page, url: str) -> str:
         descricao = page.query_selector("[class*='description'], [class*='jobDescription'], section")
         return descricao.inner_text().strip() if descricao else ""
     except Exception as e:
-        print(f"Erro ao coletar descrição: {e}")
+        log.error(f"Erro ao coletar descrição: {e}")
         return ""
 
 def enriquecer_vagas(caminho_json: str):
@@ -45,14 +47,14 @@ def enriquecer_vagas(caminho_json: str):
         return True
 
     vagas_relevantes = [v for v in vagas if titulo_relevante(v["titulo"])]
-    print(f"{len(vagas_relevantes)} vagas relevantes de {len(vagas)} coletadas")
+    log.info(f"{len(vagas_relevantes)} vagas relevantes de {len(vagas)} coletadas")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
         for i, vaga in enumerate(vagas_relevantes):
-            print(f"[{i+1}/{len(vagas_relevantes)}] Coletando: {vaga['titulo']}")
+            log.info(f"[{i+1}/{len(vagas_relevantes)}] Coletando: {vaga['titulo']}")
             vaga["descricao"] = coletar_descricao(page, vaga["link"])
             time.sleep(2)
 
@@ -61,7 +63,7 @@ def enriquecer_vagas(caminho_json: str):
     with open("data/raw/vagas_enriquecidas.json", "w", encoding="utf-8") as f:
         json.dump(vagas_relevantes, f, ensure_ascii=False, indent=2)
 
-    print(f"\nSalvo em data/raw/vagas_enriquecidas.json")
+    log.info(f"\nSalvo em data/raw/vagas_enriquecidas.json")
     return vagas_relevantes
 
 
@@ -82,7 +84,7 @@ def coletar_descricoes_lote(vagas: list, headless: bool = True) -> list:
     if not vagas:
         return vagas
 
-    print(f"  Coletando descrições de {len(vagas)} vagas...")
+    log.info(f"  Coletando descrições de {len(vagas)} vagas...")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
@@ -97,12 +99,12 @@ def coletar_descricoes_lote(vagas: list, headless: bool = True) -> list:
             try:
                 response = page.goto(vaga["link"], wait_until="networkidle", timeout=60000)
                 if response and response.status in [403, 429]:
-                    print(f"  Bloqueado ({response.status}): {vaga['titulo'][:40]}")
+                    log.warning(f"  Bloqueado ({response.status}): {vaga['titulo'][:40]}")
                     continue
 
                 content = page.content()
                 if "cloudflare" in content.lower() and "checking your browser" in content.lower():
-                    print(f"  Cloudflare detectado: {vaga['titulo'][:40]}")
+                    log.info(f"  Cloudflare detectado: {vaga['titulo'][:40]}")
                     continue
 
                 page.wait_for_selector(
@@ -129,10 +131,10 @@ def coletar_descricoes_lote(vagas: list, headless: bool = True) -> list:
                 time.sleep(random.uniform(1.5, 3.0))
 
             except Exception as e:
-                print(f"  Erro descrição {vaga['titulo'][:40]}: {e}")
+                log.error(f"  Erro descrição {vaga['titulo'][:40]}: {e}")
                 continue
 
         browser.close()
 
-    print(f"  Descrições coletadas.")
+    log.info(f"  Descrições coletadas.")
     return vagas

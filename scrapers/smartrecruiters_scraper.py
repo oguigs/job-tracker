@@ -1,3 +1,5 @@
+from logger import get_logger
+log = get_logger("smartrecruiters_scraper")
 import requests, html, re
 
 def limpar_html(texto: str) -> str:
@@ -69,13 +71,13 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, b
                 break
 
         except Exception as e:
-            print(f"Erro SmartRecruiters: {e}")
+            log.error(f"Erro SmartRecruiters: {e}")
             break
 
     return vagas
 
 if __name__ == "__main__":
     vagas = buscar_vagas_smartrecruiters("Visa")
-    print(f"{len(vagas)} vagas encontradas")
+    log.info(f"{len(vagas)} vagas encontradas")
     for v in vagas[:5]:
-        print(f"  - {v['titulo']}")
+        log.info(f"  - {v['titulo']}")

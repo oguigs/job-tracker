@@ -1,3 +1,5 @@
+from logger import get_logger
+log = get_logger("schemas")
 import shutil
 from database.connection import DB_PATH
 import os
@@ -32,7 +34,7 @@ def fazer_backup():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     destino = f"{BACKUP_DIR}/jobs_{timestamp}.duckdb"
     shutil.copy2(DB_PATH, destino)
-    print(f"Backup criado: {destino}")
+    log.info(f"Backup criado: {destino}")
     backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith(".duckdb")])
     while len(backups) > MAX_BACKUPS:
         os.remove(f"{BACKUP_DIR}/{backups.pop(0)}")
@@ -207,4 +209,4 @@ def criar_tabelas():
     con.execute("CREATE SEQUENCE IF NOT EXISTS seq_snapshot START 1")
 
     con.close()
-    print("Tabelas criadas com sucesso")
+    log.info("Tabelas criadas com sucesso")

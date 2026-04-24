@@ -1,3 +1,5 @@
+from logger import get_logger
+log = get_logger("greenhouse_scraper")
 from playwright.sync_api import sync_playwright
 import re
 
@@ -14,7 +16,7 @@ def buscar_vagas_greenhouse(empresa_slug: str) -> list:
             timeout=15
         )
         if r.status_code != 200:
-            print(f"  Erro Greenhouse {empresa_slug}: {r.status_code}")
+            log.error(f"  Erro Greenhouse {empresa_slug}: {r.status_code}")
             return []
 
         for job in r.json().get("jobs", []):
@@ -54,12 +56,12 @@ def buscar_vagas_greenhouse(empresa_slug: str) -> list:
             })
 
     except Exception as e:
-        print(f"  Erro Greenhouse {empresa_slug}: {e}")
+        log.error(f"  Erro Greenhouse {empresa_slug}: {e}")
 
     return vagas
 
 if __name__ == "__main__":
     vagas = buscar_vagas_greenhouse("nubank")
-    print(f"{len(vagas)} vagas encontradas")
+    log.info(f"{len(vagas)} vagas encontradas")
     for v in vagas[:5]:
-        print(f"  - {v['titulo']}")
+        log.info(f"  - {v['titulo']}")

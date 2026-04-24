@@ -1,3 +1,5 @@
+from logger import get_logger
+log = get_logger("inhire_scraper")
 from playwright.sync_api import sync_playwright
 
 def buscar_vagas_inhire(url_base: str) -> list:
@@ -38,13 +40,13 @@ def buscar_vagas_inhire(url_base: str) -> list:
                     "pais": "br",  # Inhire é 100% brasileiro
                 })
         except Exception as e:
-            print(f"Erro Inhire {url_base}: {e}")
+            log.error(f"Erro Inhire {url_base}: {e}")
         finally:
             browser.close()
     return vagas
 
 if __name__ == "__main__":
     vagas = buscar_vagas_inhire("https://pravaler.inhire.app/vagas")
-    print(f"{len(vagas)} vagas encontradas")
+    log.info(f"{len(vagas)} vagas encontradas")
     for v in vagas[:5]:
-        print(f"  - {v['titulo']}")
+        log.info(f"  - {v['titulo']}")

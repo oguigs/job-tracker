@@ -1,3 +1,5 @@
+from logger import get_logger
+log = get_logger("gupy_scraper")
 from playwright.sync_api import sync_playwright
 import json
 import time
@@ -10,26 +12,26 @@ def buscar_vagas(url_empresa: str) -> list:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        print(f"Abrindo página de {nome_empresa}...")
+        log.info(f"Abrindo página de {nome_empresa}...")
         response = page.goto(url_empresa, wait_until="networkidle", timeout=60000)
 
         if response.status == 404:
-            print(f"Página não encontrada: {url_empresa}")
+            log.info(f"Página não encontrada: {url_empresa}")
             browser.close()
             return []
 
         if response.status != 200:
-            print(f"Erro ao acessar {url_empresa}: status {response.status}")
+            log.error(f"Erro ao acessar {url_empresa}: status {response.status}")
             browser.close()
             return []
 
-        print("Aguardando vagas carregarem...")
+        log.info("Aguardando vagas carregarem...")
         page.wait_for_selector("a[href*='/job']", timeout=15000)
 
         pagina_atual = 1
 
         while True:
-            print(f"  Coletando página {pagina_atual}...")
+            log.info(f"  Coletando página {pagina_atual}...")
 
             cards = page.query_selector_all("a[href*='/job']")
             dominio = url_empresa.rstrip("/")
@@ -94,7 +96,7 @@ def buscar_vagas(url_empresa: str) -> list:
                 else:
                     break
 
-        print(f"{len(vagas)} vagas encontradas no total")
+        log.info(f"{len(vagas)} vagas encontradas no total")
         browser.close()
 
     return vagas
@@ -114,10 +116,10 @@ if __name__ == "__main__":
             vagas = buscar_vagas(url)
             todas_vagas.extend(vagas)
         except Exception as e:
-            print(f"Erro em {url}: {e}")
+            log.error(f"Erro em {url}: {e}")
 
-    print(f"\nTotal: {len(todas_vagas)} vagas coletadas")
+    log.info(f"\nTotal: {len(todas_vagas)} vagas coletadas")
 
     with open("data/raw/vagas_gupy.json", "w", encoding="utf-8") as f:
         json.dump(todas_vagas, f, ensure_ascii=False, indent=2)
-    print("Salvo em data/raw/vagas_gupy.json")
+    log.info("Salvo em data/raw/vagas_gupy.json")
