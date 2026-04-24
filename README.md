@@ -1,220 +1,250 @@
-# Job Tracker — Data Engineering Intelligence
+# Job Tracker — Data Engineering
 
-> Pipeline pessoal de inteligência de mercado para vagas de Data Engineering. Stack 100% gratuita e open source — projeto de portfólio que ensina ferramentas mainstream do mercado de DE enquanto automatiza a busca de emprego.
-
----
-
-## 🚀 O que faz
-
-- **Coleta automática** de vagas em Gupy, Greenhouse, Inhire e SmartRecruiters via Playwright e APIs REST
-- **Extração de stacks** via NLP — 80+ tecnologias em 8 categorias
-- **Score de fit** — compatibilidade entre seu perfil e cada vaga, com breakdown de matches e gaps
-- **Funil de candidaturas** — rastreia cada vaga do "não inscrito" até "aprovado"
-- **Dashboard interativo** com 14 páginas — métricas, gráficos, filtros, dialogs de detalhe
-- **Fila de inscrição** — vagas ordenadas por score para processar sequencialmente
-- **Roadmap de estudos** com tracker de progresso e livros
-- **Remuneração CLT/PJ** com cálculo automático de total mensal e anual
+> Pipeline de coleta, processamento e análise de vagas de Data Engineering com dashboard interativo.
 
 ---
 
-## 🏗 Arquitetura
+## Sobre o projeto
+
+Sistema de inteligência de mercado para profissionais de dados. Coleta automaticamente vagas de empresas monitoradas, extrai as stacks exigidas, detecta vagas novas e encerradas, e exibe tudo em um dashboard para direcionar estudos e candidaturas.
+
+---
+
+## Arquitetura
 
 ```
 job-tracker/
-├── main.py                      # Orquestração do pipeline
-├── utils.py                     # Helpers globais (safe_str, safe_bool, etc.)
-├── Makefile                     # make run | make pipeline | make backup
-├── start.sh                     # Hot reload
-├── database/
-│   ├── connection.py            # DB_PATH + context manager db_connect()
-│   ├── schemas.py               # DDL completo + TIMELINE + backup automático
-│   ├── migrations.py            # Migrações idempotentes para bancos existentes
-│   ├── vagas.py                 # CRUD de vagas
-│   ├── empresas.py              # CRUD de empresas
-│   ├── candidaturas.py          # Atualização de candidatura e remuneração
-│   ├── logs.py                  # Execuções e cooldown
-│   ├── filtros.py               # Filtros de título e localização
-│   ├── candidato.py             # Perfil e stacks do candidato
-│   ├── score.py                 # Cálculo de fit
-│   ├── diario.py                # Notas de candidatura
-│   ├── contatos.py              # Contatos por empresa
-│   ├── medallion.py             # Views Bronze/Silver/Gold
-│   ├── quality.py               # Great Expectations
-│   └── snapshots.py             # Histórico de stacks do mercado
 ├── scrapers/
-│   ├── gupy_scraper.py          # Playwright + stealth
-│   ├── gupy_detalhes.py         # Coleta de descrições em lote
-│   ├── greenhouse_scraper.py    # API REST
-│   ├── inhire_scraper.py        # Playwright
-│   └── smartrecruiters_scraper.py  # API REST
+│   ├── gupy_scraper.py       # Coleta vagas de qualquer empresa no Gupy
+│   ├── gupy_detalhes.py      # Coleta descrição completa de cada vaga
+│   └── company_search.py     # Busca automática de dados da empresa (DuckDuckGo)
 ├── transformers/
-│   └── stack_extractor.py       # NLP para extração de stacks e nível
-└── dashboard/
-    ├── app.py                   # Roteamento com navegação agrupada
-    ├── theme.py                 # Paleta de cores centralizada
-    ├── data_loaders.py          # Queries e carregamento de dados
-    ├── charts.py                # Gráficos Plotly
-    ├── ui_components.py         # Componentes reutilizáveis
-    ├── components.py            # Re-exporta tudo (compatibilidade)
-    └── views/                   # 14 páginas do dashboard
-        ├── dashboard_page.py
-        ├── vagas.py
-        ├── fila_inscricao.py
-        ├── estudos.py
-        ├── empresas.py
-        ├── pipeline.py
-        ├── configuracoes.py
-        ├── comparativo.py
-        ├── tendencias.py
-        ├── funil.py
-        ├── qualidade.py
-        ├── perfil_candidato.py
-        ├── contatos.py
-        ├── cadastrar_vaga.py
-        └── vagas_negadas.py
+│   └── stack_extractor.py    # Extração de stacks, nível e modalidade
+├── database/
+│   └── db_manager.py         # Gerenciamento do DuckDB (CRUD + deduplicação)
+├── dashboard/
+│   └── app.py                # Dashboard Streamlit
+├── data/
+│   ├── raw/                  # JSONs brutos coletados
+│   └── curated/              # Banco DuckDB processado
+├── main.py                   # Orquestrador do pipeline completo
+├── .env                      # Variáveis de ambiente (não versionado)
+├── .gitignore
+└── requirements.txt
 ```
 
-### Padrões implementados
+### Fluxo do pipeline
 
-| Padrão | Status |
-|---|---|
-| Medallion Architecture (Bronze/Silver/Gold) | ✅ |
-| Repository Pattern (database/) | ✅ |
-| Factory Pattern (scrapers) | ✅ |
-| Context Manager DB (`db_connect()`) | ✅ |
-| Cache (`@st.cache_data`) | ✅ |
-| Separação de responsabilidades (SRP) | ✅ |
-| Great Expectations | ✅ |
-| Type hints | ✅ |
-| Migrations idempotentes | ✅ |
-| Paleta centralizada (theme.py) | ✅ |
-| Logging estruturado | 🔜 |
-| Testes automatizados (pytest) | 🔜 |
-| dbt + DuckDB | 🔜 |
-| Prefect orquestração | 🔜 |
-| CI/CD GitHub Actions | 🔜 |
-| Docker | 🔜 |
-
----
-
-## ⚙️ Setup
-
-### Requisitos
-- Python 3.14+
-- Playwright (`playwright install chromium`)
-
-### Instalação
-
-```bash
-git clone https://github.com/oguigs/job-tracker
-cd job-tracker
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
 ```
-
-### Executar
-
-```bash
-# Dashboard
-make run
-
-# Pipeline de coleta
-make pipeline
-
-# Backup manual
-make backup
+Empresas no banco
+      │
+      ▼
+Gupy Scraper (Playwright)
+      │  coleta título, link, modalidade
+      ▼
+Gupy Detalhes (Playwright)
+      │  coleta descrição completa de cada vaga
+      ▼
+Stack Extractor
+      │  extrai stacks, nível, modalidade
+      ▼
+DuckDB
+      │  deduplicação por hash, detecta vagas encerradas
+      ▼
+Dashboard Streamlit
 ```
 
 ---
 
-## 🗄 Banco de dados
+## Modelo de dados
 
-**DuckDB** em `data/curated/jobs.duckdb`
+### `dim_empresa`
+Cadastro das empresas monitoradas.
 
-| Tabela | Descrição |
-|---|---|
-| `dim_empresa` | Empresas monitoradas |
-| `fact_vaga` | Vagas com candidatura, remuneração e stacks |
-| `dim_candidato` | Perfil e stacks do candidato |
-| `dim_candidato_stack` | Stacks com nível e anos de experiência |
-| `dim_contato` | Contatos por empresa |
-| `log_coleta` | Histórico de execuções do pipeline |
-| `log_candidatura` | Diário de notas por vaga |
-| `config_filtros` | Filtros de título, localização e estudos |
-| `snapshot_mercado` | Histórico de stacks ao longo do tempo |
-
-Backups automáticos em `data/curated/backups/` (mantém últimos 7).
-
-Migrations em `database/migrations.py` — seguras para rodar múltiplas vezes.
-
----
-
-## 🏃 Pipeline
-
-O pipeline coleta vagas das empresas ativas, filtra por título e localização, extrai stacks das descrições e insere no banco.
-
-```
-dim_empresa (ativas)
-    → scraper por plataforma (Gupy/Greenhouse/Inhire/SmartRecruiters)
-    → filtro título + localização
-    → coletar_descricoes_lote() — Playwright
-    → extrair_stacks() — NLP
-    → inserir_vaga() — DuckDB
-    → registrar_log()
-    → salvar_snapshot()
-```
-
-**Cooldown:** 12h entre execuções por empresa, 48h se bloqueada.
-
----
-
-## 📊 Dashboard
-
-14 páginas organizadas em 4 grupos na sidebar:
-
-| Grupo | Páginas |
-|---|---|
-| 🎯 Trabalho diário | Dashboard, Fila de Inscrição, Vagas |
-| 📚 Estudo | Estudos, Comparativo, Tendências |
-| 📋 Cadastros | Cadastrar Vaga, Empresas, Indicadores, Meu Perfil |
-| ⚙️ Operações | Pipeline, Qualidade, Configurações, Funil, Vagas Negadas |
-
----
-
-## 🔧 Variáveis de ambiente
-
-```bash
-JOB_TRACKER_DB=data/curated/jobs.duckdb  # caminho do banco (opcional)
-```
-
----
-
-## 📋 Roadmap
-
-| Onda | Foco | Status |
+| Campo | Tipo | Descrição |
 |---|---|---|
-| 1-3 | Bugs, schema, padronização DB | ✅ |
-| 4 | UI alta prioridade | ⚡ Em andamento |
-| 5 | Funcionalidades rápidas (urgência, salário, saúde pipeline) | 🔴 |
-| 6 | Empregabilidade (briefing entrevista, diff currículo) | 🟠 |
-| 7 | DE pedagógico (dbt, Prefect, testes, CI/CD) | 🟡 |
-| 8 | Polimento UX (kanban, micro-interações) | 🔵 |
-| 9 | Deploy (Docker, Raspberry Pi, Streamlit Cloud) | 🔮 |
+| id | INTEGER | Chave primária |
+| nome | VARCHAR | Nome da empresa |
+| ramo | VARCHAR | Setor de atuação |
+| cidade | VARCHAR | Cidade principal |
+| estado | VARCHAR | Estado |
+| url_gupy | VARCHAR | URL do portal Gupy |
+| url_linkedin | VARCHAR | URL do LinkedIn |
+| url_site_vagas | VARCHAR | URL do site de vagas |
+| ativa | BOOLEAN | Monitoramento ativo |
+| data_cadastro | DATE | Data do cadastro |
 
-Ver [BACKLOG.md](BACKLOG.md) para detalhes completos.
+### `dim_empresa_endereco`
+Polos e escritórios por empresa (1 empresa → N endereços).
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| id | INTEGER | Chave primária |
+| id_empresa | INTEGER | FK para dim_empresa |
+| cidade | VARCHAR | Cidade do polo |
+| bairro | VARCHAR | Bairro do polo |
+
+### `fact_vaga`
+Vagas coletadas com stacks extraídas.
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| id | INTEGER | Chave primária |
+| hash | VARCHAR | Hash único (título + empresa + link) |
+| titulo | VARCHAR | Título da vaga |
+| nivel | VARCHAR | junior / pleno / senior / especialista |
+| modalidade | VARCHAR | remoto / hibrido / presencial |
+| stacks | JSON | Stacks por categoria |
+| link | VARCHAR | URL da vaga |
+| fonte | VARCHAR | Portal de origem |
+| id_empresa | INTEGER | FK para dim_empresa |
+| data_coleta | DATE | Data da coleta |
+| ativa | BOOLEAN | Vaga ainda no ar |
+| data_encerramento | DATE | Data que saiu do site |
+
+### `log_coleta`
+Histórico de execuções do pipeline.
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| id | INTEGER | Chave primária |
+| data_execucao | TIMESTAMP | Data e hora da execução |
+| empresa | VARCHAR | Empresa processada |
+| vagas_encontradas | INTEGER | Total de vagas no site |
+| vagas_novas | INTEGER | Vagas inseridas pela primeira vez |
+| status | VARCHAR | sucesso / erro |
+| erro | VARCHAR | Mensagem de erro se houver |
 
 ---
 
-## 🛠 Stack técnica
+## Stack do projeto
 
-| Camada | Tecnologia |
-|---|---|
-| Linguagem | Python 3.14 |
-| Banco de dados | DuckDB |
-| Dashboard | Streamlit |
-| Gráficos | Plotly |
-| Scraping | Playwright + playwright-stealth |
-| Qualidade | Great Expectations |
-| Dados | Pandas |
+| Camada | Ferramenta | Por quê |
+|---|---|---|
+| Scraping dinâmico | Playwright | Sites Next.js e React |
+| Scraping estático | requests + BeautifulSoup4 | Sites HTML simples |
+| Busca de empresas | DuckDuckGo Search (ddgs) | Gratuito, sem chave de API |
+| NLP / extração | Regex + dicionário de stacks | Leve e customizável |
+| Storage | DuckDB + Parquet | OLAP local, zero infraestrutura |
+| Transformação | Pandas | Limpeza e normalização |
+| Dashboard | Streamlit | Zero frontend, deploy simples |
+| Orquestração | schedule / launchd | Execução diária automática |
+
+---
+
+## Instalação
+
+### Pré-requisitos
+- Python 3.11+
+- Git
+
+### Setup
+
+```bash
+# clone o repositório
+git clone https://github.com/oguigs/job-tracker.git
+cd job-tracker
+
+# crie e ative o ambiente virtual
+python3 -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate   # Windows
+
+# instale as dependências
+pip install -r requirements.txt
+
+# instale o navegador do Playwright
+python -m playwright install chromium
+
+# configure as variáveis de ambiente
+cp .env.example .env
+# edite o .env com suas credenciais
+```
+
+### Variáveis de ambiente
+
+Crie um arquivo `.env` na raiz do projeto:
+
+```
+GOOGLE_API_KEY=sua_chave_aqui
+GOOGLE_SEARCH_ENGINE_ID=seu_id_aqui
+```
+
+---
+
+## Como usar
+
+### Rodar o pipeline manualmente
+
+```bash
+python main.py
+```
+
+### Cadastrar empresas
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Acesse `http://localhost:8501`, vá em "Empresas" e cadastre as empresas que deseja monitorar com a URL do Gupy.
+
+### Estrutura da URL Gupy
+
+Toda empresa que usa o Gupy segue o padrão:
+```
+https://nomeempresa.gupy.io/
+```
+
+Exemplos:
+```
+https://compass.gupy.io/
+https://dock.gupy.io/
+https://picpay.gupy.io/
+```
+
+---
+
+## Funcionalidades
+
+- Scraper genérico para qualquer empresa no Gupy
+- Filtro automático de cargos relevantes (Data Engineer, Analytics Engineer, Data Analyst, etc.)
+- Extração de stacks por categoria: linguagens, cloud, orquestração, processamento, armazenamento, infraestrutura
+- Detecção automática de nível (junior, pleno, senior, especialista)
+- Detecção de modalidade (remoto, híbrido, presencial)
+- Deduplicação por hash — sem duplicatas mesmo rodando todo dia
+- Detecção de vagas encerradas com data de encerramento registrada
+- Log completo de cada execução do pipeline
+- Dashboard com filtros, gráficos de stacks e lista de vagas
+- Cadastro de empresas com busca automática de informações
+- Suporte a múltiplos polos/escritórios por empresa
+- Edição de empresas já cadastradas
+- Pausar/reativar monitoramento por empresa
+
+---
+
+## Dashboard
+
+O dashboard tem duas páginas:
+
+**Dashboard** — visão analítica das vagas coletadas com filtros por empresa, nível, modalidade e status. Gráficos de stacks mais exigidas por categoria e lista detalhada de vagas com links diretos.
+
+**Empresas** — cadastro e gestão de empresas monitoradas. Busca automática de informações como LinkedIn, site de vagas e cidade. Suporte a múltiplos polos por empresa.
+
+---
+
+## Roadmap
+
+- [ ] Agendamento automático diário via launchd (Mac)
+- [ ] Scraper para Inhire
+- [ ] Scraper para Lever
+- [ ] Scraper para sites próprios de empresas
+- [ ] Página de análise comparativa de stacks entre empresas
+- [ ] Gráfico de tempo médio que uma vaga fica aberta
+- [ ] Export de relatório PDF para direcionar currículo
+- [ ] Notificação por email quando vaga relevante aparecer
+
+---
+
+## Licença
+
+Projeto pessoal para estudo e uso próprio.

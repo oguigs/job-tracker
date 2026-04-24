@@ -96,27 +96,44 @@ def render_score_breakdown(id_vaga: int):
                         f"✗ {g['stack']}</span>", unsafe_allow_html=True)
 
 
-def render_diario(id_vaga: int):
+def render_diario(id_vaga: int, prefix: str = "v"):
     st.divider()
     st.write("**Diário de candidatura:**")
     df_notas = listar_notas(id_vaga)
     if not df_notas.empty:
         for _, nota in df_notas.iterrows():
+            impressao = nota.get("impressao") or ""
+            icone = {"positivo": "😊", "neutro": "😐", "negativo": "😟"}.get(impressao, "")
             col_data, col_nota, col_del = st.columns([1.5, 6, 0.5])
-            col_data.caption(str(nota["data_nota"])[:10])
-            col_nota.write(nota["nota"])
+            data_str = str(nota["data_nota"])[:10] if str(nota["data_nota"]) not in ["NaT","None","nan"] else "hoje"
+            col_data.caption(data_str)
+            col_nota.write(f"{icone} {nota['nota']}" if icone else nota["nota"])
             if col_del.button("✕", key=f"del_nota_{nota['id']}"):
                 deletar_nota(nota["id"])
+                st.session_state[f"dialog_{prefix}_atual"] = id_vaga
                 st.rerun()
     else:
         st.caption("Nenhuma nota ainda.")
-    with st.form(key=f"form_diario_{id_vaga}"):
-        nova_nota = st.text_area("Nova nota", placeholder="Ex: Ligaram do RH...", height=80, label_visibility="collapsed")
-        if st.form_submit_button("Adicionar nota", use_container_width=True):
-            if nova_nota.strip():
-                adicionar_nota(id_vaga, nova_nota.strip())
-                st.success("Nota adicionada!")
-                st.rerun()
+    nota_counter_key = f"nota_counter_{id_vaga}"
+    if nota_counter_key not in st.session_state:
+        st.session_state[nota_counter_key] = 0
+
+    nova_nota_key = f"nova_nota_{id_vaga}_{st.session_state[nota_counter_key]}"
+    impressao_key = f"nova_impressao_{id_vaga}_{st.session_state[nota_counter_key]}"
+
+    nova_nota = st.text_area("Nova nota", placeholder="Ex: Ligaram do RH...",
+                             height=80, label_visibility="collapsed",
+                             key=nova_nota_key)
+    impressao_sel = st.radio("Impressão", ["😊 Positivo", "😐 Neutro", "😟 Negativo"],
+        horizontal=True, index=1, key=impressao_key)
+    if st.button("Adicionar nota", use_container_width=True, key=f"btn_nota_{id_vaga}"):
+        if nova_nota.strip():
+            imp_map = {"😊 Positivo": "positivo", "😐 Neutro": "neutro", "😟 Negativo": "negativo"}
+            adicionar_nota(id_vaga, nova_nota.strip(), imp_map[impressao_sel])
+            st.session_state[nota_counter_key] += 1
+            st.session_state[f"dialog_{prefix}_atual"] = id_vaga
+            st.toast("✅ Nota adicionada!")
+            st.rerun()
 
 
 def render_preparacao_entrevista(id_vaga: int, id_empresa_nome: str, status_cand: str):
@@ -302,7 +319,6 @@ def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card"):
 
 def render_dialog_vaga(v, prefix: str = "v"):
     """Dialog de detalhes de vaga reutilizável."""
-    # busca status atual do banco — não do cache do dataframe
     with db_connect(read_only=True) as _con:
         _row = _con.execute(
             "SELECT candidatura_status, candidatura_observacao FROM fact_vaga WHERE id=?",
@@ -379,7 +395,7 @@ def render_dialog_vaga(v, prefix: str = "v"):
         render_remuneracao(v)
 
     with tab_diario:
-        render_diario(int(v["id"]))
+        render_diario(int(v["id"]), prefix=prefix)
 
     if mostrar_briefing:
         with tab_briefing:
@@ -420,7 +436,6 @@ def render_dialog_vaga(v, prefix: str = "v"):
 
 
 def render_empty_state(titulo: str, descricao: str, acao_label: str = None, acao_pagina: str = None):
-    """Estado vazio com instrução clara."""
     st.markdown(
         f"<div style='text-align:center;padding:40px 20px;color:#767676'>"
         f"<div style='font-size:48px;margin-bottom:16px'>🔍</div>"
