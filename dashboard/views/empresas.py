@@ -2,6 +2,7 @@ import streamlit as st
 from scrapers.company_search import buscar_empresa
 from database.empresas import inserir_endereco, listar_enderecos, deletar_endereco
 from dashboard.components import carregar_empresas, conectar_rw, get_favicon
+from database.connection import db_connect
 from datetime import date
 
 
@@ -48,6 +49,7 @@ def render():
 
         col_busca, col_btn = st.columns([3, 1])
         nome_busca = col_busca.text_input("Nome da empresa", placeholder="Ex: Nubank")
+        col_btn.text_input("Nome da empresa")
         if col_btn.button("🔍 Buscar", use_container_width=True):
             if nome_busca:
                 with st.spinner(f"Buscando {nome_busca}..."):
@@ -104,6 +106,7 @@ def render():
                             st.session_state.dados_buscados = {}
                             st.session_state.form_key += 1
                             st.success(f"✅ {nome} cadastrada com sucesso!")
+                            st.cache_data.clear()
                             st.rerun()
                     except Exception as e:
                         st.error(f"Erro: {e}")
@@ -118,11 +121,13 @@ def render():
         con = conectar_rw()
         con.execute("UPDATE dim_empresa SET ativa = true")
         con.close()
+        st.cache_data.clear()
         st.rerun()
     if col_off.button("⏸ Pausar todas", use_container_width=True):
         con = conectar_rw()
         con.execute("UPDATE dim_empresa SET ativa = false")
         con.close()
+        st.cache_data.clear()
         st.rerun()
 
     st.divider()
@@ -201,6 +206,7 @@ def render():
                             con.close()
                             st.session_state["config_emp_atual"] = None
                             st.success("Atualizado!")
+                            st.cache_data.clear()
                             st.rerun()
 
                 with tab_polos:
@@ -211,6 +217,7 @@ def render():
                             col_end.write(f"📍 {cid} / {bairro or '—'}")
                             if col_del.button("🗑", key=f"del_end_{id_end}"):
                                 deletar_endereco(id_end)
+                                st.cache_data.clear()
                                 st.rerun()
                     else:
                         st.caption("Nenhum polo cadastrado.")
@@ -221,6 +228,7 @@ def render():
                         if col_add.form_submit_button("➕"):
                             if nova_cidade:
                                 inserir_endereco(int(emp['id']), nova_cidade, novo_bairro)
+                                st.cache_data.clear()
                                 st.rerun()
 
                 with tab_acoes:
@@ -231,6 +239,7 @@ def render():
                             con.execute("UPDATE dim_empresa SET ativa=false WHERE id=?", [int(emp['id'])])
                             con.close()
                             st.session_state["config_emp_atual"] = None
+                            st.cache_data.clear()
                             st.rerun()
                     else:
                         if col_a1.button("▶️ Ativar", use_container_width=True):
@@ -238,7 +247,27 @@ def render():
                             con.execute("UPDATE dim_empresa SET ativa=true WHERE id=?", [int(emp['id'])])
                             con.close()
                             st.session_state["config_emp_atual"] = None
+                            st.cache_data.clear()
                             st.rerun()
+                    st.divider()
+                    if st.button("🗑 Deletar empresa", key=f"del_emp_{emp['id']}", 
+                                 use_container_width=True, type="secondary"):
+                        confirmar_key = f"confirmar_del_{emp['id']}"
+                        st.session_state[confirmar_key] = True
+                    if st.session_state.get(f"confirmar_del_{emp['id']}"):
+                        st.warning(f"Tem certeza que deseja deletar **{emp['nome']}**? Isso remove a empresa e todas as suas vagas.")
+                        col_sim, col_nao = st.columns(2)
+                        if col_sim.button("✅ Sim, deletar", key=f"sim_del_{emp['id']}", type="primary"):
+                            with db_connect() as con:
+                                con.execute("DELETE FROM fact_vaga WHERE id_empresa = ?", [int(emp['id'])])
+                                con.execute("DELETE FROM dim_empresa_endereco WHERE id_empresa = ?", [int(emp['id'])])
+                                con.execute("DELETE FROM dim_empresa WHERE id = ?", [int(emp['id'])])
+                            st.cache_data.clear()
+                            st.toast(f"✅ {emp['nome']} deletada!")
+                            st.rerun()
+                        if col_nao.button("❌ Cancelar", key=f"nao_del_{emp['id']}"):
+                            st.session_state[f"confirmar_del_{emp['id']}"] = False
+                            st.rerun()        
                     if col_a2.button("🔄 Buscar vagas", use_container_width=True):
                         with st.spinner(f"Coletando {emp['nome']}..."):
                             try:

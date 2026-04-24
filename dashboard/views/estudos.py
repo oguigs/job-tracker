@@ -2,7 +2,7 @@ import streamlit as st
 import json
 from database.connection import db_connect
 
-ESTUDOS = {
+ESTUDOS_BASE = {
     "🔤 Fundamentos": {
         "SQL Avançado": {"desc": "Window functions, CTEs, otimização de queries", "prioridade": "alta"},
         "Python para Dados": {"desc": "Pandas, NumPy, tipagem, testes unitários", "prioridade": "alta"},
@@ -79,12 +79,16 @@ STATUS_CORES = {
     "✅ Concluído": "#1D9E75",
 }
 
+
 def get_status_key(categoria, topico):
-    return f"estudo_{categoria[:10]}_{topico[:15]}".replace(" ","_").replace("/","_")
+    import hashlib
+    raw = f"{categoria}_{topico}"
+    return "estudo_" + hashlib.md5(raw.encode()).hexdigest()[:12]
+
 
 def carregar_todos_status():
     try:
-        with db_connect(read_only=True) as con:
+        with db_connect() as con:
             rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'estudo_status'").fetchall()
         result = {}
         for (termo,) in rows:
@@ -95,6 +99,7 @@ def carregar_todos_status():
     except Exception:
         return {}
 
+
 def salvar_status_topico(key, novo_status):
     try:
         with db_connect() as con:
@@ -103,9 +108,39 @@ def salvar_status_topico(key, novo_status):
     except Exception as e:
         st.error(f"Erro ao salvar: {e}")
 
+
+def carregar_topicos_custom() -> list:
+    """Retorna lista de dicts com tópicos customizados do banco."""
+    try:
+        with db_connect() as con:
+            rows = con.execute("SELECT id, termo FROM config_filtros WHERE tipo='estudo_topico'").fetchall()
+        resultado = []
+        for (row_id, termo) in rows:
+            try:
+                partes = termo.split("|")
+                resultado.append({
+                    "id": row_id,
+                    "categoria": partes[0] if len(partes) > 0 else "Custom",
+                    "topico": partes[1] if len(partes) > 1 else termo,
+                    "desc": partes[2] if len(partes) > 2 else "",
+                    "prioridade": partes[3] if len(partes) > 3 else "media",
+                })
+            except Exception:
+                pass
+        return resultado
+    except Exception:
+        return []
+
+
+def deletar_topico_custom(row_id: int, key: str):
+    with db_connect() as con:
+        con.execute("DELETE FROM config_filtros WHERE id = ?", [row_id])
+        con.execute("DELETE FROM config_filtros WHERE tipo='estudo_status' AND termo LIKE ?", [f"{key}=%"])
+
+
 def carregar_livros():
     try:
-        with db_connect(read_only=True) as con:
+        with db_connect() as con:
             rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'livro'").fetchall()
         livros = []
         for (termo,) in rows:
@@ -117,12 +152,14 @@ def carregar_livros():
     except Exception:
         return []
 
+
 def salvar_livro(livro: dict):
     try:
         with db_connect() as con:
             con.execute("INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'livro', ?)", [json.dumps(livro)])
     except Exception as e:
         st.error(f"Erro ao salvar livro: {e}")
+
 
 def atualizar_livro(livro_id: str, pagina_atual: int):
     try:
@@ -139,6 +176,7 @@ def atualizar_livro(livro_id: str, pagina_atual: int):
                     pass
     except Exception as e:
         st.error(f"Erro: {e}")
+
 
 def deletar_livro(livro_id: str):
     try:
@@ -164,6 +202,22 @@ def render():
 
     # ── TAB ROADMAP ────────────────────────────────────────────
     with tab_roadmap:
+        # monta ESTUDOS = base + customizados
+        import copy
+        ESTUDOS = copy.deepcopy(ESTUDOS_BASE)
+        topicos_custom = carregar_topicos_custom()
+        # mapa de key -> id do banco para deletar
+        custom_keys = {}
+        for tc in topicos_custom:
+            cat = tc["categoria"]
+            top = tc["topico"]
+            if cat not in ESTUDOS:
+                ESTUDOS[cat] = {}
+            if top not in ESTUDOS[cat]:
+                ESTUDOS[cat][top] = {"desc": tc["desc"], "prioridade": tc["prioridade"]}
+            key = get_status_key(cat, top)
+            custom_keys[key] = tc["id"]
+
         todos_status = carregar_todos_status()
         total = sum(len(t) for t in ESTUDOS.values())
         concluidos = sum(1 for v in todos_status.values() if v == "✅ Concluído")
@@ -205,13 +259,19 @@ def render():
             exp_key = f"exp_{categoria[:10]}"
             if exp_key not in st.session_state:
                 st.session_state[exp_key] = False
-            with st.expander(f"{categoria} ({len(topicos_filtrados)})", 
-                           expanded=st.session_state.get(exp_key, False)):
+            with st.expander(f"{categoria} ({len(topicos_filtrados)})",
+                             expanded=st.session_state.get(exp_key, False)):
                 for topico, (info, key, status_atual) in topicos_filtrados.items():
                     prio = info["prioridade"]
                     cor_prio = "#1D9E75" if prio == "alta" else "#BA7517" if prio == "media" else "#888"
+                    is_custom = key in custom_keys
 
-                    col_t, col_p, col_b1, col_b2, col_b3 = st.columns([4, 1, 1, 1, 1])
+                    if is_custom:
+                        col_t, col_p, col_b1, col_b2, col_b3, col_del = st.columns([4, 1, 1, 1, 1, 0.5])
+                    else:
+                        col_t, col_p, col_b1, col_b2, col_b3 = st.columns([4, 1, 1, 1, 1])
+                        col_del = None
+
                     col_t.markdown(f"**{topico}**")
                     col_t.caption(info["desc"])
                     col_p.markdown(
@@ -219,42 +279,73 @@ def render():
                         f"<span style='background:{cor_prio};color:white;font-size:10px;"
                         f"padding:2px 6px;border-radius:8px'>{prio}</span></div>",
                         unsafe_allow_html=True)
+
                     if col_b1.button("⬜", key=f"b1_{key}", use_container_width=True,
                                      type="primary" if status_atual == "⬜ Para estudar" else "secondary",
                                      help="Para estudar"):
                         salvar_status_topico(key, "⬜ Para estudar")
-                        st.session_state[f"exp_{categoria[:10]}"] = True
+                        st.session_state[exp_key] = True
                         st.rerun()
                     if col_b2.button("📖", key=f"b2_{key}", use_container_width=True,
                                      type="primary" if status_atual == "📖 Estudando" else "secondary",
                                      help="Estudando"):
                         salvar_status_topico(key, "📖 Estudando")
-                        st.session_state[f"exp_{categoria[:10]}"] = True
+                        st.session_state[exp_key] = True
                         st.rerun()
                     if col_b3.button("✅", key=f"b3_{key}", use_container_width=True,
                                      type="primary" if status_atual == "✅ Concluído" else "secondary",
                                      help="Concluído"):
                         salvar_status_topico(key, "✅ Concluído")
-                        st.session_state[f"exp_{categoria[:10]}"] = True
+                        st.session_state[exp_key] = True
                         st.rerun()
+
+                    if col_del and col_del.button("🗑", key=f"del_{key}", use_container_width=True, help="Remover tópico"):
+                        deletar_topico_custom(custom_keys[key], key)
+                        st.toast(f"🗑 {topico} removido!")
+                        st.rerun()
+
                     st.divider()
+
+        # Adicionar tópico customizado — FORA do loop
+        st.divider()
+        with st.expander("➕ Adicionar tópico customizado"):
+            with st.form("form_add_topico_custom"):
+                import copy as _copy
+                cats_existentes = list(_copy.deepcopy(ESTUDOS_BASE).keys()) + ["+ Nova categoria"]
+                col1, col2 = st.columns(2)
+                cat_sel = col1.selectbox("Categoria", cats_existentes)
+                novo_topico = col2.text_input("Tópico *", placeholder="Ex: Azure Synapse")
+                nova_cat_nome = st.text_input("Nome da nova categoria",
+                    placeholder="Ex: 🔧 Ferramentas") if cat_sel == "+ Nova categoria" else ""
+                nova_desc = st.text_input("Descrição", placeholder="Ex: Data warehouse do Azure")
+                nova_prio = st.selectbox("Prioridade", ["alta", "media", "baixa"])
+                if st.form_submit_button("Adicionar", use_container_width=True):
+                    if novo_topico.strip():
+                        categoria_final = nova_cat_nome.strip() if cat_sel == "+ Nova categoria" else cat_sel
+                        with db_connect() as con:
+                            con.execute("""
+                                INSERT INTO config_filtros (id, tipo, termo)
+                                VALUES (nextval('seq_filtro'), 'estudo_topico', ?)
+                            """, [f"{categoria_final}|{novo_topico.strip()}|{nova_desc}|{nova_prio}"])
+                        st.toast(f"✅ {novo_topico} adicionado em {categoria_final}!")
+                        st.rerun()
+                    else:
+                        st.error("Tópico é obrigatório.")
 
     # ── TAB LIVROS ─────────────────────────────────────────────
     with tab_livros:
         livros = carregar_livros()
 
-        # métricas
         if livros:
             col1, col2 = st.columns(2)
             col1.metric("Livros cadastrados", len(livros))
-            concluidos_l = sum(1 for l in livros if l.get("pagina_atual",0) >= l.get("total_paginas",1))
+            concluidos_l = sum(1 for l in livros if l.get("pagina_atual", 0) >= l.get("total_paginas", 1))
             col2.metric("✅ Concluídos", concluidos_l)
             st.divider()
 
-        # lista de livros
         for livro in livros:
-            lid = livro.get("id","")
-            titulo = livro.get("titulo","")
+            lid = livro.get("id", "")
+            titulo = livro.get("titulo", "")
             total_pag = int(livro.get("total_paginas", 0))
             pag_atual = int(livro.get("pagina_atual", 0))
             pct = round(pag_atual / total_pag * 100) if total_pag > 0 else 0
