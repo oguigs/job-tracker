@@ -5,6 +5,9 @@ ANYA        — ATS: keywords, formatação, seções, impacto (pure Python)
 VANELLOPE   — Carreira: compatibilidade e posicionamento (Ollama)
 ARYA        — Estratégia: como hackear o processo seletivo (Ollama)
 SINTETIZADOR — Score final + brief unificado (pure Python + Ollama)
+NEXUS       — Otimizador: reescreve título, resumo e bullets (Ollama)
+
+Suporte bilíngue: pt-BR e en-US. Detecção automática ou seleção manual.
 """
 
 import re
@@ -14,30 +17,65 @@ import ollama
 _OLLAMA_MODEL  = "llama3.2"
 _OLLAMA_URL    = "http://localhost:11434"
 
-# Seções esperadas num currículo bem estruturado
+# Seções esperadas num currículo bem estruturado (bilíngue)
 _SECOES_ESPERADAS = [
-    ["experiência", "experience", "histórico profissional"],
-    ["educação", "education", "formação", "formacao"],
-    ["habilidades", "skills", "competências", "competencias", "tecnologias"],
-    ["resumo", "summary", "objetivo", "sobre mim", "perfil"],
+    ["experiência", "experience", "histórico profissional", "work experience", "professional experience"],
+    ["educação", "education", "formação", "formacao", "academic background"],
+    ["habilidades", "skills", "competências", "competencias", "tecnologias", "technical skills"],
+    ["resumo", "summary", "objetivo", "sobre mim", "perfil", "profile", "about me", "objective"],
 ]
 
-# Padrões que indicam impacto quantificado
+# Padrões de impacto quantificado (PT + EN)
 _PADRAO_IMPACTO = re.compile(
-    r"(\d+[\.,]?\d*\s*(%|x|k|m|bi|mil|milhões|bilhões|reduz|aument|economiz|entreg|process|impacto|resultado|melhori))",
+    r"(\d+[\.,]?\d*\s*(%|x|k|m|bi|mil|milhões|bilhões|million|billion|"
+    r"reduz|aument|economiz|entreg|process|impacto|resultado|melhori|"
+    r"reduc|increas|deliver|improv|sav|generat|achiev))",
     re.IGNORECASE,
 )
 
-# Stopwords para extração de keywords da vaga
+# Stopwords PT-BR + EN
 _STOPWORDS = {
+    # PT
     "e", "de", "da", "do", "em", "para", "com", "que", "os", "as",
     "um", "uma", "por", "mais", "ser", "ter", "nos", "nas", "ao",
     "ou", "se", "na", "no", "a", "o", "é", "são", "seu", "sua",
-    "the", "and", "or", "of", "to", "in", "for", "with", "a", "an",
+    "foi", "ele", "ela", "eles", "elas", "isso", "esta", "este",
+    "nós", "nos", "das", "dos", "aos", "pela", "pelo", "entre",
+    # EN
+    "the", "and", "or", "of", "to", "in", "for", "with", "an",
     "be", "is", "are", "will", "you", "we", "our", "your", "this",
     "that", "it", "as", "at", "by", "from", "not", "but", "have",
     "has", "their", "on", "all", "who", "can", "also", "about",
+    "was", "were", "been", "being", "they", "them", "its", "into",
+    "such", "when", "which", "while", "both", "each", "more",
 }
+
+# Marcadores PT para detecção de idioma
+_PT_MARKERS = {
+    "de", "da", "do", "em", "para", "com", "que", "uma", "dos",
+    "das", "por", "mais", "ser", "ter", "são", "está", "como",
+    "experiência", "formação", "habilidades", "anos", "empresa",
+}
+# Marcadores EN para detecção de idioma
+_EN_MARKERS = {
+    "the", "and", "with", "for", "are", "have", "this", "that",
+    "experience", "skills", "company", "years", "team", "work",
+    "responsible", "developed", "managed", "led", "built",
+}
+
+
+def detectar_idioma(texto: str) -> str:
+    """Detecta o idioma dominante do texto. Retorna 'pt-BR' ou 'en-US'."""
+    palavras = set(re.findall(r"[a-záéíóúâêîôûãõça-z]+", texto.lower()))
+    pts = len(palavras & _PT_MARKERS)
+    ens = len(palavras & _EN_MARKERS)
+    return "pt-BR" if pts >= ens else "en-US"
+
+
+def _instrucao_idioma(idioma: str) -> str:
+    if idioma == "en-US":
+        return "Write your response in English."
+    return "Escreva sua resposta em português brasileiro."
 
 
 def ollama_disponivel() -> bool:
@@ -151,25 +189,24 @@ def rodar_anya(texto_cv: str, descricao_vaga: str, titulo_vaga: str = "") -> dic
 # VANELLOPE — Módulo Carreira (Groq)
 # ──────────────────────────────────────────────
 
-def rodar_vanellope(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_anya: dict) -> str:
+def rodar_vanellope(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_anya: dict, idioma: str = "pt-BR") -> str:
     """Parágrafo estratégico de compatibilidade de carreira."""
-    ausentes = ", ".join(analise_anya["keywords_ausentes"][:15]) or "nenhuma"
-    presentes = ", ".join(analise_anya["keywords_presentes"][:10]) or "nenhuma"
+    ausentes  = ", ".join(analise_anya["keywords_ausentes"][:15]) or "none"
+    presentes = ", ".join(analise_anya["keywords_presentes"][:10]) or "none"
+    lang      = _instrucao_idioma(idioma)
 
-    prompt = f"""Você é uma especialista em carreira e recrutamento no Brasil chamada VANELLOPE.
-Analise a compatibilidade entre o currículo e a vaga abaixo e escreva UM parágrafo direto e honesto.
+    prompt = f"""You are VANELLOPE, a career and recruitment specialist.
+Analyze the compatibility between the resume and the job below. Write ONE direct and honest paragraph.
 
-Seja específica: mencione o cargo da vaga, experiências relevantes do candidato e o que falta.
-Dê UMA ação concreta e prática que o candidato pode fazer agora para melhorar o fit.
-Escreva em português, tom direto, sem rodeios. Máximo 5 frases.
+Be specific: mention the job title, relevant candidate experience and what is missing.
+Give ONE concrete and practical action the candidate can take now to improve the fit.
+Maximum 5 sentences. {lang}
 
-VAGA: {titulo_vaga}
-DESCRIÇÃO DA VAGA (resumo): {descricao_vaga[:800]}
-
-KEYWORDS PRESENTES NO CURRÍCULO: {presentes}
-KEYWORDS AUSENTES: {ausentes}
-
-CURRÍCULO (resumo): {texto_cv[:1000]}
+JOB: {titulo_vaga}
+JOB DESCRIPTION: {descricao_vaga[:800]}
+KEYWORDS FOUND IN RESUME: {presentes}
+MISSING KEYWORDS: {ausentes}
+RESUME: {texto_cv[:1000]}
 """
     return _ollama_chat(prompt)
 
@@ -178,24 +215,25 @@ CURRÍCULO (resumo): {texto_cv[:1000]}
 # ARYA — Módulo Estratégia (Ollama)
 # ──────────────────────────────────────────────
 
-def rodar_arya(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_anya: dict) -> str:
+def rodar_arya(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_anya: dict, idioma: str = "pt-BR") -> str:
     """Estratégia anti-sistema para passar pelo filtro ATS e entrevista."""
-    ausentes = ", ".join(analise_anya["keywords_ausentes"][:12]) or "nenhuma"
+    ausentes = ", ".join(analise_anya["keywords_ausentes"][:12]) or "none"
+    lang     = _instrucao_idioma(idioma)
 
-    prompt = f"""Você é uma estrategista de recrutamento chamada ARYA, especialista em ajudar candidatos a passarem por filtros ATS.
-Escreva UM parágrafo com estratégia prática e ousada.
+    prompt = f"""You are ARYA, a recruitment strategist specialized in helping candidates pass ATS filters.
+Write ONE paragraph with bold and practical strategy.
 
-Inclua:
-1. Como refraseiar o título ou experiências para alinhar com a vaga SEM mentir
-2. Quais keywords ausentes inserir naturalmente no currículo
-3. Como vender o diferencial na entrevista
+Include:
+1. How to rephrase the job title or experience bullets to align with the job WITHOUT lying
+2. Which missing keywords to naturally insert in the resume
+3. How to sell the candidate's differentiator in the interview
 
-Escreva em português, tom direto e estratégico. Máximo 5 frases.
+Maximum 5 sentences. {lang}
 
-VAGA: {titulo_vaga}
-KEYWORDS QUE FALTAM NO CURRÍCULO: {ausentes}
-DESCRIÇÃO DA VAGA (resumo): {descricao_vaga[:600]}
-CURRÍCULO (resumo): {texto_cv[:800]}
+JOB: {titulo_vaga}
+MISSING KEYWORDS: {ausentes}
+JOB DESCRIPTION: {descricao_vaga[:600]}
+RESUME: {texto_cv[:800]}
 """
     return _ollama_chat(prompt)
 
@@ -211,6 +249,7 @@ def rodar_sintetizador(
     texto_cv: str,
     descricao_vaga: str,
     titulo_vaga: str,
+    idioma: str = "pt-BR",
 ) -> dict:
     """Compila os 3 agentes num score final e um brief unificado."""
 
@@ -234,13 +273,14 @@ def rodar_sintetizador(
     # brief unificado via Ollama (opcional — só roda se os agentes LLM rodaram)
     brief = ""
     if texto_vanellope and texto_arya:
-        prompt = f"""Você é o SINTETIZADOR, um sistema que compila análises de 3 agentes especializados.
-Escreva 2 frases resumindo o diagnóstico e a ação mais importante para o candidato.
-Tom: objetivo, sem repetir o que os agentes já disseram em detalhes.
+        lang = _instrucao_idioma(idioma)
+        prompt = f"""You are the SYNTHESIZER, a system that compiles analyses from 3 specialized agents.
+Write 2 sentences summarizing the diagnosis and the most important action for the candidate.
+Tone: objective, no repetition of details already covered by the agents. {lang}
 
 SCORE: {score}/100 — {status}
-ANÁLISE DE CARREIRA: {texto_vanellope[:300]}
-ESTRATÉGIA: {texto_arya[:300]}
+CAREER ANALYSIS: {texto_vanellope[:300]}
+STRATEGY: {texto_arya[:300]}
 """
         try:
             brief = _ollama_chat(prompt)
@@ -264,7 +304,7 @@ ESTRATÉGIA: {texto_arya[:300]}
 # NEXUS — Agente Otimizador (Ollama)
 # ──────────────────────────────────────────────
 
-def rodar_nexus(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_anya: dict) -> dict:
+def rodar_nexus(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_anya: dict, idioma: str = "pt-BR") -> dict:
     """Reescreve título, resumo e bullets do currículo com as keywords da vaga.
 
     Retorna dict com:
@@ -272,40 +312,42 @@ def rodar_nexus(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_an
         resumo_otimizado  — parágrafo de abertura com keywords
         bullets           — lista de {"antes": str, "depois": str}
     """
-    ausentes = ", ".join(analise_anya["keywords_ausentes"][:15]) or "nenhuma"
+    ausentes = ", ".join(analise_anya["keywords_ausentes"][:15]) or "none"
+    lang     = _instrucao_idioma(idioma)
 
-    prompt = f"""Você é NEXUS, especialista em otimização de currículos para o mercado brasileiro.
+    prompt = f"""You are NEXUS, a resume optimization specialist.
 
-Sua tarefa é reescrever partes do currículo para aumentar o match com a vaga.
-REGRA CRÍTICA: não invente experiências. Reescreva o que já existe usando as keywords certas.
+Your task is to rewrite parts of the resume to increase the match with the job.
+CRITICAL RULE: do NOT invent experience. Rewrite what already exists using the right keywords.
+{lang}
 
-VAGA: {titulo_vaga}
-DESCRIÇÃO DA VAGA: {descricao_vaga[:700]}
-KEYWORDS AUSENTES NO CURRÍCULO: {ausentes}
-CURRÍCULO ATUAL: {texto_cv[:2000]}
+JOB: {titulo_vaga}
+JOB DESCRIPTION: {descricao_vaga[:700]}
+MISSING KEYWORDS: {ausentes}
+CURRENT RESUME: {texto_cv[:2000]}
 
-Responda EXATAMENTE neste formato (sem texto extra fora dos campos):
+Reply EXACTLY in this format (no extra text outside the fields):
 
 TÍTULO_SUGERIDO:
-[escreva aqui um título profissional alinhado à vaga]
+[write a professional title aligned with the job]
 
 RESUMO_OTIMIZADO:
-[escreva aqui um parágrafo de 2-3 frases para o topo do currículo com as keywords da vaga]
+[write a 2-3 sentence opening paragraph with job keywords]
 
 BULLET_ANTES_1:
-[copie aqui um bullet point existente do currículo que pode ser melhorado]
+[copy an existing bullet point from the resume that can be improved]
 BULLET_DEPOIS_1:
-[reescreva esse bullet com as keywords da vaga e foco em resultado de negócio]
+[rewrite that bullet with job keywords and business impact focus]
 
 BULLET_ANTES_2:
-[copie aqui outro bullet point existente]
+[copy another existing bullet]
 BULLET_DEPOIS_2:
-[reescreva esse bullet]
+[rewrite it]
 
 BULLET_ANTES_3:
-[copie aqui outro bullet point existente]
+[copy another existing bullet]
 BULLET_DEPOIS_3:
-[reescreva esse bullet]"""
+[rewrite it]"""
 
     raw = _ollama_chat(prompt)
     return _parsear_nexus(raw)
@@ -341,16 +383,24 @@ def _parsear_nexus(raw: str) -> dict:
 # Entrada principal — roda os 4 agentes em sequência
 # ──────────────────────────────────────────────
 
-def analisar_curriculo(texto_cv: str, descricao_vaga: str, titulo_vaga: str = "") -> dict:
-    """Roda os 4 agentes e retorna o resultado completo."""
+def analisar_curriculo(texto_cv: str, descricao_vaga: str, titulo_vaga: str = "", idioma: str = "auto") -> dict:
+    """Roda os 4 agentes e retorna o resultado completo.
+
+    Args:
+        idioma: 'pt-BR', 'en-US' ou 'auto' (detecta automaticamente).
+    """
+    if idioma == "auto":
+        idioma = detectar_idioma(texto_cv + " " + descricao_vaga)
+
     anya      = rodar_anya(texto_cv, descricao_vaga, titulo_vaga)
-    vanellope = rodar_vanellope(texto_cv, descricao_vaga, titulo_vaga, anya)
-    arya      = rodar_arya(texto_cv, descricao_vaga, titulo_vaga, anya)
-    sintese   = rodar_sintetizador(anya, vanellope, arya, texto_cv, descricao_vaga, titulo_vaga)
+    vanellope = rodar_vanellope(texto_cv, descricao_vaga, titulo_vaga, anya, idioma)
+    arya      = rodar_arya(texto_cv, descricao_vaga, titulo_vaga, anya, idioma)
+    sintese   = rodar_sintetizador(anya, vanellope, arya, texto_cv, descricao_vaga, titulo_vaga, idioma)
 
     return {
         "anya":        anya,
         "vanellope":   vanellope,
         "arya":        arya,
         "sintetizador": sintese,
+        "idioma":      idioma,
     }

@@ -2,7 +2,7 @@ import streamlit as st
 import tempfile
 import os
 from transformers.curriculo_parser import extrair_texto_pdf
-from transformers.ats_agents import analisar_curriculo, rodar_anya, ollama_disponivel, rodar_nexus
+from transformers.ats_agents import analisar_curriculo, rodar_anya, ollama_disponivel, rodar_nexus, detectar_idioma
 from database.connection import db_connect
 
 
@@ -102,6 +102,14 @@ def render():
 
     st.divider()
 
+    col_lang, _ = st.columns([1, 3])
+    idioma_sel = col_lang.selectbox(
+        "Idioma do currículo e sugestões",
+        options=["Automático", "Português (pt-BR)", "English (en-US)"],
+        index=0,
+    )
+    idioma = {"Automático": "auto", "Português (pt-BR)": "pt-BR", "English (en-US)": "en-US"}[idioma_sel]
+
     llm_ok = ollama_disponivel()
     if not llm_ok:
         st.warning(
@@ -137,11 +145,16 @@ def render():
                 st.write("░ ANYA ANALISANDO KEYWORDS...")
                 anya = rodar_anya(texto_cv, descricao_vaga, titulo_vaga)
 
+                idioma_final = idioma
+                if idioma_final == "auto":
+                    idioma_final = detectar_idioma(texto_cv + " " + descricao_vaga)
+                st.write(f"░ IDIOMA DETECTADO: {'PORTUGUÊS' if idioma_final == 'pt-BR' else 'ENGLISH'}")
+
                 if llm_ok:
                     st.write("░ VANELLOPE AVALIANDO COMPATIBILIDADE DE CARREIRA...")
                     st.write("░ ARYA CALCULANDO ESTRATÉGIA ANTI-ATS...")
                     st.write("░ SINTETIZADOR COMPILANDO DIAGNÓSTICO FINAL...")
-                    resultado = analisar_curriculo(texto_cv, descricao_vaga, titulo_vaga)
+                    resultado = analisar_curriculo(texto_cv, descricao_vaga, titulo_vaga, idioma_final)
                 else:
                     from transformers.ats_agents import rodar_sintetizador
                     sintese = rodar_sintetizador(anya, "", "", texto_cv, descricao_vaga, titulo_vaga)
@@ -171,6 +184,7 @@ def render():
                         st.session_state["ats_descricao"],
                         st.session_state["ats_titulo_vaga"],
                         st.session_state["ats_resultado"]["anya"],
+                        st.session_state["ats_resultado"].get("idioma", "pt-BR"),
                     )
                     st.session_state["ats_nexus"] = nexus
                     status.update(label="Otimização concluída", state="complete")
