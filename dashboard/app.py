@@ -7,35 +7,36 @@ from dashboard.views import (
     pipeline, configuracoes, vagas_negadas,
     perfil_empresa, contatos, perfil_candidato,
     comparativo, tendencias, funil, qualidade, fila_inscricao, estudos,
-    minha_performance, perguntas
+    minha_performance, perguntas, comparar_ofertas
 )
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
 
 pages = {
-    "Dashboard":         dashboard_page.render,
-    "Vagas":             vagas.render,
-    "Fila de Inscrição": fila_inscricao.render,
-    "Estudos":           estudos.render,
-    "Comparativo":       comparativo.render,
-    "Tendências":        tendencias.render,
-    "Funil":             funil.render,
-    "Cadastrar Vaga":    cadastrar_vaga.render,
-    "Empresas":          empresas.render,
-    "Indicadores":       contatos.render,
-    "Meu Perfil":        perfil_candidato.render,
-    "Pipeline":          pipeline.render,
-    "Qualidade":         qualidade.render,
-    "Configurações":     configuracoes.render,
-    "Vagas Negadas":     vagas_negadas.render,
-    "Minha Performance": minha_performance.render,
-    "Perguntas":         perguntas.render,
+    "Dashboard":            dashboard_page.render,
+    "Vagas":                vagas.render,
+    "Fila de Inscrição":    fila_inscricao.render,
+    "Estudos":              estudos.render,
+    "Comparativo":          comparativo.render,
+    "Tendências":           tendencias.render,
+    "Funil":                funil.render,
+    "Cadastrar Vaga":       cadastrar_vaga.render,
+    "Empresas":             empresas.render,
+    "Indicadores":          contatos.render,
+    "Meu Perfil":           perfil_candidato.render,
+    "Pipeline":             pipeline.render,
+    "Qualidade":            qualidade.render,
+    "Configurações":        configuracoes.render,
+    "Vagas Negadas":        vagas_negadas.render,
+    "Minha Performance":    minha_performance.render,
+    "Perguntas":            perguntas.render,
+    "Comparar Ofertas":     comparar_ofertas.render,
 }
 
 GRUPOS = {
     "🎯 Trabalho diário": ["Dashboard", "Fila de Inscrição", "Vagas"],
     "📚 Estudo": ["Estudos", "Comparativo", "Tendências", "Minha Performance", "Perguntas"],
-    "📋 Cadastros":       ["Cadastrar Vaga", "Empresas", "Indicadores", "Meu Perfil"],
+    "📋 Cadastros": ["Cadastrar Vaga", "Empresas", "Indicadores", "Meu Perfil", "Comparar Ofertas"],
     "⚙️ Operações":       ["Pipeline", "Qualidade", "Configurações", "Funil", "Vagas Negadas"],
 }
 

@@ -25,7 +25,16 @@ def render():
                 e.nome as empresa,
                 COUNT(*) as candidaturas,
                 COUNT(CASE WHEN v.candidatura_status IN ('chamado','recrutador','fase_1','fase_2','fase_3','aprovado') THEN 1 END) as entrevistas,
-                MAX(v.candidatura_status) as melhor_fase
+                MAX(CASE v.candidatura_status
+                    WHEN 'aprovado'   THEN 9
+                    WHEN 'fase_3'     THEN 8
+                    WHEN 'fase_2'     THEN 7
+                    WHEN 'fase_1'     THEN 6
+                    WHEN 'recrutador' THEN 5
+                    WHEN 'chamado'    THEN 4
+                    WHEN 'inscrito'   THEN 3
+                    ELSE 0
+                END) as melhor_fase
             FROM fact_vaga v
             JOIN dim_empresa e ON v.id_empresa = e.id
             WHERE v.candidatura_status != 'nao_inscrito'

@@ -245,7 +245,8 @@ def render_remuneracao(vaga: dict):
         if st.form_submit_button("Salvar remuneração", use_container_width=True):
             salvar_remuneracao(
                 id_vaga=vaga["id"], regime=regime, moeda=moeda,
-                salario_mensal=salario_mensal, salario_anual_total=salario_mensal,
+                salario_mensal=salario_mensal, 
+                salario_anual_total=sal_anual,
                 tem_vr=tem_vr, valor_vr=valor_vr, tem_va=tem_va, valor_va=valor_va,
                 tem_vt=tem_vt, valor_vt=valor_vt, tem_plano_saude=tem_plano_saude,
                 tem_gympass=tem_gympass, tem_convenio_medico=tem_convenio_medico,
@@ -341,12 +342,12 @@ def render_dialog_vaga(v, prefix: str = "v"):
     mostrar_briefing = status_cand in fases_entrevista
 
     if mostrar_briefing:
-        tab_score, tab_cand, tab_briefing, tab_rem, tab_diario = st.tabs([
-            "📊 Score & Stacks", "📋 Candidatura", "🎯 Briefing", "💰 Remuneração", "📓 Diário"
+        tab_score, tab_cand, tab_briefing, tab_cv, tab_rem, tab_diario = st.tabs([
+            "📊 Score & Stacks", "📋 Candidatura", "🎯 Briefing", "📄 Diff CV", "💰 Remuneração", "📓 Diário"
         ])
     else:
-        tab_score, tab_cand, tab_rem, tab_diario = st.tabs([
-            "📊 Score & Stacks", "📋 Candidatura", "💰 Remuneração", "📓 Diário"
+        tab_score, tab_cand, tab_cv, tab_rem, tab_diario = st.tabs([
+            "📊 Score & Stacks", "📋 Candidatura", "📄 Diff CV", "💰 Remuneração", "📓 Diário"
         ])
 
     with tab_score:
@@ -425,6 +426,47 @@ def render_dialog_vaga(v, prefix: str = "v"):
                         salvar_retrospectiva(int(v["id"]), nao_soube, faria_diferente, impressao, motivo)
                         st.toast("✅ Retrospectiva salva!")
                         st.rerun()    
+
+    with tab_cv:
+        st.caption("Faça upload do seu currículo em PDF para ver o diff com esta vaga.")
+        curriculo_file = st.file_uploader("Currículo (PDF)", type=["pdf"], key=f"cv_{v['id']}")
+        if curriculo_file:
+            import tempfile, os, json
+            from transformers.curriculo_parser import extrair_stacks_curriculo, gerar_diff_curriculo_vaga
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(curriculo_file.read())
+                tmp_path = tmp.name
+            try:
+                stacks_cv = extrair_stacks_curriculo(tmp_path)
+                stacks_vaga_dict = json.loads(v["stacks"]) if isinstance(v["stacks"], str) else v["stacks"]
+                diff = gerar_diff_curriculo_vaga(stacks_cv, stacks_vaga_dict or {})
+
+                st.metric("Cobertura do CV para esta vaga", f"{diff['pct_cobertura']}%")
+                st.progress(diff["pct_cobertura"] / 100)
+
+                col_m, col_g = st.columns(2)
+                with col_m:
+                    st.markdown("**✅ Você menciona no CV:**")
+                    for m in diff["matches"]:
+                        st.markdown(
+                            f"<span style='background:#E8F5F0;color:#157A5A;padding:2px 8px;"
+                            f"border-radius:10px;font-size:11px;margin:2px;display:inline-block'>"
+                            f"✓ {m['stack']}</span>", unsafe_allow_html=True)
+                with col_g:
+                    st.markdown("**❌ Faltam no CV:**")
+                    for g in diff["gaps"]:
+                        st.markdown(
+                            f"<span style='background:#FBF0EB;color:#A83A18;padding:2px 8px;"
+                            f"border-radius:10px;font-size:11px;margin:2px;display:inline-block'>"
+                            f"✗ {g['stack']}</span>", unsafe_allow_html=True)
+
+                if diff["gaps"]:
+                    st.divider()
+                    st.caption("💡 Adicione essas stacks ao CV antes de candidatar — ou certifique-se de mencionar experiência relevante durante a entrevista.")
+            finally:
+                os.unlink(tmp_path)
+        else:
+            st.info("Upload o PDF do seu currículo para ver quais stacks aparecem e quais estão faltando para esta vaga.")
 
     with tab_rem:
         render_remuneracao(v)

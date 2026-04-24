@@ -147,10 +147,6 @@ def detectar_urgencia(descricao: str, titulo: str = "") -> bool:
     texto = (descricao + " " + titulo).lower()
     return any(termo in texto for termo in TERMOS_URGENCIA)
 
-
-if __name__ == "__main__":
-    processar_vagas("data/raw/vagas_enriquecidas.json")
-
 def detectar_salario(descricao: str) -> tuple[int, int]:
     """
     Extrai faixa salarial da descrição da vaga.
@@ -240,3 +236,6 @@ def extrair_sinais_descricao(descricao: str) -> dict:
         sinais["estagio_empresa"] = "empresa consolidada"
 
     return sinais
+
+if __name__ == "__main__":
+    processar_vagas("data/raw/vagas_enriquecidas.json")
