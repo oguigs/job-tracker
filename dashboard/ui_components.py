@@ -375,6 +375,9 @@ def _render_ats_tab(id_vaga: int, descricao: str, titulo: str, prefix: str):
             st.rerun()
         return
 
+    sem_descricao = not descricao or not descricao.strip()
+    sem_keywords  = not scores["keywords_ausentes"] and not scores["keywords_presentes"]
+
     score_final = scores["score_final"]
     cor = _cor_ats(score_final)
 
@@ -386,6 +389,13 @@ def _render_ats_tab(id_vaga: int, descricao: str, titulo: str, prefix: str):
         unsafe_allow_html=True,
     )
 
+    if sem_descricao:
+        st.warning("Esta vaga não tem descrição armazenada. Execute o pipeline para coletar a descrição completa e depois recalcule.")
+    elif sem_keywords:
+        st.warning("Nenhuma keyword técnica foi encontrada na descrição desta vaga. A dimensão KEYWORDS foi zerada — verifique se a descrição está completa.")
+        with st.expander("Ver descrição analisada"):
+            st.text(descricao[:1500] + ("\n[...]" if len(descricao) > 1500 else ""))
+
     st.markdown(
         "<div style='font-family:monospace; color:#555; font-size:11px; margin-bottom:4px'>DIMENSÕES</div>",
         unsafe_allow_html=True,
@@ -395,21 +405,22 @@ def _render_ats_tab(id_vaga: int, descricao: str, titulo: str, prefix: str):
     _barra_ats(scores["score_secoes"],     "SEÇÕES")
     _barra_ats(scores["score_impacto"],    "IMPACTO")
 
-    col_neg, col_pos = st.columns(2)
-    with col_neg:
-        st.markdown("**✗ Ausentes**")
-        for kw in scores["keywords_ausentes"][:15]:
-            st.markdown(
-                f"<span style='font-family:monospace; color:#ff4444; font-size:12px'>✗ {kw.upper()}</span>",
-                unsafe_allow_html=True,
-            )
-    with col_pos:
-        st.markdown("**✓ Presentes**")
-        for kw in scores["keywords_presentes"][:15]:
-            st.markdown(
-                f"<span style='font-family:monospace; color:#00ff88; font-size:12px'>✓ {kw.upper()}</span>",
-                unsafe_allow_html=True,
-            )
+    if not sem_keywords:
+        col_neg, col_pos = st.columns(2)
+        with col_neg:
+            st.markdown("**✗ Ausentes**")
+            for kw in scores["keywords_ausentes"][:15]:
+                st.markdown(
+                    f"<span style='font-family:monospace; color:#ff4444; font-size:12px'>✗ {kw.upper()}</span>",
+                    unsafe_allow_html=True,
+                )
+        with col_pos:
+            st.markdown("**✓ Presentes**")
+            for kw in scores["keywords_presentes"][:15]:
+                st.markdown(
+                    f"<span style='font-family:monospace; color:#00ff88; font-size:12px'>✓ {kw.upper()}</span>",
+                    unsafe_allow_html=True,
+                )
 
     st.divider()
     if st.button("↻ Recalcular", key=f"ats_recalc_{id_vaga}_{prefix}"):
