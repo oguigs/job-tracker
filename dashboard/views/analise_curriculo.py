@@ -2,7 +2,7 @@ import streamlit as st
 import tempfile
 import os
 from transformers.curriculo_parser import extrair_texto_pdf
-from transformers.ats_agents import analisar_curriculo, rodar_anya
+from transformers.ats_agents import analisar_curriculo, rodar_anya, ollama_disponivel
 from database.connection import db_connect
 
 
@@ -102,12 +102,12 @@ def render():
 
     st.divider()
 
-    groq_ok = bool(os.getenv("GROQ_API_KEY"))
-    if not groq_ok:
+    llm_ok = ollama_disponivel()
+    if not llm_ok:
         st.warning(
-            "**GROQ_API_KEY não configurada.** "
-            "Os scores serão calculados normalmente, mas os textos dos agentes (VANELLOPE, ARYA, SINTETIZADOR) "
-            "ficarão desativados. Adicione `GROQ_API_KEY=sua_chave` no `.env` e reinicie."
+            "**Ollama não está rodando.** "
+            "Os scores serão calculados normalmente, mas os agentes VANELLOPE e ARYA (análise textual) "
+            "ficarão desativados. Para ativar: abra o terminal e rode `ollama serve`."
         )
 
     rodar = st.button("▶ RODAR ANÁLISE", type="primary", use_container_width=True)
@@ -137,10 +137,10 @@ def render():
                 st.write("░ ANYA ANALISANDO KEYWORDS...")
                 anya = rodar_anya(texto_cv, descricao_vaga, titulo_vaga)
 
-                if groq_ok:
-                    st.write("░ VANELLOPE AVALIANDO COMPATIBILIDADE...")
-                    st.write("░ ARYA CALCULANDO ESTRATÉGIA...")
-                    st.write("░ SINTETIZADOR COMPILANDO DIAGNÓSTICO...")
+                if llm_ok:
+                    st.write("░ VANELLOPE AVALIANDO COMPATIBILIDADE DE CARREIRA...")
+                    st.write("░ ARYA CALCULANDO ESTRATÉGIA ANTI-ATS...")
+                    st.write("░ SINTETIZADOR COMPILANDO DIAGNÓSTICO FINAL...")
                     resultado = analisar_curriculo(texto_cv, descricao_vaga, titulo_vaga)
                 else:
                     from transformers.ats_agents import rodar_sintetizador
@@ -245,11 +245,11 @@ def _exibir_resultado(resultado: dict, groq_ok: bool):
     st.divider()
 
     # ── VANELLOPE & ARYA ─────────────────────────────────────────
-    if groq_ok and resultado.get("vanellope"):
+    if resultado.get("vanellope"):
         _bloco_terminal("VANELLOPE — MÓDULO CARREIRA", resultado["vanellope"], "#ffd700")
         _bloco_terminal("ARYA — MÓDULO ESTRATÉGIA", resultado["arya"], "#ff6b6b")
-    elif not groq_ok:
-        st.info("Configure GROQ_API_KEY no .env para ativar os agentes VANELLOPE e ARYA.")
+    else:
+        st.info("Rode `ollama serve` no terminal para ativar os agentes VANELLOPE e ARYA.")
 
     # seções detectadas
     with st.expander("Seções detectadas no currículo"):

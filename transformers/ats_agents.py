@@ -2,16 +2,17 @@
 ats_agents.py — Análise de currículo vs vaga com 4 agentes especializados.
 
 ANYA        — ATS: keywords, formatação, seções, impacto (pure Python)
-VANELLOPE   — Carreira: compatibilidade e posicionamento (Groq)
-ARYA        — Estratégia: como hackear o processo seletivo (Groq)
-SINTETIZADOR — Score final + brief unificado (pure Python + Groq)
+VANELLOPE   — Carreira: compatibilidade e posicionamento (Ollama)
+ARYA        — Estratégia: como hackear o processo seletivo (Ollama)
+SINTETIZADOR — Score final + brief unificado (pure Python + Ollama)
 """
 
-import os
 import re
-from groq import Groq
+import requests
+import ollama
 
-_GROQ_MODEL = "llama-3.3-70b-versatile"
+_OLLAMA_MODEL  = "llama3.2"
+_OLLAMA_URL    = "http://localhost:11434"
 
 # Seções esperadas num currículo bem estruturado
 _SECOES_ESPERADAS = [
@@ -39,13 +40,23 @@ _STOPWORDS = {
 }
 
 
-def _groq_client() -> Groq:
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise EnvironmentError(
-            "GROQ_API_KEY não encontrada. Adicione ao .env e reinicie o dashboard."
-        )
-    return Groq(api_key=api_key)
+def ollama_disponivel() -> bool:
+    """Verifica se o serviço Ollama está rodando."""
+    try:
+        r = requests.get(_OLLAMA_URL, timeout=2)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+def _ollama_chat(prompt: str) -> str:
+    """Envia prompt para o Ollama e retorna o texto gerado."""
+    resp = ollama.chat(
+        model=_OLLAMA_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        options={"temperature": 0.4, "num_predict": 350},
+    )
+    return resp["message"]["content"].strip()
 
 
 def _extrair_keywords(texto: str, min_len: int = 4) -> set[str]:
@@ -160,18 +171,11 @@ KEYWORDS AUSENTES: {ausentes}
 
 CURRÍCULO (resumo): {texto_cv[:1000]}
 """
-    client = _groq_client()
-    resp = client.chat.completions.create(
-        model=_GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.4,
-        max_tokens=300,
-    )
-    return resp.choices[0].message.content.strip()
+    return _ollama_chat(prompt)
 
 
 # ──────────────────────────────────────────────
-# ARYA — Módulo Estratégia (Groq)
+# ARYA — Módulo Estratégia (Ollama)
 # ──────────────────────────────────────────────
 
 def rodar_arya(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_anya: dict) -> str:
@@ -193,18 +197,11 @@ KEYWORDS QUE FALTAM NO CURRÍCULO: {ausentes}
 DESCRIÇÃO DA VAGA (resumo): {descricao_vaga[:600]}
 CURRÍCULO (resumo): {texto_cv[:800]}
 """
-    client = _groq_client()
-    resp = client.chat.completions.create(
-        model=_GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.5,
-        max_tokens=300,
-    )
-    return resp.choices[0].message.content.strip()
+    return _ollama_chat(prompt)
 
 
 # ──────────────────────────────────────────────
-# SINTETIZADOR — Score final + brief (pure Python + Groq)
+# SINTETIZADOR — Score final + brief (pure Python + Ollama)
 # ──────────────────────────────────────────────
 
 def rodar_sintetizador(
@@ -234,9 +231,9 @@ def rodar_sintetizador(
     else:
         status = "INCOMPATÍVEL"
 
-    # brief unificado via Groq (opcional — só roda se os agentes LLM rodaram)
+    # brief unificado via Ollama (opcional — só roda se os agentes LLM rodaram)
     brief = ""
-    if texto_vanellope and texto_arya and os.getenv("GROQ_API_KEY"):
+    if texto_vanellope and texto_arya:
         prompt = f"""Você é o SINTETIZADOR, um sistema que compila análises de 3 agentes especializados.
 Escreva 2 frases resumindo o diagnóstico e a ação mais importante para o candidato.
 Tom: objetivo, sem repetir o que os agentes já disseram em detalhes.
@@ -246,14 +243,7 @@ ANÁLISE DE CARREIRA: {texto_vanellope[:300]}
 ESTRATÉGIA: {texto_arya[:300]}
 """
         try:
-            client = _groq_client()
-            resp = client.chat.completions.create(
-                model=_GROQ_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=150,
-            )
-            brief = resp.choices[0].message.content.strip()
+            brief = _ollama_chat(prompt)
         except Exception:
             brief = ""
 
