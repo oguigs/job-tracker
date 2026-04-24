@@ -1,329 +1,165 @@
-# Job Tracker — Backlog Completo
-
-> Última atualização: Abril 2026 · Total: 158 itens
-
----
-
-## Bloco 1 — Estabilidade ✅ Concluído
-
-- [x] Cooldown por empresa (12h entre execuções)
-- [x] Timeout por empresa (5 minutos)
-- [x] Backup automático do banco (7 últimos)
-- [x] Testar pipeline com 10+ empresas
+# Job Tracker — Backlog
+> v1.3 em desenvolvimento · Abril 2026
+> Última atualização: Ondas 1-7 parcialmente concluídas
 
 ---
 
-## Bloco 2 — Visual do Dashboard ⚡ Em andamento
+## ✅ Ondas 1-5 — Concluídas
 
-- [x] Migrar gráficos para Plotly
-- [x] Logo via favicon — salvo localmente
-- [x] Página de perfil por empresa
-- [ ] Logos das stacks com link para roadmap.sh **← PRÓXIMO**
-- [ ] Redesign do expander de vaga com badges coloridos
+### Onda 1 — Estabilizar
+- B1-B10 todos os bugs resolvidos
+- A5 pasta fantasma, A6 __pycache__
 
----
+### Onda 2 — Schema
+- B4 criar_tabelas() completo, migrations.py, remuneração sal13/PLR/bônus
 
-## Bloco 3 — Favicon (Débito Técnico)
+### Onda 3 — Padronizar acesso DB
+- db_connect em todos os módulos, pipeline_runner entrypoint fino, Playwright para gupy_detalhes, cache clear
 
-- [ ] Upload manual de logo na página de empresas
-- [ ] Extrair favicon via Playwright para sites que bloqueiam requests
-- [ ] Fallback em cascata: local → Google → Clearbit → iniciais coloridas da empresa
+### Onda 4 — UI alta prioridade
+- X1 navegação agrupada, U2 dialog unificado, U5 filtros persistentes, U6 filtros rápidos destacados
+- X9 theme.py, X6a botões Estudos, X4 estados vazios, X5b timeline clicável, X5d toasts, X3 fila inscrição
 
----
-
-## Bloco 4 — Melhorias Visuais nas Vagas
-
-- [ ] Badge de urgência — detectar "início imediato", "urgente" na descrição
-- [ ] Barra de progresso do score de fit por vaga
-- [ ] Indicador de tempo desde a coleta — "coletada há 3 dias"
-- [ ] Tag visual de origem — ícone para vagas manuais vs coletadas
-- [ ] Ícones em cada fase da timeline de candidatura
-- [ ] Data de entrada em cada fase da timeline
-- [ ] Modo compacto vs modo detalhado na listagem
-- [ ] Destaque visual para vagas novas (últimas 24h)
-- [ ] Ordenação por score de fit, data, empresa ou status
-- [ ] Agrupamento por empresa ou por fase de candidatura
+### Onda 5 — Funcionalidades rápidas
+- P1 urgência 🔥, P2 salário regex, P6 saúde pipeline
 
 ---
 
-## Bloco 5 — Novas Funcionalidades
-
-### Cadastro manual de vagas
-- [ ] Formulário de cadastro de vaga manual
-- [ ] Busca de empresa existente no formulário
-- [ ] Modal de cadastro rápido de empresa se não existir
-- [ ] Campo de descrição livre para colar o texto da vaga
-- [ ] **Extração automática de stacks da descrição colada via `stack_extractor`**
-- [ ] **Detecção automática de nível (junior/pleno/sênior/especialista) do texto colado**
-- [ ] **Detecção automática de modalidade (remoto/híbrido/presencial) do texto colado**
-- [ ] **Preview das stacks extraídas antes de salvar — permitir edição manual**
-- [ ] **Identificar escopo da vaga — responsabilidades, requisitos obrigatórios vs desejáveis**
-- [ ] **Usar Claude API para análise semântica profunda da descrição — sinônimos, contexto e senioridade implícita**
-- [ ] Campo de origem (headhunter/indicação/LinkedIn/site próprio)
-- [ ] Campo de contato livre (ex: "João da XP me indicou")
-- [ ] Testar fluxo completo
-
-### Base de indicadores
-- [ ] Criar tabela `dim_contato` no banco
-- [ ] Formulário de cadastro de contato (nome, email, empresa, grau de intimidade)
-- [ ] Listar contatos por empresa na página de perfil
-- [ ] Exibir contatos ao visualizar vaga
-- [ ] Destacar email corporativo para indicação
+## ✅ Onda 6 — Empregabilidade (concluída)
+- J6 termômetro de empregabilidade no Dashboard
+- J2 briefing automático ao avançar para entrevista (tab 🎯 Briefing)
+- J1 diff currículo × vaga via pdfplumber (tab 📄 Diff CV) + export markdown
+- J3 banco de perguntas de entrevista (página Perguntas)
+- J4 retrospectiva de processo ao mudar para aprovado/reprovado
+- I1 página Minha Performance
+- I2 radar de saúde no perfil empresa
+- I3 extração semântica: tamanho equipe, volume dados, cultura, estágio
+- I5 impressão subjetiva no diário 😊😐😟
+- I6 comparador de ofertas com score ponderado
+- I7 exportar diff como markdown
 
 ---
 
-## Bloco 6 — Inteligência Acionável
-
-### Score de fit
-- [ ] Criar tabela `dim_perfil_usuario` com stacks e nível
-- [ ] Formulário de cadastro de stacks do usuário
-- [ ] Algoritmo de cálculo de match (interseção de stacks)
-- [ ] Badge de percentual de match em cada vaga
-- [ ] Ordenar vagas por score de fit
-
-### Diário de candidatura
-- [ ] Criar tabela `log_candidatura` com notas por data
-- [ ] Campo de nova nota dentro de cada vaga
-- [ ] Histórico cronológico de notas por vaga
-
-### Preparação para entrevista
-- [ ] Exibir stacks mais pedidas pela empresa ao avançar para entrevista
-- [ ] Exibir nível médio das vagas da empresa
-- [ ] Exibir contatos cadastrados na empresa
-- [ ] Checklist de preparação por tecnologia
-
-### Análise temporal de stacks
-- [ ] Criar tabela `snapshot_mercado` com dados semanais
-- [ ] Job semanal que salva snapshot do estado atual
-- [ ] Gráfico de tendência de cada stack ao longo do tempo
-- [ ] Destacar stacks em crescimento vs declínio
-
-### Radar de salário
-- [ ] Extrair faixa salarial da descrição com regex
-- [ ] Salvar `salario_min` e `salario_max` na `fact_vaga`
-- [ ] Gráfico de distribuição salarial por nível e empresa
-
-### Comparativo entre empresas
-- [ ] Seletor de duas empresas para comparar
-- [ ] Side by side de stacks, nível médio, modalidade
-- [ ] Tempo médio que vagas ficam abertas por empresa
-
-### Exportar checklist de candidatura
-- [ ] Gerar PDF com stacks da vaga vs seu perfil
-- [ ] Destacar gaps — o que estudar antes da entrevista
-- [ ] Exportar histórico da candidatura
-
-### Alertas
-- [ ] Detectar "início imediato", "urgente", "processo rápido"
-- [ ] Destacar vagas urgentes no topo da lista
-- [ ] Notificação quando nova vaga relevante aparecer
-
-### Histórico de mercado
-- [ ] Snapshots semanais automáticos
-- [ ] Dashboard de evolução do mercado ao longo do tempo
-- [ ] Comparativo mês a mês de vagas por empresa
+## ✅ Onda 7 — Engenharia DE (parcialmente concluída)
+- E7 logging estruturado com get_logger() em main, scrapers e database
+- E6 pytest: 28 testes passando (utils + stack_extractor)
+- E5 GitHub Actions CI — py_compile + pytest + imports críticos
+- E4 Prefect 2 — pipeline_prefect.py com @flow, @task, retry automático
+- E1 Bronze layer — salvar_bronze(), carregar_bronze(), listar_bronze()
 
 ---
 
-## Bloco 7 — Gestão de Candidatura Avançada
+## 🔴 Onda 7 — Restante
 
-- [ ] SLA de resposta — alertar quando empresa não respondeu em X dias
-- [ ] Mapa de calor de candidaturas — em qual fase você mais trava
-- [ ] Taxa de conversão por empresa — candidaturas que viraram entrevista
-- [ ] Comparativo do seu perfil com o mercado
-- [ ] Detector de empresas em crescimento — mais vagas que o mês anterior
-- [ ] Índice de senioridade do mercado — proporção sênior/pleno/júnior
-- [ ] Sazonalidade de contratações — quando as empresas mais contratam
-- [ ] Cronômetro de processo seletivo — há quantos dias em cada fase
-- [ ] Gerador de carta de apresentação personalizada por vaga via IA
+- [ ] **E1b** — integrar `criar_views_medallion()` ao pipeline automaticamente
+- [ ] **E1c** — migrar `carregar_vagas()` para usar view `gold_vagas`
+- [ ] **E2** — dbt + DuckDB — aguardando compatibilidade Python 3.14
+- [ ] **E3** — Great Expectations — expandir validações para todas as plataformas
+- [ ] **E8** — scrapers — contexto Playwright reaproveitado entre vagas
 
 ---
 
-## Bloco 8 — Robô de Candidatura Automática
+## 🟠 Onda 8 — Polimento UX (2-3 sessões)
 
-- [ ] Mapear campos do formulário Gupy (nome, email, telefone, LinkedIn, currículo)
-- [ ] Criar perfil do usuário com dados pessoais para preenchimento
-- [ ] Implementar preenchimento automático com Playwright
-- [ ] Implementar pausa antes de submeter — revisão humana obrigatória
-- [ ] Log de cada candidatura automatizada
-- [ ] Tratar upload de currículo no formulário
-- [ ] Tratar perguntas customizadas das empresas
-- [ ] Detectar e tratar captcha
-
----
-
-## Bloco 9 — Engenharia de Dados — Curto Prazo
-
-### Camadas Bronze/Silver/Gold
-- [ ] Criar schema `bronze` — dados brutos do scraper
-- [ ] Criar schema `silver` — dados normalizados e deduplicados
-- [ ] Criar schema `gold` — dados analíticos consumidos pelo dashboard
-- [ ] Migrar pipeline para gravar em Bronze primeiro
-- [ ] Criar transformações Bronze → Silver → Gold
-
-### dbt
-- [ ] Instalar e configurar dbt com DuckDB
-- [ ] Criar modelo `stg_vagas` (staging)
-- [ ] Criar modelo `dim_empresa` (dimensão)
-- [ ] Criar modelo `fact_vaga` (fato)
-- [ ] Criar testes de qualidade nos modelos
-- [ ] Gerar documentação automática
-
-### Great Expectations ou Soda
-- [ ] Instalar e configurar
-- [ ] Criar expectativa: título nunca nulo
-- [ ] Criar expectativa: modalidade dentro de valores esperados
-- [ ] Criar expectativa: hash único
-- [ ] Integrar validação no pipeline
-
-### Outros
-- [ ] Data lineage — documentar origem e transformações de cada campo
-- [ ] Schema versioning — controle de mudanças sem quebrar o pipeline
+- [ ] **X2** — kanban de candidaturas — colunas por fase, cards clicáveis
+- [ ] **X5a** — tab ativa por contexto no dialog
+- [ ] **X7** — render_vaga_card para todas as telas — compact=True
+- [ ] **X8a** — cadastro empresa — "Confirmar e salvar" direto
+- [ ] **X8b** — cadastro vaga — autocomplete inline
+- [ ] **X8c** — perfil candidato — selectbox de stacks com autocomplete
+- [ ] **X10** — config.toml com tema explícito + contraste WCAG AA
+- [ ] **X11** — mobile — detectar viewport estreito
+- [ ] **X12** — micro-interações — contador no título, tooltip em badges
+- [ ] **U3** — modo compacto padronizado
+- [ ] **U4** — barra de progresso fina no score dos cards
+- [ ] **U7** — render_stacks — categoria mais destacada
+- [ ] **U10** — log pipeline incremental
+- [ ] **U11** — confirmação ações destrutivas
+- [ ] **U12** — Estudos conectado com stacks das vagas — contador dinâmico
+- [ ] **U13** — acessibilidade — aria-label, contraste WCAG
 
 ---
 
-## Bloco 10 — Engenharia de Dados — Médio Prazo
+## 🔵 Onda 9 — Scrapers melhorados (1-2 sessões)
 
-### Docker
-- [ ] Criar `Dockerfile` para o dashboard
-- [ ] Criar `Dockerfile` para o pipeline
-- [ ] Criar `docker-compose.yml` subindo tudo com um comando
-- [ ] Testar em ambiente limpo
-
-### Prefect
-- [ ] Instalar e configurar Prefect
-- [ ] Criar DAG do pipeline de coleta
-- [ ] Configurar retry automático em caso de falha
-- [ ] Configurar alertas de falha por email
-- [ ] Migrar agendamento para Prefect
-
-### GitHub Actions
-- [ ] Criar workflow de CI — rodar testes a cada push
-- [ ] Criar workflow de CD — pipeline diário na nuvem
-- [ ] Criar workflow de backup — salvar banco no GitHub
-
-### Outros
-- [ ] Monitoramento — alertas, métricas de saúde, observabilidade
-- [ ] Data catalog — documentação de datasets e linhagem visual
+- [ ] Gupy — extrair localização, regime, data de encerramento
+- [ ] Greenhouse — modalidade, departamento
+- [ ] Inhire — localização e nível
+- [ ] SmartRecruiters — departamento e data de publicação
+- [ ] Padronizar campos entre plataformas
+- [ ] Detectar vagas duplicadas entre plataformas
+- [ ] Scraper Lever — jobs.lever.co
+- [ ] Amazon Jobs scraper (branch feature/amazon-scraper)
+- [ ] BCG scraper (branch feature/bcg-scraper)
 
 ---
 
-## Bloco 11 — Expansão da Ingestão
+## 🔮 Onda 10 — Infraestrutura e deploy (3-5 sessões)
 
-- [ ] Scraper para Inhire
-- [ ] Scraper para Lever — Nubank, iFood, Rappi
-- [ ] Scraper para Greenhouse — empresas internacionais
-- [ ] Sites próprios — Itaú, XP, Globo
-- [ ] Connector para API do LinkedIn Jobs
-
----
-
-## Bloco 12 — Engenharia de Dados — Longo Prazo
-
-- [ ] Apache Spark — reprocessar dados históricos com PySpark
-- [ ] Apache Kafka — ingestão em streaming com múltiplas fontes
-- [ ] Delta Lake ou Apache Iceberg — versionamento e time travel
-- [ ] Apache Airflow — DAGs complexos quando escala justificar
-- [ ] Cloud storage — S3 ou GCS + Parquet
-- [ ] dbt Cloud — scheduler e documentação publicada
+- [ ] Docker + docker-compose
+- [ ] Deploy Streamlit Cloud
+- [ ] Raspberry Pi 24/7 + Tailscale
+- [ ] Prefect agendado a cada 6h (make prefect-serve)
+- [ ] Notificações Telegram Bot — novas vagas com score alto
+- [ ] GitHub Actions CI/CD completo com deploy
+- [ ] Storage S3 para o banco DuckDB
 
 ---
 
-## Bloco 13 — Encerramento v1.0
+## 🔮 Onda 11 — Inteligência acumulada
 
-- [ ] README atualizado com diário do dia 3
-- [ ] Tag v1.0 no GitHub
-
----
-
-## Bloco 14 — Perfil do Candidato
-
-- [ ] Criar página "Meu Perfil" no dashboard
-- [ ] Criar tabela `dim_candidato` no banco
-- [ ] Formulário de dados pessoais (nome, email, LinkedIn, cidade, nível, modalidade, pretensão salarial)
-- [ ] Formulário de stacks com nível por tecnologia (básico/intermediário/avançado/especialista)
-- [ ] Upload de PDF do currículo ou exportação do LinkedIn
-- [ ] Extração automática de stacks do PDF com `pdfplumber`
-- [ ] Salvar stacks extraídas no perfil para edição manual
-- [ ] Exibir perfil resumido na sidebar do dashboard
+- [ ] **J5** — heatmap de gaps → priorização automática de estudos
+- [ ] **J7** — timer de preparação antes de entrevista
+- [ ] **J8** — alertas sazonais de contratação (requer histórico)
+- [ ] **J9** — curva de aprendizado estimada
+- [ ] **I4** — classificador de senioridade via NLP
+- [ ] **I9** — sentence-transformers — similaridade semântica
+- [ ] **E9** — Delta Lake / Iceberg
+- [ ] **P3** — snapshot semanal automático via cron/launchd
 
 ---
 
-## Bloco 15 — Score de Fit e ATS
+## 🐛 Débitos técnicos
 
-- [ ] Algoritmo de match de stacks — perfil do candidato vs vaga
-- [ ] Badge de percentual de match em cada vaga
-- [ ] Ordenar vagas por score de fit
-
-### Score ATS
-- [ ] Análise de match de keywords — currículo vs descrição da vaga
-- [ ] Análise de densidade de termos técnicos no currículo
-- [ ] Análise de formato ATS-friendly do PDF
-- [ ] Verificar seções obrigatórias no currículo (experiência, educação, skills, resumo)
-- [ ] Score final 0-100 com breakdown por categoria
-- [ ] Sugestões específicas do que adicionar no currículo para cada vaga
-- [ ] Claude API para análise semântica — sinônimos e termos relacionados
-- [ ] Relatório exportável de otimização do currículo por vaga
+- dbt — incompatível Python 3.14
+- salario_min/max = faixa anunciada / salario_mensal/total = negociado
+- pipeline_runner.py ainda duplica parte da lógica de detecção de plataforma
+- Favicon local vs URL — inconsistência entre empresas
+- DuckDB read_only removido — todas as conexões são read/write
 
 ---
 
-## v2 — Infraestrutura Cloud
+## 🏆 Padrões de mercado
 
-- [ ] Deploy do dashboard no Streamlit Cloud
-- [ ] Migrar storage para Google Drive ou S3 free tier
-- [ ] Notificação de novas vagas por email
-- [ ] Exportar relatório PDF para direcionar currículo
-- [ ] Integração com LinkedIn — conexões de primeiro grau na empresa
+| Padrão | Status |
+|---|---|
+| Medallion Architecture | ✅ |
+| Repository Pattern | ✅ |
+| Factory Pattern scrapers | ✅ |
+| Context Manager DB | ✅ |
+| Cache de dados | ✅ |
+| Separação de responsabilidades | ✅ |
+| Great Expectations | ✅ |
+| Type hints | ✅ |
+| Migrations idempotentes | ✅ |
+| Paleta centralizada (theme.py) | ✅ |
+| Estados vazios com instrução | ✅ |
+| Logging estruturado | ✅ |
+| Testes automatizados (pytest 28) | ✅ |
+| CI/CD GitHub Actions | ✅ |
+| Prefect orquestração | ✅ |
+| Bronze layer | ✅ |
+| dbt | ❌ Onda 7 (Python 3.14) |
+| Docker | ❌ Onda 10 |
 
 ---
 
-## v3 — Raspberry Pi
+## 📋 Roadmap resumido
 
-- [ ] Configurar pipeline rodando automaticamente no Raspberry Pi
-- [ ] Hospedar dashboard Streamlit no Pi 24/7
-- [ ] Acesso remoto via Tailscale ou Cloudflare Tunnel
-- [ ] Testar compatibilidade do Playwright com arquitetura ARM
-
----
-
-## Resumo
-
-| Bloco | Tema | Itens | Status |
+| Onda | Foco | Status | Sessões |
 |---|---|---|---|
-| 1 | Estabilidade | 4 | ✅ Concluído |
-| 2 | Visual do Dashboard | 5 | ⚡ Em andamento |
-| 3 | Favicon (Débito) | 3 | ○ Pendente |
-| 4 | Melhorias Visuais | 10 | ○ Pendente |
-| 5 | Novas Funcionalidades | 18 | ○ Pendente |
-| 6 | Inteligência Acionável | 23 | ○ Pendente |
-| 7 | Candidatura Avançada | 9 | ○ Pendente |
-| 8 | Robô de Candidatura | 8 | ○ v2 |
-| 9 | DE Curto Prazo | 14 | ○ Pendente |
-| 10 | DE Médio Prazo | 13 | ○ Pendente |
-| 11 | Expansão Ingestão | 5 | ○ Pendente |
-| 12 | DE Longo Prazo | 6 | ○ v2/v3 |
-| 13 | Encerramento v1.0 | 2 | ○ Pendente |
-| 14 | Perfil do Candidato | 8 | ○ Pendente |
-| 15 | Score de Fit e ATS | 12 | ○ Pendente |
-| v2 | Infraestrutura Cloud | 5 | ○ Futuro |
-| v3 | Raspberry Pi | 4 | ○ Futuro |
-| 16 | Anti-detecção Scraper | 10 | ○ Pendente |
-| **Total** | | **158** | |
-
----
-
-## Bloco 16 — Anti-detecção e Resiliência do Scraper
-> ⚠️ Todas as soluções deste bloco são 100% gratuitas e open source.
-
-- [ ] Delays humanizados aleatórios entre requisições (2-5 segundos)
-- [ ] User-Agent e headers HTTP realistas no Playwright
-- [ ] Integrar `playwright-stealth` — remove fingerprints de bot (pip install, zero custo)
-- [ ] Rotação de viewport e resolução por execução
-- [ ] Rotação de locale e timezone (pt-BR, America/Sao_Paulo)
-- [ ] Detecção de bloqueio — identificar status 403/429/Cloudflare na resposta
-- [ ] Tratamento diferenciado para empresa bloqueada — cooldown automático de 48h
-- [ ] Log de status `bloqueado` separado de `erro` no log_coleta
-- [ ] Modo de coleta espaçada — distribuir empresas ao longo do dia via agendamento
-- [ ] Monitorar se plataformas como Gupy expõem API oficial gratuita
-
-> 🚫 Fora do escopo por custo: proxy residencial, APIs pagas de terceiros.
+| 1-7 | Bugs, schema, UI, funcionalidades, DE | ✅ / ⚡ | — |
+| 8 | Polimento UX | 🔴 Próximo | 2-3 |
+| 9 | Scrapers melhorados | 🟠 | 1-2 |
+| 10 | Deploy + Telegram | 🟡 | 3-5 |
+| 11 | Inteligência acumulada | 🔮 | várias |
