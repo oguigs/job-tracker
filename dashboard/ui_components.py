@@ -140,7 +140,7 @@ def render_preparacao_entrevista(id_vaga: int, id_empresa_nome: str, status_cand
     fases_entrevista = ["chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
     if status_cand not in fases_entrevista:
         return
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         id_empresa = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [id_empresa_nome]).fetchone()
     if not id_empresa:
         return
@@ -441,7 +441,7 @@ def _render_ats_tab(id_vaga: int, descricao: str, titulo: str, prefix: str):
 
 def render_dialog_vaga(v, prefix: str = "v"):
     """Dialog de detalhes de vaga reutilizável."""
-    with db_connect(read_only=True) as _con:
+    with db_connect() as _con:
         _row = _con.execute(
             "SELECT candidatura_status, candidatura_observacao FROM fact_vaga WHERE id=?",
             [int(v["id"])]

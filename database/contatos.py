@@ -13,7 +13,7 @@ def inserir_contato(nome: str, email: str, id_empresa: int,
 
 
 def listar_contatos(id_empresa: int = None):
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         if id_empresa:
             return con.execute("""
                 SELECT c.id, c.nome, c.email, c.grau, c.observacoes, e.nome AS empresa

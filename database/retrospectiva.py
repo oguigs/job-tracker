@@ -16,7 +16,7 @@ def salvar_retrospectiva(id_vaga: int, nao_soube: str, faria_diferente: str,
 
 
 def carregar_retrospectiva(id_vaga: int):
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT nao_soube, faria_diferente, impressao_geral, motivo_encerramento, data
             FROM log_retrospectiva WHERE id_vaga = ?
@@ -24,7 +24,7 @@ def carregar_retrospectiva(id_vaga: int):
 
 
 def listar_retrospectivas():
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT r.id, r.nao_soube, r.faria_diferente, r.impressao_geral,
                    r.motivo_encerramento, r.data,

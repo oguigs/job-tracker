@@ -13,7 +13,7 @@ def render():
 
     # ── BANCO ──────────────────────────────────────────────────
     with tab_banco:
-        with db_connect(read_only=True) as con:
+        with db_connect() as con:
             stacks_disponiveis = con.execute("""
                 SELECT DISTINCT stack FROM log_perguntas_entrevista ORDER BY stack
             """).fetchall()
@@ -58,7 +58,7 @@ def render():
 
     # ── ADICIONAR ──────────────────────────────────────────────
     with tab_adicionar:
-        with db_connect(read_only=True) as con:
+        with db_connect() as con:
             vagas_entrevista = con.execute("""
                 SELECT v.id, v.titulo, e.nome as empresa
                 FROM fact_vaga v

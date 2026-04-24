@@ -73,7 +73,7 @@ def render():
     titulo_vaga = ""
 
     if modo == "Selecionar do banco":
-        with db_connect(read_only=True) as con:
+        with db_connect() as con:
             vagas = con.execute("""
                 SELECT fv.id, fv.titulo, de.nome
                 FROM fact_vaga fv
@@ -92,7 +92,7 @@ def render():
             opcoes = {f"{v[2]} — {v[1]}": (v[0], v[1]) for v in vagas}
             sel = st.selectbox("", list(opcoes.keys()), label_visibility="collapsed")
             id_vaga, titulo_vaga = opcoes[sel]
-            with db_connect(read_only=True) as con:
+            with db_connect() as con:
                 row = con.execute("SELECT descricao FROM fact_vaga WHERE id = ?", [id_vaga]).fetchone()
             descricao_vaga = row[0] if row else ""
     else:

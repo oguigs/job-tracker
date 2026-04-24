@@ -102,7 +102,7 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
                 modalidade_coletada=vaga.get("modalidade", "não identificado")
             )
 
-            with db_connect(read_only=True) as con_check:
+            with db_connect() as con_check:
                 negada = con_check.execute("""
                     SELECT id FROM fact_vaga WHERE hash = ? AND negada = true
                 """, [gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])]).fetchone()
@@ -183,7 +183,7 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
                 vaga["salario_max"] = sal_max
             vaga["empresa"] = nome
             h = gerar_hash(vaga["titulo"], nome, vaga["link"])
-            with db_connect(read_only=True) as con_check:
+            with db_connect() as con_check:
                 existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
             if existe:
                 continue
@@ -221,7 +221,7 @@ def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, st
 def rodar_pipeline() -> None:
     criar_tabelas()
     
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         empresas = con.execute("""
             SELECT nome, url_vagas FROM dim_empresa
             WHERE ativa = true AND url_vagas IS NOT NULL AND url_vagas != ''

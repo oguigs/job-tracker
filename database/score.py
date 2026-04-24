@@ -3,7 +3,7 @@ from database.connection import db_connect
 
 
 def calcular_score(id_vaga: int, id_candidato: int) -> dict:
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         stacks_candidato = con.execute("""
             SELECT stack, categoria, nivel_stack
             FROM dim_candidato_stack WHERE id_candidato = ?
@@ -54,7 +54,7 @@ def calcular_score(id_vaga: int, id_candidato: int) -> dict:
 
 
 def calcular_scores_todos(id_candidato: int) -> dict:
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         vagas = con.execute("""
             SELECT id FROM fact_vaga
             WHERE (negada = false OR negada IS NULL) AND ativa = true

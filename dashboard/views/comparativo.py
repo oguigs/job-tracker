@@ -8,7 +8,7 @@ def render():
     st.title("Comparativo entre empresas")
     st.caption("Compare stacks, nível médio e modalidade de duas empresas lado a lado.")
 
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         nomes = [e[0] for e in con.execute("""
             SELECT DISTINCT e.nome FROM dim_empresa e
             JOIN fact_vaga v ON v.id_empresa = e.id
@@ -33,7 +33,7 @@ def render():
         return
 
     def carregar_vagas_empresa(nome):
-        with db_connect(read_only=True) as con:
+        with db_connect() as con:
             return con.execute("""
                 SELECT v.id, v.titulo, v.nivel, v.modalidade, v.stacks, v.data_coleta
                 FROM fact_vaga v

@@ -38,7 +38,7 @@ def salvar_snapshot():
 
 
 def carregar_historico(stack: str = None, categoria: str = None):
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         if stack:
             return con.execute("""
                 SELECT strftime(data_ref, '%Y-%m-%d') as data_ref,
@@ -67,7 +67,7 @@ def carregar_historico(stack: str = None, categoria: str = None):
 
 
 def listar_stacks_snapshot() -> list:
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT DISTINCT stack, categoria
             FROM snapshot_mercado

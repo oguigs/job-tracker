@@ -7,7 +7,7 @@ def render():
     st.title("📈 Minha Performance")
     st.caption("Análise do seu processo seletivo baseada nos seus dados reais.")
 
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         # total geral
         totais = con.execute("""
             SELECT

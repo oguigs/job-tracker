@@ -12,7 +12,7 @@ def render():
     st.title("Cadastrar vaga manualmente")
     st.caption("Para vagas recebidas por indicação, headhunter ou LinkedIn direto.")
 
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         empresas_db = con.execute("SELECT id, nome FROM dim_empresa ORDER BY nome").fetchall()
     
     nomes_empresas = [e[1] for e in empresas_db]

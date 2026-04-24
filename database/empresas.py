@@ -28,7 +28,7 @@ def upsert_empresa(nome: str, url_vagas: str, **kwargs) -> int:
 
 
 def listar_empresas_ativas() -> list:
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT nome, url_vagas FROM dim_empresa
             WHERE ativa = true AND url_vagas IS NOT NULL AND url_vagas != ''
@@ -45,7 +45,7 @@ def inserir_endereco(id_empresa: int, cidade: str, bairro: str):
 
 
 def listar_enderecos(id_empresa: int) -> list:
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT id, cidade, bairro FROM dim_empresa_endereco
             WHERE id_empresa = ? ORDER BY cidade, bairro
@@ -62,7 +62,7 @@ def gerar_briefing_empresa(nome: str) -> dict:
     Gera briefing automático de uma empresa com dados do banco.
     Usado quando candidatura avança para entrevista.
     """
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         stats = con.execute("""
             SELECT
                 COUNT(*) as total_vagas,

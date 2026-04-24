@@ -55,7 +55,7 @@ def salvar_ats_score(id_vaga: int, scores: dict):
 
 def carregar_ats_score(id_vaga: int) -> dict | None:
     """Retorna o score ATS de uma vaga específica ou None se não calculado."""
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         row = con.execute("""
             SELECT score_keywords, score_formatacao, score_secoes,
                    score_impacto, score_final, keywords_ausentes, keywords_presentes,
@@ -80,7 +80,7 @@ def carregar_ats_score(id_vaga: int) -> dict | None:
 
 def listar_ats_scores() -> dict[int, int]:
     """Retorna {id_vaga: score_final} para exibir badges na listagem."""
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         rows = con.execute(
             "SELECT id_vaga, score_final FROM fact_ats_score"
         ).fetchall()
@@ -92,7 +92,7 @@ def recalcular_todos(texto_cv: str):
     from transformers.ats_agents import rodar_anya
     import json
 
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         vagas = con.execute("""
             SELECT id, titulo, descricao, stacks
             FROM fact_vaga

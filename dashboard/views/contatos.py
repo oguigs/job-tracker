@@ -9,7 +9,7 @@ def render():
     st.title("Indicadores")
     st.caption("Pessoas que podem te indicar nas empresas monitoradas.")
 
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         empresas_db = con.execute("SELECT id, nome FROM dim_empresa ORDER BY nome").fetchall()
 
     nomes_empresas = [e[1] for e in empresas_db]

@@ -5,7 +5,7 @@ from database.connection import db_connect
 
 def validar_vagas() -> dict:
     """Valida qualidade dos dados da fact_vaga."""
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         df = con.execute("SELECT * FROM fact_vaga").df()
 
     context = gx.get_context()

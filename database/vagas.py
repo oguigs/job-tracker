@@ -102,7 +102,7 @@ def atualizar_descricao_vaga(id_vaga: int, descricao: str, stacks_json: str = No
 
 def listar_vagas_sem_descricao() -> list:
     """Returns [(id, titulo, link, fonte)] for active vagas with NULL/empty description."""
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT id, titulo, link, fonte
             FROM fact_vaga
@@ -113,7 +113,7 @@ def listar_vagas_sem_descricao() -> list:
 
 
 def listar_vagas_negadas():
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT v.id, v.titulo, v.candidatura_fase, v.candidatura_observacao,
                    v.candidatura_data, e.nome AS empresa

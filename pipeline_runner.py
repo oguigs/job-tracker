@@ -35,7 +35,7 @@ def log_etapa(nome: str, status: str, duracao: float = None, detalhe: str = ""):
 
 
 def buscar_empresas() -> list:
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT nome, url_vagas FROM dim_empresa
             WHERE ativa = true AND url_vagas IS NOT NULL

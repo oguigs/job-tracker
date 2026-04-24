@@ -8,7 +8,7 @@ def render():
     st.title("Funil de candidaturas")
     st.caption("Visualize em qual fase você mais trava e sua taxa de conversão.")
 
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         df = con.execute("""
             SELECT candidatura_status, COUNT(*) as total
             FROM fact_vaga
