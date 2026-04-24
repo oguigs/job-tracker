@@ -59,16 +59,6 @@ def status_badge(status_cand: str, is_nova: bool) -> tuple[str, str]:
         return 'Novo', '#E8A020'
     return 'Não inscrito', '#378ADD'
 
-
-def cor_score(score: int) -> str:
-    """Retorna cor baseada no score de fit."""
-    if score >= 70:
-        return '#1D9E75'
-    if score >= 40:
-        return '#BA7517'
-    return '#888'
-
-
 # re-exporta do theme para compatibilidade
 def cor_score(score: int) -> str:
     from dashboard.theme import cor_score as _cor_score

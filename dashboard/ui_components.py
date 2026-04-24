@@ -355,7 +355,7 @@ def render_dialog_vaga(v, prefix: str = "v"):
         render_stacks(v["stacks"])
 
     with tab_cand:
-        fases = ["nao_inscrito","inscrito","chamado","recrutador","fase_1","fase_2","fase_3"]
+        fases = ["nao_inscrito","inscrito","chamado","recrutador","fase_1","fase_2","fase_3","aprovado","reprovado"]
         cols_f = st.columns(len(fases))
         for idx, fase in enumerate(fases):
             ativo = fase == status_cand
@@ -390,6 +390,41 @@ def render_dialog_vaga(v, prefix: str = "v"):
             st.session_state[f"dialog_{prefix}_atual"] = None
             st.toast("❌ Vaga negada.")
             st.rerun()
+        # retrospectiva — aparece quando processo encerrou
+        if status_cand in ["aprovado", "reprovado"]:
+            st.divider()
+            from database.retrospectiva import carregar_retrospectiva, salvar_retrospectiva
+            retro = carregar_retrospectiva(int(v["id"]))
+            
+            with st.expander("📝 Retrospectiva do processo", expanded=retro is None):
+                if retro:
+                    st.caption(f"Preenchida em {str(retro[4])[:10]}")
+                    if retro[0]: st.markdown(f"**Não soube:** {retro[0]}")
+                    if retro[1]: st.markdown(f"**Faria diferente:** {retro[1]}")
+                    if retro[2]: st.markdown(f"**Impressão:** {retro[2]}")
+                    if retro[3]: st.markdown(f"**Motivo:** {retro[3]}")
+                    st.divider()
+
+                with st.form(key=f"form_retro_{v['id']}"):
+                    nao_soube = st.text_area("O que você não soube responder?",
+                        value=retro[0] if retro else "",
+                        placeholder="Ex: Perguntaram sobre otimização de queries no Spark...",
+                        height=60)
+                    faria_diferente = st.text_area("O que faria diferente na preparação?",
+                        value=retro[1] if retro else "",
+                        placeholder="Ex: Estudaria mais Delta Lake antes...",
+                        height=60)
+                    col_imp, col_mot = st.columns(2)
+                    impressao = col_imp.selectbox("Impressão geral",
+                        ["positiva", "neutra", "negativa"],
+                        index=["positiva","neutra","negativa"].index(retro[2]) if retro and retro[2] in ["positiva","neutra","negativa"] else 1)
+                    motivo = col_mot.selectbox("Motivo do encerramento",
+                        ["técnico", "fit cultural", "concorrência", "freeze de headcount", "desisti", "outro"],
+                        index=0)
+                    if st.form_submit_button("💾 Salvar retrospectiva", use_container_width=True):
+                        salvar_retrospectiva(int(v["id"]), nao_soube, faria_diferente, impressao, motivo)
+                        st.toast("✅ Retrospectiva salva!")
+                        st.rerun()    
 
     with tab_rem:
         render_remuneracao(v)

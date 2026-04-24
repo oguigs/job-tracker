@@ -1,8 +1,8 @@
 import json
 import time as _time
 import duckdb
-from scrapers.gupy_scraper import buscar_vagas
-from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia
+from scrapers.gupy_detalhes import coletar_descricoes_lote
+from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia, detectar_salario, extrair_sinais_descricao
 from database.schemas import criar_tabelas
 from database.empresas import upsert_empresa, listar_empresas_ativas, gerar_hash
 from database.vagas import inserir_vaga, verificar_vagas_encerradas
@@ -87,12 +87,6 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
         vagas_enriquecidas = coletar_descricoes_lote(vagas_filtradas)
 
         id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)
-        for vaga in vagas_enriquecidas:
-            descricao = vaga.get("descricao", "")
-            titulo = vaga.get("titulo", "")
-
-        id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)
-
         for vaga in vagas_enriquecidas:
             descricao = vaga.get("descricao", "")
             titulo = vaga.get("titulo", "")
