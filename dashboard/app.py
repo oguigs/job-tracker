@@ -2,6 +2,13 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import streamlit as st
+from database.schemas import criar_tabelas
+
+@st.cache_resource
+def _init_db():
+    criar_tabelas()
+
+_init_db()
 from dashboard.views import (
     dashboard_page, vagas, cadastrar_vaga, empresas,
     pipeline, configuracoes, vagas_negadas,
