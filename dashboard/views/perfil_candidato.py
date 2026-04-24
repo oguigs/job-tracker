@@ -1,7 +1,8 @@
 import streamlit as st
 from database.candidato import (
     salvar_perfil, carregar_perfil,
-    salvar_stack, carregar_stacks, deletar_stack
+    salvar_stack, carregar_stacks, deletar_stack,
+    salvar_curriculo_texto, carregar_curriculo_texto,
 )
 from dashboard.ui_components import render_empty_state
 NIVEIS = ["Junior", "Pleno", "Sênior", "Especialista"]
@@ -17,7 +18,7 @@ def render():
     df_perfil = carregar_perfil()
     p = df_perfil.iloc[0].to_dict() if not df_perfil.empty else {}
 
-    tab_dados, tab_stacks = st.tabs(["Dados pessoais", "Minhas stacks"])
+    tab_dados, tab_stacks, tab_curriculo = st.tabs(["Dados pessoais", "Minhas stacks", "Currículo"])
 
     # ── ABA DADOS PESSOAIS ───────────────────────────────────────
     with tab_dados:
@@ -110,3 +111,43 @@ def render():
                     deletar_stack(s["id"])
                     st.rerun()
             st.divider()
+
+    # ── ABA CURRÍCULO ────────────────────────────────────────────
+    with tab_curriculo:
+        texto_atual = carregar_curriculo_texto()
+
+        if texto_atual:
+            st.success(f"Currículo armazenado — {len(texto_atual)} caracteres extraídos.")
+            with st.expander("Visualizar texto extraído"):
+                st.text(texto_atual[:3000] + ("\n[...]" if len(texto_atual) > 3000 else ""))
+            st.divider()
+
+        st.markdown("**Atualizar currículo (PDF)**")
+        st.caption("O texto será salvo e usado automaticamente para calcular scores ATS nas vagas capturadas.")
+        cv_file = st.file_uploader("Upload PDF", type=["pdf"], key="cv_perfil_upload")
+        if cv_file:
+            import tempfile, os
+            from transformers.curriculo_parser import extrair_texto_pdf
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(cv_file.read())
+                tmp_path = tmp.name
+            try:
+                texto = extrair_texto_pdf(tmp_path)
+                if texto.strip():
+                    salvar_curriculo_texto(texto)
+                    st.success(f"Currículo salvo! {len(texto)} caracteres extraídos.")
+                    st.rerun()
+                else:
+                    st.error("Não foi possível extrair texto do PDF. Use um PDF com texto selecionável.")
+            finally:
+                os.unlink(tmp_path)
+
+        if texto_atual:
+            st.divider()
+            st.markdown("**Recalcular scores ATS para todas as vagas**")
+            st.caption("Recalcula ANYA para todas as vagas ativas com descrição usando o currículo armazenado.")
+            if st.button("↻ Recalcular todos os scores", type="secondary", use_container_width=True):
+                from database.ats_score import recalcular_todos
+                with st.spinner("Calculando..."):
+                    total = recalcular_todos(texto_atual)
+                st.success(f"{total} vagas recalculadas.")

@@ -134,10 +134,31 @@ def criar_tabelas():
             pretensao_min    INTEGER,
             pretensao_max    INTEGER,
             resumo           VARCHAR,
+            curriculo_texto  VARCHAR,
             data_atualizacao DATE DEFAULT current_date
         )
     """)
+    try:
+        con.execute("ALTER TABLE dim_candidato ADD COLUMN IF NOT EXISTS curriculo_texto VARCHAR")
+    except Exception:
+        pass
     con.execute("CREATE SEQUENCE IF NOT EXISTS seq_candidato START 1")
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS fact_ats_score (
+            id                 INTEGER PRIMARY KEY,
+            id_vaga            INTEGER UNIQUE,
+            score_keywords     INTEGER,
+            score_formatacao   INTEGER,
+            score_secoes       INTEGER,
+            score_impacto      INTEGER,
+            score_final        INTEGER,
+            keywords_ausentes  VARCHAR,
+            keywords_presentes VARCHAR,
+            data_calculo       DATE DEFAULT current_date
+        )
+    """)
+    con.execute("CREATE SEQUENCE IF NOT EXISTS seq_ats_score START 1")
 
     con.execute("""
         CREATE TABLE IF NOT EXISTS dim_candidato_stack (

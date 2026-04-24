@@ -9,6 +9,8 @@ from database.vagas import inserir_vaga, verificar_vagas_encerradas
 from database.logs import registrar_log, ultima_execucao_sucesso, empresa_bloqueada
 from database.filtros import carregar_filtros, carregar_filtros_localizacao
 from database.snapshots import salvar_snapshot
+from database.candidato import carregar_curriculo_texto
+from database.ats_score import salvar_ats_score
 from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
 from scrapers.inhire_scraper import buscar_vagas_inhire
 from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
@@ -78,13 +80,13 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
     log.info(f"  Última execução: {horas_desde_ultima}h atrás")
 
     try:
+        texto_cv = carregar_curriculo_texto()
         vagas = buscar_vagas(url_vagas)
         vagas_encontradas = len(vagas)
 
         interesse, bloqueio = carregar_filtros()
         vagas_filtradas = [v for v in vagas if titulo_relevante(v["titulo"], interesse, bloqueio)]
         log.info(f"  {len(vagas_filtradas)} vagas relevantes de {vagas_encontradas} após filtro")
-
 
         vagas_enriquecidas = coletar_descricoes_lote(vagas_filtradas)
 
@@ -108,9 +110,10 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
             if negada:
                 continue
 
-            inserida = inserir_vaga(vaga, id_empresa)
-            if inserida:
+            id_nova = inserir_vaga(vaga, id_empresa)
+            if id_nova:
                 vagas_novas += 1
+                _auto_anya(id_nova, descricao, titulo, texto_cv)
 
         links_ativos = [v["link"] for v in vagas_enriquecidas]
         encerradas = verificar_vagas_encerradas(id_empresa, links_ativos)
@@ -127,10 +130,30 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
 
     return vagas_encontradas, vagas_novas, erro
 
+def _auto_anya(id_vaga: int, descricao: str, titulo: str, texto_cv: str):
+    """Runs ANYA score computation silently — never raises."""
+    if not texto_cv or not descricao:
+        return
+    try:
+        from transformers.ats_agents import rodar_anya
+        anya = rodar_anya(texto_cv, descricao, titulo)
+        anya["score_final"] = round(
+            anya["score_keywords"]   * 0.40 +
+            anya["score_formatacao"] * 0.25 +
+            anya["score_secoes"]     * 0.20 +
+            anya["score_impacto"]    * 0.15
+        )
+        salvar_ats_score(id_vaga, anya)
+    except Exception:
+        pass
+
+
 def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, str]:
     """Processa vagas já coletadas — filtra, enriquece e insere no banco."""
     vagas_novas = 0
     try:
+        texto_cv = carregar_curriculo_texto()
+
         interesse, bloqueio = carregar_filtros()
         vagas = [v for v in vagas_raw if titulo_relevante(v["titulo"], interesse, bloqueio)]
         log.info(f"  {len(vagas)} vagas relevantes após filtro de título")
@@ -146,7 +169,7 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
             vaga["stacks"] = extrair_stacks(vaga.get("descricao", "") or vaga["titulo"])
             vaga["nivel"] = detectar_nivel(vaga["titulo"])
             vaga["urgente"] = detectar_urgencia(vaga.get("descricao", ""), vaga["titulo"])
-            
+
             sinais = extrair_sinais_descricao(vaga.get("descricao", ""))
             if sinais["tamanho_equipe"]:
                 vaga["tamanho_equipe"] = sinais["tamanho_equipe"]
@@ -164,8 +187,10 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
                 existe = con_check.execute("SELECT id FROM fact_vaga WHERE hash=?", [h]).fetchone()
             if existe:
                 continue
-            if inserir_vaga(vaga, id_empresa):
+            id_nova = inserir_vaga(vaga, id_empresa)
+            if id_nova:
                 vagas_novas += 1
+                _auto_anya(id_nova, vaga.get("descricao", ""), vaga["titulo"], texto_cv)
 
         registrar_log(nome, vagas_encontradas, vagas_novas, "sucesso")
         log.info(f"  {vagas_encontradas} encontradas | {vagas_novas} novas")

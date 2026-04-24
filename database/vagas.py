@@ -8,11 +8,12 @@ def gerar_hash(titulo: str, empresa: str, link: str) -> str:
     return hashlib.md5(conteudo.encode()).hexdigest()
 
 
-def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
+def inserir_vaga(vaga: dict, id_empresa: int) -> int | None:
+    """Returns the new vaga id if inserted, None if already exists."""
     hash_vaga = gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])
     with db_connect() as con:
         if con.execute("SELECT id FROM fact_vaga WHERE hash = ?", [hash_vaga]).fetchone():
-            return False
+            return None
         id_vaga = con.execute("SELECT nextval('seq_vaga')").fetchone()[0]
         con.execute("""
             INSERT INTO fact_vaga
@@ -37,7 +38,7 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
             vaga.get("estagio_empresa"),
             json.dumps(vaga.get("cultura", [])) if vaga.get("cultura") else None
         ])
-    return True
+    return id_vaga
 
 
 def inserir_vaga_manual(titulo: str, id_empresa: int, empresa_nome: str,
