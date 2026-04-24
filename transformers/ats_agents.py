@@ -261,6 +261,83 @@ ESTRATÉGIA: {texto_arya[:300]}
 
 
 # ──────────────────────────────────────────────
+# NEXUS — Agente Otimizador (Ollama)
+# ──────────────────────────────────────────────
+
+def rodar_nexus(texto_cv: str, descricao_vaga: str, titulo_vaga: str, analise_anya: dict) -> dict:
+    """Reescreve título, resumo e bullets do currículo com as keywords da vaga.
+
+    Retorna dict com:
+        titulo_sugerido   — título alinhado à vaga
+        resumo_otimizado  — parágrafo de abertura com keywords
+        bullets           — lista de {"antes": str, "depois": str}
+    """
+    ausentes = ", ".join(analise_anya["keywords_ausentes"][:15]) or "nenhuma"
+
+    prompt = f"""Você é NEXUS, especialista em otimização de currículos para o mercado brasileiro.
+
+Sua tarefa é reescrever partes do currículo para aumentar o match com a vaga.
+REGRA CRÍTICA: não invente experiências. Reescreva o que já existe usando as keywords certas.
+
+VAGA: {titulo_vaga}
+DESCRIÇÃO DA VAGA: {descricao_vaga[:700]}
+KEYWORDS AUSENTES NO CURRÍCULO: {ausentes}
+CURRÍCULO ATUAL: {texto_cv[:2000]}
+
+Responda EXATAMENTE neste formato (sem texto extra fora dos campos):
+
+TÍTULO_SUGERIDO:
+[escreva aqui um título profissional alinhado à vaga]
+
+RESUMO_OTIMIZADO:
+[escreva aqui um parágrafo de 2-3 frases para o topo do currículo com as keywords da vaga]
+
+BULLET_ANTES_1:
+[copie aqui um bullet point existente do currículo que pode ser melhorado]
+BULLET_DEPOIS_1:
+[reescreva esse bullet com as keywords da vaga e foco em resultado de negócio]
+
+BULLET_ANTES_2:
+[copie aqui outro bullet point existente]
+BULLET_DEPOIS_2:
+[reescreva esse bullet]
+
+BULLET_ANTES_3:
+[copie aqui outro bullet point existente]
+BULLET_DEPOIS_3:
+[reescreva esse bullet]"""
+
+    raw = _ollama_chat(prompt)
+    return _parsear_nexus(raw)
+
+
+def _parsear_nexus(raw: str) -> dict:
+    """Extrai campos estruturados da resposta do NEXUS."""
+
+    def _extrair(chave: str) -> str:
+        pattern = rf"{re.escape(chave)}:\s*\n?(.*?)(?=\n[A-Z_]+:|$)"
+        m = re.search(pattern, raw, re.DOTALL | re.IGNORECASE)
+        return m.group(1).strip() if m else ""
+
+    titulo    = _extrair("TÍTULO_SUGERIDO")
+    resumo    = _extrair("RESUMO_OTIMIZADO")
+
+    bullets = []
+    for i in range(1, 4):
+        antes  = _extrair(f"BULLET_ANTES_{i}")
+        depois = _extrair(f"BULLET_DEPOIS_{i}")
+        if antes and depois:
+            bullets.append({"antes": antes, "depois": depois})
+
+    return {
+        "titulo_sugerido":  titulo,
+        "resumo_otimizado": resumo,
+        "bullets":          bullets,
+        "raw":              raw,
+    }
+
+
+# ──────────────────────────────────────────────
 # Entrada principal — roda os 4 agentes em sequência
 # ──────────────────────────────────────────────
 

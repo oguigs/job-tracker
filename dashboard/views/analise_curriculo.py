@@ -2,7 +2,7 @@ import streamlit as st
 import tempfile
 import os
 from transformers.curriculo_parser import extrair_texto_pdf
-from transformers.ats_agents import analisar_curriculo, rodar_anya, ollama_disponivel
+from transformers.ats_agents import analisar_curriculo, rodar_anya, ollama_disponivel, rodar_nexus
 from database.connection import db_connect
 
 
@@ -152,10 +152,34 @@ def render():
         finally:
             os.unlink(tmp_path)
 
-        _exibir_resultado(resultado, groq_ok)
+        st.session_state["ats_resultado"]    = resultado
+        st.session_state["ats_texto_cv"]     = texto_cv
+        st.session_state["ats_descricao"]    = descricao_vaga
+        st.session_state["ats_titulo_vaga"]  = titulo_vaga
+        st.session_state["ats_nexus"]        = None
+
+    if "ats_resultado" in st.session_state and st.session_state["ats_resultado"]:
+        _exibir_resultado(st.session_state["ats_resultado"], llm_ok)
+
+        if llm_ok:
+            st.divider()
+            if st.button("✦ OTIMIZAR CURRÍCULO COM NEXUS", type="primary", use_container_width=True):
+                with st.status("░ NEXUS REESCREVENDO CURRÍCULO...", expanded=True) as status:
+                    st.write("░ ANALISANDO GAPS E REESCREVENDO BULLETS...")
+                    nexus = rodar_nexus(
+                        st.session_state["ats_texto_cv"],
+                        st.session_state["ats_descricao"],
+                        st.session_state["ats_titulo_vaga"],
+                        st.session_state["ats_resultado"]["anya"],
+                    )
+                    st.session_state["ats_nexus"] = nexus
+                    status.update(label="Otimização concluída", state="complete")
+
+        if st.session_state.get("ats_nexus"):
+            _exibir_nexus(st.session_state["ats_nexus"])
 
 
-def _exibir_resultado(resultado: dict, groq_ok: bool):
+def _exibir_resultado(resultado: dict, llm_ok: bool):
     anya    = resultado["anya"]
     sintese = resultado["sintetizador"]
 
@@ -257,3 +281,75 @@ def _exibir_resultado(resultado: dict, groq_ok: bool):
             icone = "✓" if presente else "✗"
             cor   = "green" if presente else "red"
             st.markdown(f":{cor}[{icone} {secao.capitalize()}]")
+
+
+def _exibir_nexus(nexus: dict):
+    st.divider()
+    st.markdown(
+        "<div style='font-family:monospace; color:#a78bfa; font-size:13px; "
+        "letter-spacing:2px; margin-bottom:16px'>✦ NEXUS — MÓDULO OTIMIZADOR</div>",
+        unsafe_allow_html=True,
+    )
+
+    # título sugerido
+    if nexus.get("titulo_sugerido"):
+        st.markdown("**Título sugerido para esta vaga**")
+        col_a, col_b = st.columns(2)
+        col_a.markdown(
+            "<div style='background:#1a1a2e; padding:12px; border-radius:4px; "
+            "font-family:monospace; color:#ff6b6b; font-size:13px'>"
+            "ANTES<br><br>" + (nexus.get("titulo_original", "Seu título atual") or "Seu título atual") +
+            "</div>", unsafe_allow_html=True
+        )
+        col_b.markdown(
+            "<div style='background:#0d2818; padding:12px; border-radius:4px; "
+            "font-family:monospace; color:#00ff88; font-size:13px'>"
+            "DEPOIS<br><br>" + nexus["titulo_sugerido"] +
+            "</div>", unsafe_allow_html=True
+        )
+
+    st.divider()
+
+    # resumo otimizado
+    if nexus.get("resumo_otimizado"):
+        st.markdown("**Resumo profissional otimizado**")
+        st.markdown(
+            "<div style='background:#0d2818; border-left:3px solid #a78bfa; "
+            "padding:14px 16px; font-family:monospace; color:#e6edf3; font-size:14px; "
+            "line-height:1.7'>" + nexus["resumo_otimizado"] + "</div>",
+            unsafe_allow_html=True,
+        )
+        if st.button("Copiar resumo", key="copy_resumo"):
+            st.write(nexus["resumo_otimizado"])
+
+    st.divider()
+
+    # bullets antes/depois
+    if nexus.get("bullets"):
+        st.markdown("**Bullets reescritos**")
+        for i, bullet in enumerate(nexus["bullets"], 1):
+            st.markdown(f"*Experiência {i}*")
+            col_a, col_b = st.columns(2)
+            col_a.markdown(
+                "<div style='background:#1a1a2e; padding:12px; border-radius:4px; "
+                "font-family:monospace; color:#ff6b6b; font-size:13px; line-height:1.6'>"
+                "✗ ANTES<br><br>" + bullet["antes"] + "</div>",
+                unsafe_allow_html=True,
+            )
+            col_b.markdown(
+                "<div style='background:#0d2818; padding:12px; border-radius:4px; "
+                "font-family:monospace; color:#00ff88; font-size:13px; line-height:1.6'>"
+                "✓ DEPOIS<br><br>" + bullet["depois"] + "</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("")
+
+    # fallback: se o parser não extraiu estrutura, mostra o raw
+    if not nexus.get("bullets") and not nexus.get("resumo_otimizado") and nexus.get("raw"):
+        st.markdown("**Sugestões do NEXUS**")
+        st.markdown(
+            "<div style='background:#0d1117; border:1px solid #30363d; border-radius:6px; "
+            "padding:16px; font-family:monospace; color:#e6edf3; font-size:14px; "
+            "white-space:pre-wrap'>" + nexus["raw"] + "</div>",
+            unsafe_allow_html=True,
+        )
