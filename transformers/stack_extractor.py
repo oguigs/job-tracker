@@ -100,8 +100,8 @@ def detectar_modalidade(texto: str, modalidade_coletada: str = "não identificad
     # senão tenta extrair da descrição
     texto_lower = texto.lower()
     if "híbrido" in texto_lower or "hibrido" in texto_lower:
-        return "hibrido"
-    if "remoto" in texto_lower or "remote" in texto_lower:
+        return "híbrido"
+    if "remoto" in texto_lower or "remota" in texto_lower or "remote" in texto_lower or "home office" in texto_lower:
         return "remoto"
     if "presencial" in texto_lower:
         return "presencial"
