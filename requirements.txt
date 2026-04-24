@@ -45,3 +45,4 @@ urllib3==2.6.3
 playwright-stealth
 great-expectations==0.18.22
 pdfplumber
+prefect

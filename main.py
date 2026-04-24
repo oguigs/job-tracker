@@ -9,9 +9,11 @@ from database.vagas import inserir_vaga, verificar_vagas_encerradas
 from database.logs import registrar_log, ultima_execucao_sucesso, empresa_bloqueada
 from database.filtros import carregar_filtros, carregar_filtros_localizacao
 from database.snapshots import salvar_snapshot
+from scrapers.gupy_scraper import buscar_vagas
 from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
 from scrapers.inhire_scraper import buscar_vagas_inhire
 from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
+from scrapers.amazon_scraper import buscar_vagas_amazon
 from database.connection import DB_PATH, conectar, db_connect
 from playwright.sync_api import sync_playwright
 from playwright_stealth import stealth as stealth_sync
@@ -191,6 +193,15 @@ def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, st
     vagas_raw = buscar_vagas_smartrecruiters(url)
     return _processar_empresa_generica(nome, vagas_raw)
 
+
+def processar_empresa_amazon(nome: str, url_vagas: str) -> tuple[int, int, str]:
+    from urllib.parse import urlparse, parse_qs
+    parsed = parse_qs(urlparse(url_vagas).query)
+    loc_query = parsed.get("loc_query", ["Brazil"])[0]
+    base_query = parsed.get("base_query", [""])[0]
+    vagas_raw = buscar_vagas_amazon(loc_query=loc_query, base_query=base_query)
+    return _processar_empresa_generica(nome, vagas_raw)
+
 def rodar_pipeline() -> None:
     criar_tabelas()
     
@@ -216,7 +227,9 @@ def rodar_pipeline() -> None:
         elif "inhire.app" in url_vagas:
             processar_empresa_inhire(nome, url_vagas)
         elif "smartrecruiters.com" in url_vagas:
-            processar_empresa_smartrecruiters(nome, url_vagas)    
+            processar_empresa_smartrecruiters(nome, url_vagas)
+        elif "amazon.jobs" in url_vagas:
+            processar_empresa_amazon(nome, url_vagas)
         else:
             log.info(f"  Plataforma não reconhecida: {url_vagas}")
 

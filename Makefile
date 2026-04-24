@@ -16,3 +16,12 @@ clean:
 lint:
 	cd ~/job-tracker && source .venv/bin/activate && python -m py_compile dashboard/views/*.py dashboard/components.py main.py
 	echo "Sem erros de sintaxe!"
+
+prefect:
+	cd ~/job-tracker && source .venv/bin/activate && python pipeline_prefect.py
+
+prefect-serve:
+	cd ~/job-tracker && source .venv/bin/activate && python pipeline_prefect.py --serve
+
+prefect-ui:
+	cd ~/job-tracker && source .venv/bin/activate && prefect server start
