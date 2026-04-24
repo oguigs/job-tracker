@@ -6,7 +6,8 @@ from dashboard.views import (
     dashboard_page, vagas, cadastrar_vaga, empresas,
     pipeline, configuracoes, vagas_negadas,
     perfil_empresa, contatos, perfil_candidato,
-    comparativo, tendencias, funil, qualidade, fila_inscricao, estudos
+    comparativo, tendencias, funil, qualidade, fila_inscricao, estudos,
+    minha_performance
 )
 
 st.set_page_config(page_title="Job Tracker", layout="wide")
@@ -27,11 +28,12 @@ pages = {
     "Qualidade":         qualidade.render,
     "Configurações":     configuracoes.render,
     "Vagas Negadas":     vagas_negadas.render,
+    "Minha Performance": minha_performance.render
 }
 
 GRUPOS = {
     "🎯 Trabalho diário": ["Dashboard", "Fila de Inscrição", "Vagas"],
-    "📚 Estudo":          ["Estudos", "Comparativo", "Tendências"],
+    "📚 Estudo": ["Estudos", "Comparativo", "Tendências", "Minha Performance"],
     "📋 Cadastros":       ["Cadastrar Vaga", "Empresas", "Indicadores", "Meu Perfil"],
     "⚙️ Operações":       ["Pipeline", "Qualidade", "Configurações", "Funil", "Vagas Negadas"],
 }
