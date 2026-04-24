@@ -1,6 +1,7 @@
 import json
 import time as _time
 import duckdb
+from scrapers.gupy_scraper import buscar_vagas
 from scrapers.gupy_detalhes import coletar_descricoes_lote
 from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia, detectar_salario, extrair_sinais_descricao
 from database.schemas import criar_tabelas
