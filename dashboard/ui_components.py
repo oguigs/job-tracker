@@ -10,7 +10,8 @@ from dashboard.theme import status_badge, cor_score as get_cor_score
 from database.diario import adicionar_nota, listar_notas, deletar_nota
 from database.contatos import listar_contatos
 from database.connection import db_connect
-from database.candidaturas import salvar_remuneracao
+from database.candidaturas import salvar_remuneracao, atualizar_candidatura, negar_vaga
+from database.schemas import TIMELINE, TIMELINE_LABELS
 
 
 @st.cache_data
@@ -96,7 +97,6 @@ def render_score_breakdown(id_vaga: int):
 
 
 def render_diario(id_vaga: int):
-
     st.divider()
     st.write("**Diário de candidatura:**")
     df_notas = listar_notas(id_vaga)
@@ -123,8 +123,6 @@ def render_preparacao_entrevista(id_vaga: int, id_empresa_nome: str, status_cand
     fases_entrevista = ["chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
     if status_cand not in fases_entrevista:
         return
-
-
     with db_connect(read_only=True) as con:
         id_empresa = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [id_empresa_nome]).fetchone()
     if not id_empresa:
@@ -166,8 +164,6 @@ def render_preparacao_entrevista(id_vaga: int, id_empresa_nome: str, status_cand
 
 
 def render_remuneracao(vaga: dict):
-
-
     def _si(val):
         try: return 0 if val is None or str(val) == 'nan' else int(val)
         except Exception: return 0
@@ -218,13 +214,9 @@ def render_remuneracao(vaga: dict):
             valor_plr = st.number_input("Valor PLR", min_value=0, step=500, value=_si(vaga.get("valor_plr")), key=f"vplr_{vaga['id']}")
             tem_bonus = st.checkbox("Bônus", value=_sb(vaga.get("tem_bonus")), key=f"tbonus_{vaga['id']}")
             valor_bonus = st.number_input("Valor bônus", min_value=0, step=500, value=_si(vaga.get("valor_bonus")), key=f"vbonus_{vaga['id']}")
-            outros = st.text_input("Outros benefícios", value=_ss(vaga.get("outros_beneficios")),
-                placeholder="Ex: stock options, day off...", key=f"outros_{vaga['id']}")
-            # cálculo automático
-            sal_mensal_total = salario_mensal + (valor_vr if tem_vr else 0) + (valor_va if tem_va else 0) + (valor_vt if tem_vt else 0)
-            sal_anual = (salario_mensal * 12) + (salario_mensal if tem_sal13 else 0) + (valor_plr if tem_plr else 0) + (valor_bonus if tem_bonus else 0)
+        outros = st.text_input("Outros benefícios", value=_ss(vaga.get("outros_beneficios")),
+            placeholder="Ex: stock options, day off...", key=f"outros_{vaga['id']}")
 
-        # totais calculados automaticamente
         if salario_mensal > 0:
             sal_mensal_total = salario_mensal + (valor_vr if tem_vr else 0) + (valor_va if tem_va else 0) + (valor_vt if tem_vt else 0)
             sal_anual = (salario_mensal * 12) + (salario_mensal if tem_sal13 else 0) + (valor_plr if tem_plr else 0) + (valor_bonus if tem_bonus else 0)
@@ -232,8 +224,7 @@ def render_remuneracao(vaga: dict):
             col_t1, col_t2 = st.columns(2)
             col_t1.metric("💰 Mensal total", f"R$ {sal_mensal_total:,.0f}")
             col_t2.metric("📅 Anual total", f"R$ {sal_anual:,.0f}")
-        
-        
+
         if st.form_submit_button("Salvar remuneração", use_container_width=True):
             salvar_remuneracao(
                 id_vaga=vaga["id"], regime=regime, moeda=moeda,
@@ -308,22 +299,18 @@ def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card"):
             st.session_state[f"dialog_{key_prefix}_{int(vaga['id'])}"] = True
             st.session_state[f"dialog_{key_prefix}_atual"] = int(vaga['id'])
 
-def render_dialog_vaga(v, prefix: str = "v"):
-    """
-    Dialog de detalhes de vaga reutilizável.
-    Usado em vagas.py e dashboard_page.py com prefix diferente.
-    """
-    from database.schemas import TIMELINE, TIMELINE_LABELS
-    from database.candidaturas import atualizar_candidatura, negar_vaga
 
+def render_dialog_vaga(v, prefix: str = "v"):
+    """Dialog de detalhes de vaga reutilizável."""
     # busca status atual do banco — não do cache do dataframe
-    from database.connection import db_connect
     with db_connect(read_only=True) as _con:
-        _row = _con.execute("SELECT candidatura_status, candidatura_observacao FROM fact_vaga WHERE id=?", 
-                           [int(v["id"])]).fetchone()
+        _row = _con.execute(
+            "SELECT candidatura_status, candidatura_observacao FROM fact_vaga WHERE id=?",
+            [int(v["id"])]
+        ).fetchone()
     status_cand = (_row[0] if _row and _row[0] else None) or "nao_inscrito"
-    # atualiza observacao com valor atual do banco
     _obs_atual = _row[1] if _row and _row[1] else ""
+
     label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
     data_fmt_v = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
 
@@ -331,9 +318,17 @@ def render_dialog_vaga(v, prefix: str = "v"):
     col_info.caption(f"📅 {data_fmt_v} · {v['empresa']} · {label_status}")
     col_link.link_button("🔗 Ver vaga", v["link"], use_container_width=True)
 
-    tab_score, tab_cand, tab_rem, tab_diario = st.tabs([
-        "📊 Score & Stacks", "📋 Candidatura", "💰 Remuneração", "📓 Diário"
-    ])
+    fases_entrevista = ["chamado","recrutador","fase_1","fase_2","fase_3"]
+    mostrar_briefing = status_cand in fases_entrevista
+
+    if mostrar_briefing:
+        tab_score, tab_cand, tab_briefing, tab_rem, tab_diario = st.tabs([
+            "📊 Score & Stacks", "📋 Candidatura", "🎯 Briefing", "💰 Remuneração", "📓 Diário"
+        ])
+    else:
+        tab_score, tab_cand, tab_rem, tab_diario = st.tabs([
+            "📊 Score & Stacks", "📋 Candidatura", "💰 Remuneração", "📓 Diário"
+        ])
 
     with tab_score:
         render_score_breakdown(int(v["id"]))
@@ -351,21 +346,19 @@ def render_dialog_vaga(v, prefix: str = "v"):
                 use_container_width=True,
                 type="primary" if ativo else "secondary"
             ):
-                atualizar_candidatura(int(v["id"]), fase, fase,
-                    str(v.get("candidatura_observacao") or ""))
+                atualizar_candidatura(int(v["id"]), fase, fase, _obs_atual)
+                st.cache_data.clear()
                 st.session_state[f"dialog_{prefix}_atual"] = int(v["id"])
                 st.toast(f"✅ {TIMELINE_LABELS[fase]}")
                 st.rerun()
         st.write("")
 
-        # observação separada do form
         obs_key = f"obs_inline_{prefix}_{v['id']}"
-        observacao = st.text_input("Observação",
-            value=_obs_atual,
-            key=obs_key)
+        observacao = st.text_input("Observação", value=_obs_atual, key=obs_key)
         if st.button("💾 Salvar observação", key=f"salvar_obs_{prefix}_{v['id']}",
                     use_container_width=True):
             atualizar_candidatura(int(v["id"]), status_cand, status_cand, observacao)
+            st.cache_data.clear()
             st.session_state[f"dialog_{prefix}_atual"] = int(v["id"])
             st.toast("✅ Observação salva!")
             st.rerun()
@@ -374,6 +367,7 @@ def render_dialog_vaga(v, prefix: str = "v"):
         if st.button("❌ Negar vaga", key=f"negar_{prefix}_{v['id']}",
                     use_container_width=True, type="secondary"):
             negar_vaga(int(v["id"]), observacao or f"Negada em: {status_cand}")
+            st.cache_data.clear()
             st.session_state[f"dialog_{prefix}_atual"] = None
             st.toast("❌ Vaga negada.")
             st.rerun()
@@ -384,9 +378,46 @@ def render_dialog_vaga(v, prefix: str = "v"):
     with tab_diario:
         render_diario(int(v["id"]))
 
+    if mostrar_briefing:
+        with tab_briefing:
+            from database.empresas import gerar_briefing_empresa
+            b = gerar_briefing_empresa(v["empresa"])
+            st.markdown(f"### 🏢 {v['empresa']}")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Vagas históricas", b["total_vagas"])
+            col2.metric("Vagas ativas", b["vagas_ativas"])
+            col3.metric("Suas candidaturas", b["candidaturas"])
+            if b["urgentes"] > 0:
+                st.warning(f"🔥 {b['urgentes']} vaga(s) urgente(s) abertas agora")
+            if b["niveis"]:
+                st.caption("**Níveis mais contratados:**")
+                for nivel, total in b["niveis"]:
+                    st.markdown(f"- {nivel}: {total} vagas")
+            if b["modalidades"]:
+                st.caption("**Modalidades:**")
+                for mod, total in b["modalidades"]:
+                    st.markdown(f"- {mod}: {total} vagas")
+            if b["top_stacks"]:
+                st.divider()
+                st.caption("**Stacks mais pedidas pela empresa:**")
+                badges = " ".join([
+                    f"<span style='background:#EBF3FB;color:#378ADD;padding:2px 8px;"
+                    f"border-radius:10px;font-size:11px;margin:2px;display:inline-block'>"
+                    f"{s} ({c})</span>"
+                    for s, c in b["top_stacks"]
+                ])
+                st.markdown(badges, unsafe_allow_html=True)
+            if b["contatos"]:
+                st.divider()
+                st.caption("**Seus contatos nessa empresa:**")
+                for nome_c, grau, email in b["contatos"]:
+                    email_str = f" · {email}" if email else ""
+                    st.markdown(f"👤 **{nome_c}** — {grau}{email_str}")
+            st.caption(f"Última coleta: {b['ultima_coleta']}")
+
 
 def render_empty_state(titulo: str, descricao: str, acao_label: str = None, acao_pagina: str = None):
-    """Estado vazio com instrução clara — substitui st.info() genérico."""
+    """Estado vazio com instrução clara."""
     st.markdown(
         f"<div style='text-align:center;padding:40px 20px;color:#767676'>"
         f"<div style='font-size:48px;margin-bottom:16px'>🔍</div>"
