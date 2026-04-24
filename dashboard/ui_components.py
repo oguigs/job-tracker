@@ -348,30 +348,71 @@ def _barra_ats(score: int, label: str):
     )
 
 
+def _calcular_e_salvar_anya(id_vaga: int, texto_cv: str, descricao: str, titulo: str):
+    from transformers.ats_agents import rodar_anya
+    from database.ats_score import salvar_ats_score
+    anya = rodar_anya(texto_cv, descricao, titulo)
+    anya["score_final"] = round(
+        anya["score_keywords"]   * 0.40 +
+        anya["score_formatacao"] * 0.25 +
+        anya["score_secoes"]     * 0.20 +
+        anya["score_impacto"]    * 0.15
+    )
+    salvar_ats_score(id_vaga, anya)
+
+
 def _render_ats_tab(id_vaga: int, descricao: str, titulo: str, prefix: str):
     from database.ats_score import carregar_ats_score, salvar_ats_score
     from database.candidato import carregar_curriculo_texto
+    from database.vagas import atualizar_descricao_vaga
 
     texto_cv = carregar_curriculo_texto()
+
+    # Reload descricao from DB so edits done earlier in this session are visible
+    with db_connect() as _c:
+        _row = _c.execute("SELECT descricao FROM fact_vaga WHERE id=?", [id_vaga]).fetchone()
+    descricao = (_row[0] if _row and _row[0] else "") or ""
+
     scores = carregar_ats_score(id_vaga)
 
     if not texto_cv:
         st.info("Para ver a análise ATS, salve seu currículo em **Meu Perfil → Currículo**.")
         return
 
+    sem_descricao = not descricao or not descricao.strip()
+
+    # ── CAMPO DE DESCRIÇÃO MANUAL ─────────────────────────────
+    with st.expander("✏️ Editar descrição da vaga", expanded=sem_descricao):
+        desc_input = st.text_area(
+            "Cole aqui o texto completo da vaga",
+            value=descricao,
+            height=200,
+            key=f"desc_manual_{id_vaga}_{prefix}",
+            label_visibility="collapsed",
+            placeholder="Cole o texto da vaga aqui para calcular o score ATS...",
+        )
+        if st.button("💾 Salvar e calcular ATS", key=f"salvar_desc_{id_vaga}_{prefix}", type="primary", use_container_width=True):
+            if desc_input.strip():
+                from transformers.stack_extractor import extrair_stacks, detectar_modalidade
+                import json as _json
+                stacks = extrair_stacks(desc_input)
+                modalidade = detectar_modalidade(desc_input)
+                atualizar_descricao_vaga(id_vaga, desc_input.strip(), _json.dumps(stacks), modalidade)
+                with st.spinner("Calculando ATS..."):
+                    _calcular_e_salvar_anya(id_vaga, texto_cv, desc_input.strip(), titulo)
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.warning("Cole uma descrição antes de salvar.")
+
+    if not scores and sem_descricao:
+        return
+
     if not scores:
         st.caption("Score ATS ainda não calculado para esta vaga.")
         if st.button("▶ Calcular agora", key=f"ats_calc_{id_vaga}_{prefix}", type="primary"):
-            from transformers.ats_agents import rodar_anya
             with st.spinner("Calculando..."):
-                anya = rodar_anya(texto_cv, descricao, titulo)
-                anya["score_final"] = round(
-                    anya["score_keywords"]   * 0.40 +
-                    anya["score_formatacao"] * 0.25 +
-                    anya["score_secoes"]     * 0.20 +
-                    anya["score_impacto"]    * 0.15
-                )
-                salvar_ats_score(id_vaga, anya)
+                _calcular_e_salvar_anya(id_vaga, texto_cv, descricao, titulo)
             st.rerun()
         return
 
