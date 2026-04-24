@@ -314,9 +314,12 @@ def render_dialog_vaga(v, prefix: str = "v"):
     label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
     data_fmt_v = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
 
-    col_info, col_link = st.columns([5, 1])
+    col_info, col_link, col_perfil = st.columns([4, 1, 1])
     col_info.caption(f"📅 {data_fmt_v} · {v['empresa']} · {label_status}")
     col_link.link_button("🔗 Ver vaga", v["link"], use_container_width=True)
+    if col_perfil.button("🏢 Empresa", use_container_width=True, key=f"perfil_btn_{prefix}_{v['id']}"):
+        st.query_params["empresa"] = v["empresa"]
+        st.rerun()
 
     fases_entrevista = ["chamado","recrutador","fase_1","fase_2","fase_3"]
     mostrar_briefing = status_cand in fases_entrevista
