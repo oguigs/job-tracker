@@ -1,104 +1,67 @@
 from logger import get_logger
 log = get_logger("gupy_scraper")
-from playwright.sync_api import sync_playwright
-import json
-import time
+import requests, re, json
 
 def buscar_vagas(url_empresa: str) -> list:
+    """
+    Coleta vagas via __NEXT_DATA__ do Gupy — sem Playwright.
+    Retorna lista com titulo, link, modalidade, fonte, empresa, cidade, pais.
+    Descrições são preenchidas por coletar_descricoes_lote depois da filtragem.
+    """
+    nome_empresa = url_empresa.replace("https://", "").split(".gupy.io")[0]
+    url_base = f"https://{nome_empresa}.gupy.io"
+
+    try:
+        r = requests.get(
+            url_base,
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+            timeout=15,
+        )
+        if r.status_code != 200:
+            log.error(f"Erro ao acessar {url_base}: {r.status_code}")
+            return []
+
+        match = re.search(
+            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+            r.text, re.DOTALL
+        )
+        if not match:
+            log.error(f"__NEXT_DATA__ não encontrado em {url_base}")
+            return []
+
+        data = json.loads(match.group(1))
+        jobs = data.get("props", {}).get("pageProps", {}).get("jobs", [])
+
+    except Exception as e:
+        log.error(f"Erro ao coletar listing {url_base}: {e}")
+        return []
+
     vagas = []
-    nome_empresa = url_empresa.replace("https://", "").split(".gupy.io")[0].capitalize()
+    for job in jobs:
+        workplace   = job.get("workplace", {})
+        wp_type     = (workplace.get("workplaceType") or "").lower()
+        address     = workplace.get("address", {})
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+        modalidade = "não identificado"
+        if wp_type in ("remote", "remoto"):
+            modalidade = "remoto"
+        elif wp_type == "hybrid":
+            modalidade = "hibrido"
+        elif wp_type in ("presential", "on-site", "presencial"):
+            modalidade = "presencial"
 
-        log.info(f"Abrindo página de {nome_empresa}...")
-        response = page.goto(url_empresa, wait_until="networkidle", timeout=60000)
+        job_id = job.get("id", "")
+        vagas.append({
+            "titulo":    job.get("title", ""),
+            "empresa":   nome_empresa.capitalize(),
+            "link":      f"{url_base}/jobs/{job_id}?jobBoardSource=gupy_public_page",
+            "modalidade": modalidade,
+            "fonte":     "gupy",
+            "cidade":    address.get("city", ""),
+            "pais":      "br",
+        })
 
-        if response.status == 404:
-            log.info(f"Página não encontrada: {url_empresa}")
-            browser.close()
-            return []
-
-        if response.status != 200:
-            log.error(f"Erro ao acessar {url_empresa}: status {response.status}")
-            browser.close()
-            return []
-
-        log.info("Aguardando vagas carregarem...")
-        page.wait_for_selector("a[href*='/job']", timeout=15000)
-
-        pagina_atual = 1
-
-        while True:
-            log.info(f"  Coletando página {pagina_atual}...")
-
-            cards = page.query_selector_all("a[href*='/job']")
-            dominio = url_empresa.rstrip("/")
-
-            for card in cards:
-                titulo_elemento = card.query_selector("h3, h2, [class*='title'], [class*='name']")
-                texto_completo = titulo_elemento.inner_text().strip() if titulo_elemento else card.inner_text().strip()
-
-                linhas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
-                titulo = linhas[0] if linhas else ""
-
-                modalidade = "não identificado"
-                for linha in linhas[1:]:
-                    linha_lower = linha.lower()
-                    if "remoto" in linha_lower or "remote" in linha_lower:
-                        modalidade = "remoto"
-                        break
-                    if "híbrido" in linha_lower or "hibrido" in linha_lower:
-                        modalidade = "hibrido"
-                        break
-                    if "presencial" in linha_lower:
-                        modalidade = "presencial"
-                        break
-
-                href = card.get_attribute("href")
-                link = f"{dominio}{href}" if href and href.startswith("/") else href
-
-                if titulo and link not in [v["link"] for v in vagas]:
-                    vagas.append({
-                        "titulo": titulo,
-                        "empresa": nome_empresa,
-                        "link": link,
-                        "modalidade": modalidade,
-                        "fonte": "gupy",
-                        "cidade": "",
-                        "pais": "br",  # Gupy é 100% brasileiro
-                    })
-
-            # tenta ir para próxima página
-            proxima = page.query_selector(
-                "button[data-testid='pagination-next-button']:not([disabled]):not([aria-disabled='true'])"
-            )
-      
-
-            if proxima:
-                try:
-                    proxima.click()
-                    page.wait_for_load_state("networkidle")
-                    time.sleep(2)
-                    pagina_atual += 1
-                except Exception:
-                    break
-            else:
-                # tenta scroll para sites com carregamento infinito
-                total_antes = len(page.query_selector_all("a[href*='/job']"))
-                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                time.sleep(2)
-                total_depois = len(page.query_selector_all("a[href*='/job']"))
-
-                if total_depois > total_antes:
-                    pagina_atual += 1
-                else:
-                    break
-
-        log.info(f"{len(vagas)} vagas encontradas no total")
-        browser.close()
-
+    log.info(f"  {len(vagas)} vagas encontradas em {nome_empresa}")
     return vagas
 
 
@@ -106,20 +69,10 @@ if __name__ == "__main__":
     empresas = [
         "https://compass.gupy.io/",
         "https://ambev.gupy.io/",
-        "https://globo.gupy.io/",
+        "https://localiza.gupy.io/",
     ]
-
-    todas_vagas = []
-
     for url in empresas:
-        try:
-            vagas = buscar_vagas(url)
-            todas_vagas.extend(vagas)
-        except Exception as e:
-            log.error(f"Erro em {url}: {e}")
-
-    log.info(f"\nTotal: {len(todas_vagas)} vagas coletadas")
-
-    with open("data/raw/vagas_gupy.json", "w", encoding="utf-8") as f:
-        json.dump(todas_vagas, f, ensure_ascii=False, indent=2)
-    log.info("Salvo em data/raw/vagas_gupy.json")
+        vagas = buscar_vagas(url)
+        log.info(f"{url}: {len(vagas)} vagas")
+        for v in vagas[:3]:
+            log.info(f"  - {v['titulo']}")

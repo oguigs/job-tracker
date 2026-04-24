@@ -81,6 +81,37 @@ def verificar_vagas_encerradas(id_empresa: int, links_ativos: list) -> list:
     return encerradas
 
 
+def atualizar_descricao_vaga(id_vaga: int, descricao: str, stacks_json: str = None, modalidade: str = None):
+    with db_connect() as con:
+        if stacks_json and modalidade:
+            con.execute(
+                "UPDATE fact_vaga SET descricao=?, stacks=?, modalidade=? WHERE id=?",
+                [descricao, stacks_json, modalidade, id_vaga]
+            )
+        elif stacks_json:
+            con.execute(
+                "UPDATE fact_vaga SET descricao=?, stacks=? WHERE id=?",
+                [descricao, stacks_json, id_vaga]
+            )
+        else:
+            con.execute(
+                "UPDATE fact_vaga SET descricao=? WHERE id=?",
+                [descricao, id_vaga]
+            )
+
+
+def listar_vagas_sem_descricao() -> list:
+    """Returns [(id, titulo, link, fonte)] for active vagas with NULL/empty description."""
+    with db_connect(read_only=True) as con:
+        return con.execute("""
+            SELECT id, titulo, link, fonte
+            FROM fact_vaga
+            WHERE ativa = true
+              AND (descricao IS NULL OR descricao = '')
+            ORDER BY fonte, id
+        """).fetchall()
+
+
 def listar_vagas_negadas():
     with db_connect(read_only=True) as con:
         return con.execute("""

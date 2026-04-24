@@ -213,7 +213,9 @@ def processar_empresa_inhire(nome: str, url_inhire: str) -> tuple[int, int, str]
 
 
 def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, str]:
-    vagas_raw = buscar_vagas_smartrecruiters(url)
+    # URL stored as https://careers.smartrecruiters.com/CompanySlug — extract slug
+    slug = url.rstrip("/").split("/")[-1]
+    vagas_raw = buscar_vagas_smartrecruiters(slug)
     return _processar_empresa_generica(nome, vagas_raw)
 
 def rodar_pipeline() -> None:

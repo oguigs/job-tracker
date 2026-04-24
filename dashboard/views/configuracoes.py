@@ -11,8 +11,8 @@ def render():
 
     df_filtros = listar_filtros()
 
-    tab_titulo, tab_local, tab_limpeza = st.tabs([
-        "🔤 Filtros de título", "🌍 Filtros de localização", "🧹 Limpeza da base"
+    tab_titulo, tab_local, tab_limpeza, tab_backfill = st.tabs([
+        "🔤 Filtros de título", "🌍 Filtros de localização", "🧹 Limpeza da base", "📥 Backfill"
     ])
 
     # ── FILTROS DE TÍTULO ──────────────────────────────────────
@@ -191,3 +191,47 @@ def render():
 
         except Exception as e:
             st.error(f"Erro ao calcular impacto: {e}")
+
+    with tab_backfill:
+        st.subheader("📥 Preencher descrições faltantes")
+        st.caption("Busca descrições para vagas já no banco que foram capturadas sem texto (Gupy, Greenhouse, SmartRecruiters).")
+
+        from database.vagas import listar_vagas_sem_descricao
+        sem_desc = listar_vagas_sem_descricao()
+        by_fonte = {}
+        for _, titulo, link, fonte in sem_desc:
+            by_fonte[fonte] = by_fonte.get(fonte, 0) + 1
+
+        col1, col2 = st.columns(2)
+        col1.metric("Vagas sem descrição", len(sem_desc))
+        col2.metric("Fontes afetadas", len(by_fonte))
+
+        if by_fonte:
+            st.markdown("**Por fonte:**")
+            for fonte, qtd in sorted(by_fonte.items(), key=lambda x: -x[1]):
+                st.markdown(f"- `{fonte}`: {qtd} vagas")
+            st.caption("InHire não é backfillável via requests (SPA) — rode o pipeline para novas coletas.")
+
+        st.divider()
+        if sem_desc:
+            if st.button("▶ Iniciar backfill", type="primary", use_container_width=True):
+                from scrapers.backfill import preencher_descricoes_faltantes
+                progress = st.progress(0.0, text="Iniciando...")
+                status_txt = st.empty()
+
+                def _cb(atual, total, titulo):
+                    pct = atual / total
+                    progress.progress(pct, text=f"[{atual}/{total}] {titulo[:50]}")
+                    status_txt.caption(f"Processando: {titulo[:60]}")
+
+                resultado = preencher_descricoes_faltantes(callback=_cb)
+                progress.empty()
+                status_txt.empty()
+                st.success(
+                    f"Concluído: **{resultado['preenchidas']}** preenchidas, "
+                    f"**{resultado['erros']}** sem resultado (InHire/erro de rede)."
+                )
+                st.cache_data.clear()
+                st.rerun()
+        else:
+            st.success("✅ Todas as vagas ativas já têm descrição!")
