@@ -12,6 +12,7 @@ from database.snapshots import salvar_snapshot
 from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
 from scrapers.inhire_scraper import buscar_vagas_inhire
 from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
+from scrapers.bcg_scraper import buscar_vagas_bcg
 from database.connection import DB_PATH, conectar, db_connect
 from playwright.sync_api import sync_playwright
 from playwright_stealth import stealth as stealth_sync
@@ -191,6 +192,12 @@ def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, st
     vagas_raw = buscar_vagas_smartrecruiters(url)
     return _processar_empresa_generica(nome, vagas_raw)
 
+
+def processar_empresa_bcg(nome: str, url_vagas: str) -> tuple[int, int, str]:
+    vagas_raw = buscar_vagas_bcg(url_base=url_vagas)
+    return _processar_empresa_generica(nome, vagas_raw)
+
+
 def rodar_pipeline() -> None:
     criar_tabelas()
     
@@ -216,7 +223,9 @@ def rodar_pipeline() -> None:
         elif "inhire.app" in url_vagas:
             processar_empresa_inhire(nome, url_vagas)
         elif "smartrecruiters.com" in url_vagas:
-            processar_empresa_smartrecruiters(nome, url_vagas)    
+            processar_empresa_smartrecruiters(nome, url_vagas)
+        elif "careers.bcg.com" in url_vagas:
+            processar_empresa_bcg(nome, url_vagas)
         else:
             log.info(f"  Plataforma não reconhecida: {url_vagas}")
 
