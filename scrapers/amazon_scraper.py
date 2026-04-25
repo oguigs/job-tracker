@@ -47,13 +47,18 @@ def _detectar_modalidade(titulo: str, descricao: str, location: str) -> str:
     return "não identificado"
 
 
-def buscar_vagas_amazon(loc_query: str = "Brazil", base_query: str = "", result_limit: int = 100) -> list:
+def buscar_vagas_amazon(loc_query: str = "Brazil", country: str = "BRA",
+                        base_query: str = "", result_limit: int = 100,
+                        max_vagas: int = 2000) -> list:
     """Busca vagas na Amazon Jobs via API JSON pública.
 
     Args:
-        loc_query: Localização de busca (ex: "Brazil", "São Paulo").
+        loc_query: Texto de localização (ex: "Brazil").
+        country: Código ISO-3 do país para filtro preciso (ex: "BRA").
+                 Sem este parâmetro a API retorna vagas globais.
         base_query: Termo de busca adicional (ex: "data engineer").
         result_limit: Vagas por página (máx. 100).
+        max_vagas: Teto de segurança — interrompe a paginação se ultrapassar.
     """
     vagas = []
     offset = 0
@@ -62,7 +67,8 @@ def buscar_vagas_amazon(loc_query: str = "Brazil", base_query: str = "", result_
         try:
             params = {
                 "base_query": base_query,
-                "loc_query": loc_query,
+                "loc_query":  loc_query,
+                "country":    country,
                 "result_limit": result_limit,
                 "offset": offset,
             }
@@ -108,6 +114,10 @@ def buscar_vagas_amazon(loc_query: str = "Brazil", base_query: str = "", result_
                 })
 
             log.info(f"  Coletadas {len(vagas)} vagas (offset={offset})")
+
+            if len(vagas) >= max_vagas:
+                log.warning(f"  Limite de segurança atingido ({max_vagas}), encerrando paginação")
+                break
 
             total = data.get("hits", 0)
             offset += result_limit
