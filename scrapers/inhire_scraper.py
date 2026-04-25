@@ -12,24 +12,24 @@ def _limpar_html(txt: str) -> str:
 def _coletar_descricao_inhire(page, url: str) -> str:
     """Extrai descrição de uma vaga InHire via Playwright."""
     try:
-        page.goto(url, wait_until="domcontentloaded", timeout=20000)
-        page.wait_for_timeout(2000)
-        # InHire renders description in a div with common class patterns
+        page.goto(url, wait_until="networkidle", timeout=30000)
+        page.wait_for_timeout(1500)
+        # InHire usa CSS-in-JS sem classes semânticas — fallback em body
         for sel in [
             "[class*='description']",
             "[class*='vacancy-body']",
             "[class*='job-description']",
             "main article",
             "main section",
+            "main",
+            "body",
         ]:
             el = page.query_selector(sel)
             if el:
                 txt = el.inner_text().strip()
-                if len(txt) > 50:
+                if len(txt) > 100:
                     return txt
-        # Fallback: grab all visible text from main
-        main = page.query_selector("main")
-        return main.inner_text().strip() if main else ""
+        return ""
     except Exception as e:
         log.error(f"  Erro descrição InHire: {e}")
         return ""

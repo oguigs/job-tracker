@@ -14,6 +14,8 @@ from main import (
     processar_empresa_greenhouse,
     processar_empresa_inhire,
     processar_empresa_smartrecruiters,
+    processar_empresa_amazon,
+    processar_empresa_bcg,
     titulo_relevante,
     localidade_relevante,
 )
@@ -79,6 +81,10 @@ def rodar_pipeline_visual():
                 encontradas, novas, erro = processar_empresa_inhire(nome, url)
             elif "smartrecruiters.com" in url:
                 encontradas, novas, erro = processar_empresa_smartrecruiters(nome, url)
+            elif "amazon.jobs" in url:
+                encontradas, novas, erro = processar_empresa_amazon(nome)
+            elif "bcg.com" in url or "careers.bcg" in url:
+                encontradas, novas, erro = processar_empresa_bcg(nome, url)
             else:
                 encontradas, novas, erro = processar_empresa(nome, url)
 

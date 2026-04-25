@@ -19,10 +19,9 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> int | None:
             INSERT INTO fact_vaga
             (id, hash, titulo, nivel, modalidade, stacks, link, fonte,
             id_empresa, ativa, negada, candidatura_status, urgente,
-            descricao, salario_min, salario_max,
-            tamanho_equipe, volume_dados, estagio_empresa, cultura_eng)
+            descricao, salario_min, salario_max)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true, false, 'nao_inscrito',
-                    ?, ?, ?, ?, ?, ?, ?, ?)
+                    ?, ?, ?, ?)
         """, [id_vaga, hash_vaga,
             vaga["titulo"],
             vaga.get("nivel", "não identificado"),
@@ -33,10 +32,6 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> int | None:
             vaga.get("descricao", ""),
             vaga.get("salario_min", 0),
             vaga.get("salario_max", 0),
-            vaga.get("tamanho_equipe"),
-            vaga.get("volume_dados"),
-            vaga.get("estagio_empresa"),
-            json.dumps(vaga.get("cultura", [])) if vaga.get("cultura") else None
         ])
     return id_vaga
 

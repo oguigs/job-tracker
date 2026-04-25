@@ -15,11 +15,12 @@ from database.ats_score import salvar_ats_score
 from scrapers.greenhouse_scraper import buscar_vagas_greenhouse
 from scrapers.inhire_scraper import buscar_vagas_inhire
 from scrapers.smartrecruiters_scraper import buscar_vagas_smartrecruiters
+from scrapers.amazon_scraper import buscar_vagas_amazon
+from scrapers.bcg_scraper import buscar_vagas_bcg
 from database.connection import DB_PATH, conectar, db_connect
 from playwright.sync_api import sync_playwright
 from playwright_stealth import stealth as stealth_sync
 import requests, html, re
-from transformers.stack_extractor import extrair_sinais_descricao
 
 from logger import get_logger
 log = get_logger("pipeline")
@@ -219,6 +220,16 @@ def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, st
     vagas_raw = buscar_vagas_smartrecruiters(slug)
     return _processar_empresa_generica(nome, vagas_raw)
 
+
+def processar_empresa_amazon(nome: str) -> tuple[int, int, str]:
+    vagas_raw = buscar_vagas_amazon(loc_query="Brazil")
+    return _processar_empresa_generica(nome, vagas_raw)
+
+
+def processar_empresa_bcg(nome: str, url_base: str) -> tuple[int, int, str]:
+    vagas_raw = buscar_vagas_bcg(url_base=url_base)
+    return _processar_empresa_generica(nome, vagas_raw)
+
 def rodar_pipeline() -> None:
     criar_tabelas()
     
@@ -244,7 +255,11 @@ def rodar_pipeline() -> None:
         elif "inhire.app" in url_vagas:
             processar_empresa_inhire(nome, url_vagas)
         elif "smartrecruiters.com" in url_vagas:
-            processar_empresa_smartrecruiters(nome, url_vagas)    
+            processar_empresa_smartrecruiters(nome, url_vagas)
+        elif "amazon.jobs" in url_vagas:
+            processar_empresa_amazon(nome)
+        elif "bcg.com" in url_vagas or "careers.bcg" in url_vagas:
+            processar_empresa_bcg(nome, url_vagas)
         else:
             log.info(f"  Plataforma não reconhecida: {url_vagas}")
 
