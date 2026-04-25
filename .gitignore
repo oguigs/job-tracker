@@ -2,3 +2,7 @@
 data/
 __pycache__/
 .env
+dbt/.venv/
+dbt/target/
+dbt/logs/
+.python-version

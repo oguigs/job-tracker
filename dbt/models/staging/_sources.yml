@@ -1,0 +1,46 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Tabelas brutas do pipeline de coleta — schema main do DuckDB"
+    schema: main
+    tables:
+      - name: fact_vaga
+        description: "Vagas coletadas pelos scrapers"
+        columns:
+          - name: id
+            description: "PK"
+          - name: hash
+            description: "MD5(titulo + empresa + link) — garante dedup"
+          - name: titulo
+          - name: nivel
+          - name: modalidade
+          - name: stacks
+            description: "JSON com stacks por categoria: {linguagens, cloud, processamento, ...}"
+          - name: fonte
+            description: "Plataforma de origem: gupy, greenhouse, amazon, bcg, inhire, smartrecruiters, manual"
+          - name: id_empresa
+          - name: data_coleta
+
+      - name: dim_empresa
+        description: "Cadastro de empresas monitoradas"
+        columns:
+          - name: id
+          - name: nome
+          - name: url_vagas
+          - name: ativa
+
+      - name: log_coleta
+        description: "Log de cada execução do pipeline por empresa"
+        columns:
+          - name: id
+          - name: data_execucao
+          - name: empresa
+          - name: status
+            description: "sucesso | erro | bloqueado"
+
+      - name: fact_ats_score
+        description: "Score ATS calculado por ANYA para cada vaga"
+
+      - name: snapshot_mercado
+        description: "Snapshot semanal do mercado — stacks por quantidade"

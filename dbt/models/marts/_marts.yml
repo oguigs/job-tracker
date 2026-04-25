@@ -1,0 +1,101 @@
+version: 2
+
+models:
+  - name: fct_vagas
+    description: >
+      Tabela fato central — vagas com empresa desnormalizada, ATS score joinado
+      e flags analíticas derivadas (candidatura_iniciada, em_processo_ativo, qtd_beneficios).
+    columns:
+      - name: id_vaga
+        description: "PK — espelha fact_vaga.id"
+        tests:
+          - not_null
+          - unique
+
+      - name: hash
+        tests:
+          - not_null
+          - unique
+
+      - name: titulo
+        tests:
+          - not_null
+
+      - name: nivel
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['junior', 'pleno', 'senior', 'especialista', 'lead', 'não identificado']
+
+      - name: modalidade
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['remoto', 'hibrido', 'presencial', 'não identificado']
+
+      - name: fonte
+        tests:
+          - not_null
+
+      - name: empresa
+        tests:
+          - not_null
+
+      - name: candidatura_iniciada
+        tests:
+          - not_null
+
+      - name: em_processo_ativo
+        tests:
+          - not_null
+
+      - name: qtd_beneficios
+        tests:
+          - not_null
+
+  - name: dim_empresa_stats
+    description: >
+      Dimensão de empresa enriquecida com estatísticas de vagas (breakdown por nível
+      e modalidade) e saúde do pipeline (taxa de sucesso, total de execuções).
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+
+      - name: nome
+        tests:
+          - not_null
+          - unique
+
+      - name: plataforma
+        tests:
+          - not_null
+
+      - name: total_vagas
+        tests:
+          - not_null
+
+      - name: pipeline_taxa_sucesso_pct
+        tests:
+          - not_null
+
+  - name: agg_stacks_mercado
+    description: >
+      Stacks unnestadas do campo JSON e agregadas por categoria e nível.
+      Usada para rankings de tecnologia, tendências temporais e comparativo entre empresas.
+    columns:
+      - name: stack
+        description: "Nome da tecnologia (lowercased)"
+        tests:
+          - not_null
+
+      - name: categoria
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['linguagens', 'cloud', 'processamento', 'orquestracao', 'armazenamento', 'infraestrutura', 'visualizacao', 'ml_ia']
+
+      - name: total_vagas
+        tests:
+          - not_null

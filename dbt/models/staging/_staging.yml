@@ -1,0 +1,110 @@
+version: 2
+
+models:
+  - name: stg_vagas
+    description: >
+      Vagas normalizadas da camada raw. Modalidade e nível padronizados,
+      nulls tratados, vagas negadas filtradas.
+    columns:
+      - name: id
+        description: "PK da vaga"
+        tests:
+          - not_null
+          - unique
+
+      - name: hash
+        description: "MD5(titulo + empresa + link) — garantia de unicidade"
+        tests:
+          - not_null
+          - unique
+
+      - name: titulo
+        tests:
+          - not_null
+
+      - name: nivel
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['junior', 'pleno', 'senior', 'especialista', 'lead', 'não identificado']
+
+      - name: modalidade
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['remoto', 'hibrido', 'presencial', 'não identificado']
+
+      - name: fonte
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['gupy', 'greenhouse', 'inhire', 'smartrecruiters', 'amazon', 'bcg', 'manual', 'desconhecida']
+
+      - name: negada
+        tests:
+          - not_null
+
+      - name: ativa
+        tests:
+          - not_null
+
+      - name: candidatura_status
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'nao_inscrito'
+                - 'inscrito'
+                - 'chamado'
+                - 'recrutador'
+                - 'fase_1'
+                - 'fase_2'
+                - 'fase_3'
+                - 'aprovado'
+                - 'reprovado'
+                - 'negado'
+
+  - name: stg_empresas
+    description: "Empresas normalizadas com plataforma detectada pela URL de vagas."
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+
+      - name: nome
+        tests:
+          - not_null
+          - unique
+
+      - name: plataforma
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Gupy', 'Greenhouse', 'InHire', 'SmartRecruiters', 'Amazon Jobs', 'BCG', 'Manual', 'Outro']
+
+  - name: stg_log_coleta
+    description: "Log de cada execução do pipeline por empresa."
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+
+      - name: empresa
+        tests:
+          - not_null
+
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['sucesso', 'erro', 'bloqueado']
+
+      - name: vagas_encontradas
+        tests:
+          - not_null
+
+      - name: vagas_novas
+        tests:
+          - not_null

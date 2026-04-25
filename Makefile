@@ -1,4 +1,4 @@
-.PHONY: run pipeline backup test clean
+.PHONY: run pipeline backup test clean dbt-run dbt-test dbt-docs dbt-all
 
 run:
 	cd ~/job-tracker && source .venv/bin/activate && streamlit run dashboard/app.py
@@ -16,3 +16,14 @@ clean:
 lint:
 	cd ~/job-tracker && source .venv/bin/activate && python -m py_compile dashboard/views/*.py dashboard/components.py main.py
 	echo "Sem erros de sintaxe!"
+
+dbt-run:
+	cd ~/job-tracker && source dbt/.venv/bin/activate && dbt run --project-dir dbt/ --profiles-dir dbt/
+
+dbt-test:
+	cd ~/job-tracker && source dbt/.venv/bin/activate && dbt test --project-dir dbt/ --profiles-dir dbt/
+
+dbt-docs:
+	cd ~/job-tracker && source dbt/.venv/bin/activate && dbt docs generate --project-dir dbt/ --profiles-dir dbt/ && dbt docs serve --project-dir dbt/ --profiles-dir dbt/ --port 8080
+
+dbt-all: dbt-run dbt-test

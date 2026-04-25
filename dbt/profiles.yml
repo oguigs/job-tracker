@@ -1,0 +1,8 @@
+job_tracker:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "data/curated/jobs.duckdb"
+      schema: analytics
+      threads: 1
