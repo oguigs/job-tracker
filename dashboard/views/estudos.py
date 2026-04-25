@@ -84,7 +84,7 @@ def get_status_key(categoria, topico):
 
 def carregar_todos_status():
     try:
-        with db_connect(read_only=True) as con:
+        with db_connect() as con:
             rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'estudo_status'").fetchall()
         result = {}
         for (termo,) in rows:
@@ -105,7 +105,7 @@ def salvar_status_topico(key, novo_status):
 
 def carregar_livros():
     try:
-        with db_connect(read_only=True) as con:
+        with db_connect() as con:
             rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'livro'").fetchall()
         livros = []
         for (termo,) in rows:

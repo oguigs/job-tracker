@@ -1,8 +1,5 @@
 from logger import get_logger
 log = get_logger("greenhouse_scraper")
-from playwright.sync_api import sync_playwright
-import re
-
 import requests, html, re
 
 def limpar_html(texto):

@@ -9,7 +9,7 @@ def conectar_rw():
 
 @st.cache_data(ttl=60)
 def carregar_vagas():
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT v.id, v.titulo, v.nivel, v.modalidade, v.stacks,
                    v.link, v.fonte, v.data_coleta, v.ativa, v.data_encerramento,
@@ -27,7 +27,7 @@ def carregar_vagas():
 
 @st.cache_data(ttl=60)
 def carregar_empresas():
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT id, nome, ramo, cidade, estado, url_vagas,
                    url_site_oficial, favicon_url, ativa, data_cadastro
@@ -37,7 +37,7 @@ def carregar_empresas():
 
 @st.cache_data(ttl=120)
 def carregar_logs():
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT empresa, vagas_encontradas, vagas_novas, status, data_execucao
             FROM log_coleta ORDER BY data_execucao DESC LIMIT 10
@@ -45,7 +45,7 @@ def carregar_logs():
 
 
 def carregar_perfil_empresa(nome: str):
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         empresa = con.execute("""
             SELECT id, nome, ramo, cidade, estado, url_vagas,
                    url_site_oficial, favicon_url, data_cadastro

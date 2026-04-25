@@ -9,6 +9,7 @@ from dashboard.components import (
     render_vaga_card
 )
 from dashboard.ui_components import render_dialog_vaga
+from database.ats_score import listar_ats_scores
 
 
 def _dialog_vaga(v):
@@ -19,6 +20,7 @@ def render():
     st.title("Vagas salvas")
     df = carregar_vagas()
     scores = calcular_scores_vagas()
+    ats_scores = listar_ats_scores()
     df["score"] = df["id"].map(scores).fillna(0).astype(int)
     df = df.sort_values("score", ascending=False)
 
@@ -161,7 +163,8 @@ def render():
                 _, vaga = grupo[j]
                 score = int(scores.get(vaga["id"], 0))
                 is_nova = str(vaga["data_coleta"])[:10] >= ontem
-                render_vaga_card(vaga, score, is_nova, key_prefix="v")
+                ats = ats_scores.get(int(vaga["id"]), 0)
+                render_vaga_card(vaga, score, is_nova, key_prefix="v", ats_score=ats)
 
 # ── DIALOGS ────────────────────────────────────────────────
     vaga_id_atual = st.session_state.get("dialog_v_atual")

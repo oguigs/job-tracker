@@ -1,6 +1,39 @@
 from logger import get_logger
 log = get_logger("inhire_scraper")
 from playwright.sync_api import sync_playwright
+import re, time, random
+
+
+def _limpar_html(txt: str) -> str:
+    import html as html_lib
+    return re.sub(r"<[^>]+>", " ", html_lib.unescape(txt or "")).strip()
+
+
+def _coletar_descricao_inhire(page, url: str) -> str:
+    """Extrai descrição de uma vaga InHire via Playwright."""
+    try:
+        page.goto(url, wait_until="networkidle", timeout=30000)
+        page.wait_for_timeout(1500)
+        # InHire usa CSS-in-JS sem classes semânticas — fallback em body
+        for sel in [
+            "[class*='description']",
+            "[class*='vacancy-body']",
+            "[class*='job-description']",
+            "main article",
+            "main section",
+            "main",
+            "body",
+        ]:
+            el = page.query_selector(sel)
+            if el:
+                txt = el.inner_text().strip()
+                if len(txt) > 100:
+                    return txt
+        return ""
+    except Exception as e:
+        log.error(f"  Erro descrição InHire: {e}")
+        return ""
+
 
 def buscar_vagas_inhire(url_base: str) -> list:
     vagas = []
@@ -16,12 +49,10 @@ def buscar_vagas_inhire(url_base: str) -> list:
             for link in links:
                 href = link.get_attribute("href")
                 titulo = link.inner_text().strip()
-                if not href or not titulo or href.endswith("/vagas"):
-                    continue
-                partes = href.split("/")
-                if len(partes) < 3:
+                if not href or not titulo or href.rstrip("/") == url_base.rstrip("/"):
                     continue
                 url_completa = f"https://{dominio}{href}" if href.startswith("/") else href
+
                 modalidade = "não identificado"
                 titulo_lower = titulo.lower()
                 if "remoto" in titulo_lower or "remote" in titulo_lower:
@@ -30,23 +61,35 @@ def buscar_vagas_inhire(url_base: str) -> list:
                     modalidade = "hibrido"
                 elif "presencial" in titulo_lower:
                     modalidade = "presencial"
+
                 vagas.append({
-                    "titulo": titulo.split(" -> ")[0].strip(),
-                    "link": url_completa,
+                    "titulo":    titulo.split(" -> ")[0].strip(),
+                    "link":      url_completa,
                     "modalidade": modalidade,
-                    "fonte": "inhire",
-                    "empresa": dominio.split(".")[0],
-                    "cidade": "",
-                    "pais": "br",  # Inhire é 100% brasileiro
+                    "fonte":     "inhire",
+                    "empresa":   dominio.split(".")[0],
+                    "cidade":    "",
+                    "pais":      "br",
                 })
+
+            log.info(f"  {len(vagas)} vagas encontradas — coletando descrições...")
+
+            for i, vaga in enumerate(vagas):
+                desc = _coletar_descricao_inhire(page, vaga["link"])
+                vaga["descricao"] = desc
+                status = f"✓ {len(desc)}ch" if desc else "✗ sem desc"
+                log.info(f"  [{i+1}/{len(vagas)}] {status} — {vaga['titulo'][:45]}")
+                time.sleep(random.uniform(0.5, 1.2))
+
         except Exception as e:
-            log.error(f"Erro Inhire {url_base}: {e}")
+            log.error(f"Erro InHire {url_base}: {e}")
         finally:
             browser.close()
     return vagas
+
 
 if __name__ == "__main__":
     vagas = buscar_vagas_inhire("https://pravaler.inhire.app/vagas")
     log.info(f"{len(vagas)} vagas encontradas")
     for v in vagas[:5]:
-        log.info(f"  - {v['titulo']}")
+        log.info(f"  - {v['titulo']} | {len(v.get('descricao',''))} chars")

@@ -13,7 +13,7 @@ def registrar_log(empresa: str, encontradas: int, novas: int,
 
 
 def ultima_execucao_sucesso(nome_empresa: str) -> float:
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         resultado = con.execute("""
             SELECT data_execucao FROM log_coleta
             WHERE empresa = ? AND status = 'sucesso'
@@ -31,7 +31,7 @@ def ultima_execucao_sucesso(nome_empresa: str) -> float:
 
 
 def empresa_bloqueada(nome_empresa: str) -> bool:
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         resultado = con.execute("""
             SELECT data_execucao FROM log_coleta
             WHERE empresa = ? AND status = 'bloqueado'

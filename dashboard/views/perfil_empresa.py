@@ -48,7 +48,7 @@ def render(empresa_perfil: str):
     # ── RADAR DE SAÚDE ────────────────────────────────────────
 
 
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         # ritmo de abertura — vagas por semana
         ritmo = con.execute("""
             SELECT

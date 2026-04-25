@@ -15,7 +15,7 @@ def adicionar_pergunta(id_vaga: int, stack: str, pergunta: str,
 
 
 def listar_perguntas(id_vaga: int = None, stack: str = None):
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         if id_vaga:
             return con.execute("""
                 SELECT p.id, p.stack, p.pergunta, p.dificuldade, p.acertou,
@@ -54,7 +54,7 @@ def deletar_pergunta(id_pergunta: int):
 
 def stats_perguntas():
     """Estatísticas para priorizar estudos."""
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT
                 stack,

@@ -30,7 +30,7 @@ def salvar_perfil(nome: str, email: str, linkedin: str, cidade: str,
 
 
 def carregar_perfil():
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("SELECT * FROM dim_candidato LIMIT 1").df()
 
 
@@ -56,7 +56,7 @@ def salvar_stack(id_candidato: int, stack: str, categoria: str,
 
 
 def carregar_stacks(id_candidato: int):
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT id, stack, categoria, nivel_stack, anos_exp
             FROM dim_candidato_stack
@@ -68,3 +68,25 @@ def carregar_stacks(id_candidato: int):
 def deletar_stack(id_stack: int):
     with db_connect() as con:
         con.execute("DELETE FROM dim_candidato_stack WHERE id=?", [id_stack])
+
+
+def salvar_curriculo_texto(texto: str):
+    with db_connect() as con:
+        existente = con.execute("SELECT id FROM dim_candidato LIMIT 1").fetchone()
+        if existente:
+            con.execute(
+                "UPDATE dim_candidato SET curriculo_texto=?, data_atualizacao=current_date WHERE id=?",
+                [texto, existente[0]]
+            )
+        else:
+            id_candidato = con.execute("SELECT nextval('seq_candidato')").fetchone()[0]
+            con.execute(
+                "INSERT INTO dim_candidato (id, curriculo_texto) VALUES (?, ?)",
+                [id_candidato, texto]
+            )
+
+
+def carregar_curriculo_texto() -> str:
+    with db_connect() as con:
+        row = con.execute("SELECT curriculo_texto FROM dim_candidato LIMIT 1").fetchone()
+    return row[0] if row and row[0] else ""

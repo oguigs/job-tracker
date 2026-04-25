@@ -8,20 +8,20 @@ def gerar_hash(titulo: str, empresa: str, link: str) -> str:
     return hashlib.md5(conteudo.encode()).hexdigest()
 
 
-def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
+def inserir_vaga(vaga: dict, id_empresa: int) -> int | None:
+    """Returns the new vaga id if inserted, None if already exists."""
     hash_vaga = gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])
     with db_connect() as con:
         if con.execute("SELECT id FROM fact_vaga WHERE hash = ?", [hash_vaga]).fetchone():
-            return False
+            return None
         id_vaga = con.execute("SELECT nextval('seq_vaga')").fetchone()[0]
         con.execute("""
             INSERT INTO fact_vaga
             (id, hash, titulo, nivel, modalidade, stacks, link, fonte,
             id_empresa, ativa, negada, candidatura_status, urgente,
-            descricao, salario_min, salario_max,
-            tamanho_equipe, volume_dados, estagio_empresa, cultura_eng)
+            descricao, salario_min, salario_max)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true, false, 'nao_inscrito',
-                    ?, ?, ?, ?, ?, ?, ?, ?)
+                    ?, ?, ?, ?)
         """, [id_vaga, hash_vaga,
             vaga["titulo"],
             vaga.get("nivel", "não identificado"),
@@ -32,12 +32,8 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> bool:
             vaga.get("descricao", ""),
             vaga.get("salario_min", 0),
             vaga.get("salario_max", 0),
-            vaga.get("tamanho_equipe"),
-            vaga.get("volume_dados"),
-            vaga.get("estagio_empresa"),
-            json.dumps(vaga.get("cultura", [])) if vaga.get("cultura") else None
         ])
-    return True
+    return id_vaga
 
 
 def inserir_vaga_manual(titulo: str, id_empresa: int, empresa_nome: str,
@@ -80,8 +76,39 @@ def verificar_vagas_encerradas(id_empresa: int, links_ativos: list) -> list:
     return encerradas
 
 
+def atualizar_descricao_vaga(id_vaga: int, descricao: str, stacks_json: str = None, modalidade: str = None):
+    with db_connect() as con:
+        if stacks_json and modalidade:
+            con.execute(
+                "UPDATE fact_vaga SET descricao=?, stacks=?, modalidade=? WHERE id=?",
+                [descricao, stacks_json, modalidade, id_vaga]
+            )
+        elif stacks_json:
+            con.execute(
+                "UPDATE fact_vaga SET descricao=?, stacks=? WHERE id=?",
+                [descricao, stacks_json, id_vaga]
+            )
+        else:
+            con.execute(
+                "UPDATE fact_vaga SET descricao=? WHERE id=?",
+                [descricao, id_vaga]
+            )
+
+
+def listar_vagas_sem_descricao() -> list:
+    """Returns [(id, titulo, link, fonte)] for active vagas with NULL/empty description."""
+    with db_connect() as con:
+        return con.execute("""
+            SELECT id, titulo, link, fonte
+            FROM fact_vaga
+            WHERE ativa = true
+              AND (descricao IS NULL OR descricao = '')
+            ORDER BY fonte, id
+        """).fetchall()
+
+
 def listar_vagas_negadas():
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT v.id, v.titulo, v.candidatura_fase, v.candidatura_observacao,
                    v.candidatura_data, e.nome AS empresa

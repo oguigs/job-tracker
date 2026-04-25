@@ -187,7 +187,7 @@ def render():
     # ── SAÚDE DO PIPELINE ──────────────────────────────────────
     st.divider()
     st.subheader("📊 Saúde do pipeline")
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         df_saude = con.execute("""
             SELECT
                 empresa,

@@ -9,7 +9,7 @@ def render():
     st.title("⚖️ Comparador de Ofertas")
     st.caption("Compare duas vagas em fase avançada lado a lado para tomar a melhor decisão.")
 
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         vagas = con.execute("""
             SELECT v.id, v.titulo, v.nivel, v.modalidade, v.regime,
                    v.salario_mensal, v.salario_anual_total, v.stacks,

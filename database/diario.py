@@ -12,7 +12,7 @@ def adicionar_nota(id_vaga: int, nota: str, impressao: str = None) -> int:
 
 
 def listar_notas(id_vaga: int):
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         return con.execute("""
             SELECT id, data_nota, nota, impressao
             FROM log_candidatura

@@ -20,7 +20,6 @@ def negar_vaga(id_vaga: int, observacao: str = None):
             UPDATE fact_vaga
             SET negada = true,
                 candidatura_status = 'negado',
-                candidatura_fase = candidatura_status,
                 candidatura_observacao = ?,
                 candidatura_data = current_date
             WHERE id = ?

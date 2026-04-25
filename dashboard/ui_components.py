@@ -140,7 +140,7 @@ def render_preparacao_entrevista(id_vaga: int, id_empresa_nome: str, status_cand
     fases_entrevista = ["chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
     if status_cand not in fases_entrevista:
         return
-    with db_connect(read_only=True) as con:
+    with db_connect() as con:
         id_empresa = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [id_empresa_nome]).fetchone()
     if not id_empresa:
         return
@@ -283,7 +283,7 @@ def render_checklist_preparacao(id_vaga: int):
                 key=f"cg_{id_vaga}_{g['stack']}_{g['categoria']}_{uuid.uuid4().hex[:6]}")
 
 
-def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card"):
+def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card", ats_score: int = 0):
     status_cand = vaga.get("candidatura_status") or "nao_inscrito"
     status_label, status_cor = status_badge(status_cand, is_nova)
     nivel_str = nivel_fmt(vaga['nivel'])
@@ -306,21 +306,183 @@ def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card"):
             f"<div style='min-height:48px;overflow:hidden'>"
             f"{'🔥 ' if vaga.get('urgente') is True else ''}{vaga['titulo'][:100].replace('*','')}"
             f"</div>", unsafe_allow_html=True)
-        col_n, col_m, col_s = st.columns([2, 2, 1])
+        col_n, col_m, col_s, col_ats = st.columns([2, 2, 1, 1])
         col_n.caption(nivel_str)
         col_m.caption(modal_str)
         if score > 0:
             col_s.markdown(
                 f"<span style='color:{score_cor};font-weight:700;font-size:12px'>🎯{score}%</span>",
                 unsafe_allow_html=True)
+        if ats_score > 0:
+            ats_cor = get_cor_score(ats_score)
+            col_ats.markdown(
+                f"<span style='color:{ats_cor};font-weight:700;font-size:12px'>🤖{ats_score}%</span>",
+                unsafe_allow_html=True)
         if st.button("▼ detalhes", key=f"{key_prefix}_{vaga['id']}", use_container_width=True):
             st.session_state[f"dialog_{key_prefix}_{int(vaga['id'])}"] = True
             st.session_state[f"dialog_{key_prefix}_atual"] = int(vaga['id'])
 
 
+def _cor_ats(score: int) -> str:
+    if score >= 75:
+        return "#00ff88"
+    if score >= 50:
+        return "#ffd700"
+    if score >= 25:
+        return "#ff8c00"
+    return "#ff4444"
+
+
+def _barra_ats(score: int, label: str):
+    cor = _cor_ats(score)
+    preenchido = int(score / 10)
+    vazio = 10 - preenchido
+    barra = "█" * preenchido + "░" * vazio
+    st.markdown(
+        f"<div style='font-family:monospace; font-size:13px; margin:3px 0'>"
+        f"<span style='color:#aaa'>{label:<14}</span>"
+        f"<span style='color:{cor}'>{barra}</span> "
+        f"<span style='color:{cor}; font-weight:bold'>{score}%</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _calcular_e_salvar_anya(id_vaga: int, texto_cv: str, descricao: str, titulo: str):
+    from transformers.ats_agents import rodar_anya
+    from database.ats_score import salvar_ats_score
+    anya = rodar_anya(texto_cv, descricao, titulo)
+    anya["score_final"] = round(
+        anya["score_keywords"]   * 0.40 +
+        anya["score_formatacao"] * 0.25 +
+        anya["score_secoes"]     * 0.20 +
+        anya["score_impacto"]    * 0.15
+    )
+    salvar_ats_score(id_vaga, anya)
+
+
+def _render_ats_tab(id_vaga: int, descricao: str, titulo: str, prefix: str):
+    from database.ats_score import carregar_ats_score, salvar_ats_score
+    from database.candidato import carregar_curriculo_texto
+    from database.vagas import atualizar_descricao_vaga
+
+    texto_cv = carregar_curriculo_texto()
+
+    # Reload descricao from DB so edits done earlier in this session are visible
+    with db_connect() as _c:
+        _row = _c.execute("SELECT descricao FROM fact_vaga WHERE id=?", [id_vaga]).fetchone()
+    descricao = (_row[0] if _row and _row[0] else "") or ""
+
+    scores = carregar_ats_score(id_vaga)
+
+    if not texto_cv:
+        st.info("Para ver a análise ATS, salve seu currículo em **Meu Perfil → Currículo**.")
+        return
+
+    sem_descricao = not descricao or not descricao.strip()
+
+    # ── CAMPO DE DESCRIÇÃO MANUAL ─────────────────────────────
+    with st.expander("✏️ Editar descrição da vaga", expanded=sem_descricao):
+        desc_input = st.text_area(
+            "Cole aqui o texto completo da vaga",
+            value=descricao,
+            height=200,
+            key=f"desc_manual_{id_vaga}_{prefix}",
+            label_visibility="collapsed",
+            placeholder="Cole o texto da vaga aqui para calcular o score ATS...",
+        )
+        if st.button("💾 Salvar e calcular ATS", key=f"salvar_desc_{id_vaga}_{prefix}", type="primary", use_container_width=True):
+            if desc_input.strip():
+                from transformers.stack_extractor import extrair_stacks, detectar_modalidade
+                import json as _json
+                stacks = extrair_stacks(desc_input)
+                modalidade = detectar_modalidade(desc_input)
+                atualizar_descricao_vaga(id_vaga, desc_input.strip(), _json.dumps(stacks), modalidade)
+                with st.spinner("Calculando ATS..."):
+                    _calcular_e_salvar_anya(id_vaga, texto_cv, desc_input.strip(), titulo)
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.warning("Cole uma descrição antes de salvar.")
+
+    if not scores and sem_descricao:
+        return
+
+    if not scores:
+        st.caption("Score ATS ainda não calculado para esta vaga.")
+        if st.button("▶ Calcular agora", key=f"ats_calc_{id_vaga}_{prefix}", type="primary"):
+            with st.spinner("Calculando..."):
+                _calcular_e_salvar_anya(id_vaga, texto_cv, descricao, titulo)
+            st.rerun()
+        return
+
+    sem_descricao = not descricao or not descricao.strip()
+    sem_keywords  = not scores["keywords_ausentes"] and not scores["keywords_presentes"]
+
+    score_final = scores["score_final"]
+    cor = _cor_ats(score_final)
+
+    st.markdown(
+        f"<div style='text-align:center; font-family:monospace; padding:16px 0'>"
+        f"<div style='font-size:52px; font-weight:bold; color:{cor}'>{score_final}</div>"
+        f"<div style='font-size:14px; color:#aaa'>/100 — SCORE ATS ANYA</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    if sem_descricao:
+        st.warning("Esta vaga não tem descrição armazenada. Execute o pipeline para coletar a descrição completa e depois recalcule.")
+    elif sem_keywords:
+        st.warning("Nenhuma keyword técnica foi encontrada na descrição desta vaga. A dimensão KEYWORDS foi zerada — verifique se a descrição está completa.")
+        with st.expander("Ver descrição analisada"):
+            st.text(descricao[:1500] + ("\n[...]" if len(descricao) > 1500 else ""))
+
+    st.markdown(
+        "<div style='font-family:monospace; color:#555; font-size:11px; margin-bottom:4px'>DIMENSÕES</div>",
+        unsafe_allow_html=True,
+    )
+    _barra_ats(scores["score_keywords"],   "KEYWORDS")
+    _barra_ats(scores["score_formatacao"], "FORMATAÇÃO")
+    _barra_ats(scores["score_secoes"],     "SEÇÕES")
+    _barra_ats(scores["score_impacto"],    "IMPACTO")
+
+    if not sem_keywords:
+        col_neg, col_pos = st.columns(2)
+        with col_neg:
+            st.markdown("**✗ Ausentes**")
+            for kw in scores["keywords_ausentes"][:15]:
+                st.markdown(
+                    f"<span style='font-family:monospace; color:#ff4444; font-size:12px'>✗ {kw.upper()}</span>",
+                    unsafe_allow_html=True,
+                )
+        with col_pos:
+            st.markdown("**✓ Presentes**")
+            for kw in scores["keywords_presentes"][:15]:
+                st.markdown(
+                    f"<span style='font-family:monospace; color:#00ff88; font-size:12px'>✓ {kw.upper()}</span>",
+                    unsafe_allow_html=True,
+                )
+
+    st.divider()
+    if st.button("↻ Recalcular", key=f"ats_recalc_{id_vaga}_{prefix}"):
+        from transformers.ats_agents import rodar_anya
+        with st.spinner("Recalculando..."):
+            anya = rodar_anya(texto_cv, descricao, titulo)
+            anya["score_final"] = round(
+                anya["score_keywords"]   * 0.40 +
+                anya["score_formatacao"] * 0.25 +
+                anya["score_secoes"]     * 0.20 +
+                anya["score_impacto"]    * 0.15
+            )
+            salvar_ats_score(id_vaga, anya)
+        st.rerun()
+
+    st.caption(f"Calculado em: {scores.get('data_calculo', 'N/A')} · Para análise profunda com IA, use Análise de Currículo.")
+
+
 def render_dialog_vaga(v, prefix: str = "v"):
     """Dialog de detalhes de vaga reutilizável."""
-    with db_connect(read_only=True) as _con:
+    with db_connect() as _con:
         _row = _con.execute(
             "SELECT candidatura_status, candidatura_observacao FROM fact_vaga WHERE id=?",
             [int(v["id"])]
@@ -342,12 +504,12 @@ def render_dialog_vaga(v, prefix: str = "v"):
     mostrar_briefing = status_cand in fases_entrevista
 
     if mostrar_briefing:
-        tab_score, tab_cand, tab_briefing, tab_cv, tab_rem, tab_diario = st.tabs([
-            "📊 Score & Stacks", "📋 Candidatura", "🎯 Briefing", "📄 Diff CV", "💰 Remuneração", "📓 Diário"
+        tab_score, tab_cand, tab_briefing, tab_ats, tab_cv, tab_rem, tab_diario = st.tabs([
+            "📊 Score & Stacks", "📋 Candidatura", "🎯 Briefing", "🤖 ATS", "📄 Diff CV", "💰 Remuneração", "📓 Diário"
         ])
     else:
-        tab_score, tab_cand, tab_cv, tab_rem, tab_diario = st.tabs([
-            "📊 Score & Stacks", "📋 Candidatura", "📄 Diff CV", "💰 Remuneração", "📓 Diário"
+        tab_score, tab_cand, tab_ats, tab_cv, tab_rem, tab_diario = st.tabs([
+            "📊 Score & Stacks", "📋 Candidatura", "🤖 ATS", "📄 Diff CV", "💰 Remuneração", "📓 Diário"
         ])
 
     with tab_score:
@@ -426,6 +588,9 @@ def render_dialog_vaga(v, prefix: str = "v"):
                         salvar_retrospectiva(int(v["id"]), nao_soube, faria_diferente, impressao, motivo)
                         st.toast("✅ Retrospectiva salva!")
                         st.rerun()    
+
+    with tab_ats:
+        _render_ats_tab(int(v["id"]), v.get("descricao", ""), v.get("titulo", ""), prefix)
 
     with tab_cv:
         st.caption("Faça upload do seu currículo em PDF para ver o diff com esta vaga.")
