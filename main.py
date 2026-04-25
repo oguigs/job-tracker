@@ -150,7 +150,7 @@ def _auto_anya(id_vaga: int, descricao: str, titulo: str, texto_cv: str):
         pass
 
 
-def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, str]:
+def _processar_empresa_generica(nome: str, vagas_raw: list, url_vagas: str = "") -> tuple[int, int, str]:
     """Processa vagas já coletadas — filtra, enriquece e insere no banco."""
     vagas_novas = 0
     try:
@@ -165,7 +165,7 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
         log.info(f"  {len(vagas)} vagas após filtro de localização")
 
         vagas_encontradas = len(vagas)
-        id_empresa = upsert_empresa(nome=nome, url_vagas="")
+        id_empresa = upsert_empresa(nome=nome, url_vagas=url_vagas)
 
         for vaga in vagas:
             vaga["stacks"] = extrair_stacks(vaga.get("descricao", "") or vaga["titulo"])
@@ -206,29 +206,28 @@ def _processar_empresa_generica(nome: str, vagas_raw: list) -> tuple[int, int, s
 
 def processar_empresa_greenhouse(nome: str, slug: str) -> tuple[int, int, str]:
     vagas_raw = buscar_vagas_greenhouse(slug)
-    return _processar_empresa_generica(nome, vagas_raw)
+    return _processar_empresa_generica(nome, vagas_raw, url_vagas=f"https://boards.greenhouse.io/{slug}")
 
 
 def processar_empresa_inhire(nome: str, url_inhire: str) -> tuple[int, int, str]:
     vagas_raw = buscar_vagas_inhire(url_inhire)
-    return _processar_empresa_generica(nome, vagas_raw)
+    return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_inhire)
 
 
 def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, str]:
-    # URL stored as https://careers.smartrecruiters.com/CompanySlug — extract slug
     slug = url.rstrip("/").split("/")[-1]
     vagas_raw = buscar_vagas_smartrecruiters(slug)
-    return _processar_empresa_generica(nome, vagas_raw)
+    return _processar_empresa_generica(nome, vagas_raw, url_vagas=url)
 
 
-def processar_empresa_amazon(nome: str) -> tuple[int, int, str]:
+def processar_empresa_amazon(nome: str, url_vagas: str = "https://www.amazon.jobs/en/search.json") -> tuple[int, int, str]:
     vagas_raw = buscar_vagas_amazon(loc_query="Brazil")
-    return _processar_empresa_generica(nome, vagas_raw)
+    return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_vagas)
 
 
 def processar_empresa_bcg(nome: str, url_base: str) -> tuple[int, int, str]:
     vagas_raw = buscar_vagas_bcg(url_base=url_base)
-    return _processar_empresa_generica(nome, vagas_raw)
+    return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_base)
 
 def rodar_pipeline() -> None:
     criar_tabelas()

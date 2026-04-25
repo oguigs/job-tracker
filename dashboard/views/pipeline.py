@@ -2,10 +2,13 @@ import streamlit as st
 from database.connection import DB_PATH, db_connect
 import threading
 import time
-import duckdb
 from database.logs import ultima_execucao_sucesso
 from database.schemas import criar_tabelas
-from main import processar_empresa, processar_empresa_greenhouse, processar_empresa_inhire, processar_empresa_smartrecruiters
+from main import (
+    processar_empresa, processar_empresa_greenhouse,
+    processar_empresa_inhire, processar_empresa_smartrecruiters,
+    processar_empresa_amazon, processar_empresa_bcg,
+)
 from streamlit import cache_data
 
 def detectar_plataforma(url: str) -> str:
@@ -13,6 +16,8 @@ def detectar_plataforma(url: str) -> str:
     if "greenhouse.io" in url: return "Greenhouse"
     if "inhire.app" in url: return "Inhire"
     if "smartrecruiters.com" in url: return "SmartRecruiters"
+    if "amazon.jobs" in url: return "Amazon Jobs"
+    if "bcg.com" in url or "careers.bcg" in url: return "BCG"
     return "—"
 
 
@@ -25,6 +30,10 @@ def processar(nome, url):
         return processar_empresa_inhire(nome, url)
     elif "smartrecruiters.com" in url:
         return processar_empresa_smartrecruiters(nome, url)
+    elif "amazon.jobs" in url:
+        return processar_empresa_amazon(nome)
+    elif "bcg.com" in url or "careers.bcg" in url:
+        return processar_empresa_bcg(nome, url)
     else:
         return processar_empresa(nome, url)
 
@@ -76,13 +85,12 @@ def render():
     st.title("🔄 Pipeline")
     st.caption("Coleta automática de vagas em background.")
 
-    con = duckdb.connect(DB_PATH)
-    empresas = con.execute("""
-        SELECT nome, url_vagas FROM dim_empresa
-        WHERE ativa = true AND url_vagas IS NOT NULL
-        ORDER BY nome
-    """).fetchall()
-    con.close()
+    with db_connect() as con:
+        empresas = con.execute("""
+            SELECT nome, url_vagas FROM dim_empresa
+            WHERE ativa = true AND url_vagas IS NOT NULL
+            ORDER BY nome
+        """).fetchall()
 
     if "pipeline_estado" not in st.session_state:
         st.session_state.pipeline_estado = {
