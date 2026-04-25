@@ -18,8 +18,8 @@
 - [x] Migrar gráficos para Plotly
 - [x] Logo via favicon — salvo localmente
 - [x] Página de perfil por empresa
-- [ ] Logos das stacks com link para roadmap.sh **← PRÓXIMO**
-- [ ] Redesign do expander de vaga com badges coloridos
+- [x] Logos das stacks com link para roadmap.sh
+- [x] Redesign do expander de vaga com badges coloridos
 
 ---
 

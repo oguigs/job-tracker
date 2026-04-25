@@ -283,14 +283,46 @@ def render_checklist_preparacao(id_vaga: int):
                 key=f"cg_{id_vaga}_{g['stack']}_{g['categoria']}_{uuid.uuid4().hex[:6]}")
 
 
+_NIVEL_COR = {
+    "junior":       ("#EBF3FB", "#1A5FAD"),
+    "pleno":        ("#E8F5F0", "#157A5A"),
+    "senior":       ("#FBF4E8", "#8A5210"),
+    "sênior":       ("#FBF4E8", "#8A5210"),
+    "especialista": ("#FBF0EB", "#A83A18"),
+    "lead":         ("#F0EFF9", "#4B44AA"),
+}
+_MODAL_COR = {
+    "remoto":    ("#E8F5F0", "#157A5A"),
+    "híbrido":   ("#EBF3FB", "#1A5FAD"),
+    "hibrido":   ("#EBF3FB", "#1A5FAD"),
+    "presencial":("#FBF0EB", "#A83A18"),
+}
+_FONTE_ICON = {
+    "gupy":            "🟣",
+    "greenhouse":      "🟢",
+    "inhire":          "🔵",
+    "smartrecruiters": "🟡",
+    "amazon":          "🟠",
+    "bcg":             "⚫",
+    "manual":          "✏️",
+}
+
+
+def _mini_badge(txt: str, bg: str, fg: str) -> str:
+    return (f"<span style='background:{bg};color:{fg};border:1px solid {bg};"
+            f"border-radius:8px;padding:1px 8px;font-size:11px;"
+            f"font-weight:500;white-space:nowrap'>{txt}</span>")
+
+
 def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card", ats_score: int = 0):
     status_cand = vaga.get("candidatura_status") or "nao_inscrito"
     status_label, status_cor = status_badge(status_cand, is_nova)
     nivel_str = nivel_fmt(vaga['nivel'])
-    modal_str = modal_fmt(vaga['modalidade'])
     score_cor = get_cor_score(score)
     favicon_url = safe_str(vaga.get("favicon_url"))
+
     with st.container(border=True):
+        # ── linha empresa + status badge ──────────────────────
         col_fav, col_emp, col_badge = st.columns([0.4, 4.5, 1.5])
         if favicon_url:
             col_fav.image(favicon_url, width=16)
@@ -302,25 +334,52 @@ def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card", 
             f"<span style='background:{status_cor};color:white;font-size:10px;"
             f"padding:2px 6px;border-radius:10px;font-weight:600'>{status_label}</span>"
             f"</div>", unsafe_allow_html=True)
+
+        # ── título ────────────────────────────────────────────
+        urgente = "🔥 " if vaga.get("urgente") is True else ""
         st.markdown(
-            f"<div style='min-height:48px;overflow:hidden'>"
-            f"{'🔥 ' if vaga.get('urgente') is True else ''}{vaga['titulo'][:100].replace('*','')}"
+            f"<div style='min-height:44px;overflow:hidden;font-weight:600;margin:4px 0'>"
+            f"{urgente}{vaga['titulo'][:100].replace('*', '')}"
             f"</div>", unsafe_allow_html=True)
-        col_n, col_m, col_s, col_ats = st.columns([2, 2, 1, 1])
-        col_n.caption(nivel_str)
-        col_m.caption(modal_str)
+
+        # ── badges: nível · modalidade · fonte ───────────────
+        nivel_lower = str(vaga["nivel"]).lower()
+        modal_lower = str(vaga["modalidade"]).lower()
+        fonte       = str(vaga.get("fonte", "")).lower()
+
+        nivel_bg, nivel_fg = _NIVEL_COR.get(nivel_lower, ("#F2F2F1", "#555"))
+        modal_bg, modal_fg = _MODAL_COR.get(modal_lower, ("#F2F2F1", "#555"))
+        fonte_icon = _FONTE_ICON.get(fonte, "•")
+
+        badges = ""
+        if nivel_lower not in ("não identificado", "nao identificado", "nan", "none", ""):
+            badges += _mini_badge(nivel_str, nivel_bg, nivel_fg) + " "
+        if modal_lower not in ("não identificado", "nao identificado", "nan", "none", ""):
+            badges += _mini_badge(modal_fmt(vaga["modalidade"]), modal_bg, modal_fg) + " "
+        if fonte:
+            badges += _mini_badge(f"{fonte_icon} {fonte}", "#F5F5F5", "#666")
+
+        st.markdown(f"<div style='margin-bottom:6px;display:flex;flex-wrap:wrap;gap:3px'>{badges}</div>",
+                    unsafe_allow_html=True)
+
+        # ── scores + data ─────────────────────────────────────
+        col_s, col_ats, col_data = st.columns([1, 1, 2])
         if score > 0:
             col_s.markdown(
-                f"<span style='color:{score_cor};font-weight:700;font-size:12px'>🎯{score}%</span>",
+                f"<span style='color:{score_cor};font-weight:700;font-size:12px'>🎯 {score}%</span>",
                 unsafe_allow_html=True)
         if ats_score > 0:
             ats_cor = get_cor_score(ats_score)
             col_ats.markdown(
-                f"<span style='color:{ats_cor};font-weight:700;font-size:12px'>🤖{ats_score}%</span>",
+                f"<span style='color:{ats_cor};font-weight:700;font-size:12px'>🤖 {ats_score}%</span>",
                 unsafe_allow_html=True)
+        data_str = str(vaga["data_coleta"])[:10]
+        if data_str not in ("NaT", "None", "nan", ""):
+            col_data.caption(f"📅 {data_str}")
+
         if st.button("▼ detalhes", key=f"{key_prefix}_{vaga['id']}", use_container_width=True):
             st.session_state[f"dialog_{key_prefix}_{int(vaga['id'])}"] = True
-            st.session_state[f"dialog_{key_prefix}_atual"] = int(vaga['id'])
+            st.session_state[f"dialog_{key_prefix}_atual"] = int(vaga["id"])
 
 
 def _cor_ats(score: int) -> str:
