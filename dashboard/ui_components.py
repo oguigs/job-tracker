@@ -283,6 +283,26 @@ def render_checklist_preparacao(id_vaga: int):
                 key=f"cg_{id_vaga}_{g['stack']}_{g['categoria']}_{uuid.uuid4().hex[:6]}")
 
 
+def tempo_relativo(data_coleta) -> str:
+    from datetime import date, datetime
+    try:
+        if isinstance(data_coleta, str):
+            d = datetime.strptime(str(data_coleta)[:10], "%Y-%m-%d").date()
+        elif hasattr(data_coleta, "date"):
+            d = data_coleta.date()
+        else:
+            d = data_coleta
+        delta = (date.today() - d).days
+        if delta == 0:  return "hoje"
+        if delta == 1:  return "ontem"
+        if delta < 7:   return f"há {delta}d"
+        if delta < 30:  return f"há {delta // 7}sem"
+        if delta < 365: return f"há {delta // 30}m"
+        return f"há {delta // 365}a"
+    except Exception:
+        return str(data_coleta)[:10]
+
+
 _NIVEL_COR = {
     "junior":       ("#EBF3FB", "#1A5FAD"),
     "pleno":        ("#E8F5F0", "#157A5A"),
@@ -307,6 +327,23 @@ _FONTE_ICON = {
     "manual":          "✏️",
 }
 
+_TIMELINE_ICONS = {
+    "nao_inscrito": "📝",
+    "inscrito":     "📤",
+    "chamado":      "📞",
+    "recrutador":   "🎙️",
+    "fase_1":       "1️⃣",
+    "fase_2":       "2️⃣",
+    "fase_3":       "3️⃣",
+    "aprovado":     "✅",
+    "reprovado":    "❌",
+}
+
+_FASES_ORDERED = [
+    "nao_inscrito", "inscrito", "chamado", "recrutador",
+    "fase_1", "fase_2", "fase_3", "aprovado", "reprovado",
+]
+
 
 def _mini_badge(txt: str, bg: str, fg: str) -> str:
     return (f"<span style='background:{bg};color:{fg};border:1px solid {bg};"
@@ -317,12 +354,12 @@ def _mini_badge(txt: str, bg: str, fg: str) -> str:
 def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card", ats_score: int = 0):
     status_cand = vaga.get("candidatura_status") or "nao_inscrito"
     status_label, status_cor = status_badge(status_cand, is_nova)
-    nivel_str = nivel_fmt(vaga['nivel'])
+    nivel_str = nivel_fmt(vaga["nivel"])
     score_cor = get_cor_score(score)
     favicon_url = safe_str(vaga.get("favicon_url"))
+    urgente = vaga.get("urgente") is True
 
     with st.container(border=True):
-        # ── linha empresa + status badge ──────────────────────
         col_fav, col_emp, col_badge = st.columns([0.4, 4.5, 1.5])
         if favicon_url:
             col_fav.image(favicon_url, width=16)
@@ -335,14 +372,11 @@ def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card", 
             f"padding:2px 6px;border-radius:10px;font-weight:600'>{status_label}</span>"
             f"</div>", unsafe_allow_html=True)
 
-        # ── título ────────────────────────────────────────────
-        urgente = "🔥 " if vaga.get("urgente") is True else ""
         st.markdown(
             f"<div style='min-height:44px;overflow:hidden;font-weight:600;margin:4px 0'>"
-            f"{urgente}{vaga['titulo'][:100].replace('*', '')}"
+            f"{vaga['titulo'][:100].replace('*', '')}"
             f"</div>", unsafe_allow_html=True)
 
-        # ── badges: nível · modalidade · fonte ───────────────
         nivel_lower = str(vaga["nivel"]).lower()
         modal_lower = str(vaga["modalidade"]).lower()
         fonte       = str(vaga.get("fonte", "")).lower()
@@ -357,25 +391,39 @@ def render_vaga_card(vaga, score: int, is_nova: bool, key_prefix: str = "card", 
         if modal_lower not in ("não identificado", "nao identificado", "nan", "none", ""):
             badges += _mini_badge(modal_fmt(vaga["modalidade"]), modal_bg, modal_fg) + " "
         if fonte:
-            badges += _mini_badge(f"{fonte_icon} {fonte}", "#F5F5F5", "#666")
+            badges += _mini_badge(f"{fonte_icon} {fonte}", "#F5F5F5", "#666") + " "
+        if urgente:
+            badges += _mini_badge("🔥 urgente", "#FFF0F0", "#C0392B") + " "
+        if is_nova:
+            badges += _mini_badge("🆕 nova", "#E8F5F0", "#1D9E75")
 
-        st.markdown(f"<div style='margin-bottom:6px;display:flex;flex-wrap:wrap;gap:3px'>{badges}</div>",
-                    unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='margin-bottom:6px;display:flex;flex-wrap:wrap;gap:3px'>{badges}</div>",
+            unsafe_allow_html=True)
 
-        # ── scores + data ─────────────────────────────────────
         col_s, col_ats, col_data = st.columns([1, 1, 2])
         if score > 0:
             col_s.markdown(
-                f"<span style='color:{score_cor};font-weight:700;font-size:12px'>🎯 {score}%</span>",
+                f"<div style='margin:2px 0'>"
+                f"<span style='color:{score_cor};font-weight:700;font-size:11px'>🎯 {score}%</span>"
+                f"<div style='background:#f0f0f0;border-radius:4px;height:4px;margin-top:2px'>"
+                f"<div style='background:{score_cor};width:{score}%;height:4px;border-radius:4px'></div>"
+                f"</div></div>",
                 unsafe_allow_html=True)
         if ats_score > 0:
             ats_cor = get_cor_score(ats_score)
             col_ats.markdown(
-                f"<span style='color:{ats_cor};font-weight:700;font-size:12px'>🤖 {ats_score}%</span>",
+                f"<div style='margin:2px 0'>"
+                f"<span style='color:{ats_cor};font-weight:700;font-size:11px'>🤖 {ats_score}%</span>"
+                f"<div style='background:#f0f0f0;border-radius:4px;height:4px;margin-top:2px'>"
+                f"<div style='background:{ats_cor};width:{ats_score}%;height:4px;border-radius:4px'></div>"
+                f"</div></div>",
                 unsafe_allow_html=True)
-        data_str = str(vaga["data_coleta"])[:10]
-        if data_str not in ("NaT", "None", "nan", ""):
-            col_data.caption(f"📅 {data_str}")
+
+        tempo = tempo_relativo(vaga["data_coleta"])
+        col_data.markdown(
+            f"<div style='text-align:right;color:#888;font-size:11px;padding-top:6px'>📅 {tempo}</div>",
+            unsafe_allow_html=True)
 
         if st.button("▼ detalhes", key=f"{key_prefix}_{vaga['id']}", use_container_width=True):
             st.session_state[f"dialog_{key_prefix}_{int(vaga['id'])}"] = True
@@ -577,15 +625,29 @@ def render_dialog_vaga(v, prefix: str = "v"):
         render_stacks(v["stacks"])
 
     with tab_cand:
-        fases = ["nao_inscrito","inscrito","chamado","recrutador","fase_1","fase_2","fase_3","aprovado","reprovado"]
+        fases = _FASES_ORDERED
+        idx_atual = fases.index(status_cand) if status_cand in fases else 0
+        pct = int(idx_atual / (len(fases) - 1) * 100) if len(fases) > 1 else 0
+        cor_tl = "#1D9E75" if status_cand == "aprovado" else "#D85A30" if status_cand == "reprovado" else "#378ADD"
+        st.markdown(
+            f"<div style='margin-bottom:8px'>"
+            f"<div style='background:#f0f0f0;border-radius:6px;height:6px'>"
+            f"<div style='background:{cor_tl};width:{pct}%;height:6px;border-radius:6px'></div>"
+            f"</div>"
+            f"<div style='text-align:right;font-size:10px;color:#888;margin-top:2px'>"
+            f"{TIMELINE_LABELS.get(status_cand, status_cand)}</div>"
+            f"</div>",
+            unsafe_allow_html=True)
         cols_f = st.columns(len(fases))
         for idx, fase in enumerate(fases):
             ativo = fase == status_cand
+            icon = _TIMELINE_ICONS.get(fase, "•")
             if cols_f[idx].button(
-                TIMELINE_LABELS[fase],
+                icon,
                 key=f"fase_{prefix}_{fase}_{v['id']}",
                 use_container_width=True,
-                type="primary" if ativo else "secondary"
+                type="primary" if ativo else "secondary",
+                help=TIMELINE_LABELS[fase],
             ):
                 atualizar_candidatura(int(v["id"]), fase, fase, _obs_atual)
                 st.cache_data.clear()

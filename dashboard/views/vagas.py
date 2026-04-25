@@ -8,7 +8,7 @@ from dashboard.components import (
     render_remuneracao, render_checklist_preparacao,
     render_vaga_card
 )
-from dashboard.ui_components import render_dialog_vaga
+from dashboard.ui_components import render_dialog_vaga, tempo_relativo
 from database.ats_score import listar_ats_scores
 
 
@@ -119,25 +119,38 @@ def render():
             status_cand_val = vaga.get("candidatura_status") or "nao_inscrito"
             label_status = TIMELINE_LABELS.get(status_cand_val, "Não inscrito")
             score = int(scores.get(vaga["id"], 0))
+            ats = ats_scores.get(int(vaga["id"]), 0)
             is_nova = str(vaga["data_coleta"])[:10] >= ontem
-            nova_label = "🆕 " if is_nova else ""
-            cor_bg = "#E8F5F0" if is_nova else "white"
+            urgente = vaga.get("urgente") is True
+            urgente_tag = " 🔥" if urgente else ""
+            nova_tag = " 🆕" if is_nova else ""
+            cor_left = "#1D9E75" if is_nova else "#D85A30" if urgente else "#e0e0e0"
+            tempo = tempo_relativo(vaga["data_coleta"])
             st.markdown(
                 f"<div style='padding:8px 12px;margin:2px 0;border-radius:6px;"
-                f"border:1px solid #ddd;background:{cor_bg};'>"
-                f"<span style='font-weight:600'>{nova_label}{status_icon} {vaga['titulo'][:55]}</span> "
-                f"<span style='color:#888;font-size:12px'>— {vaga['empresa']} | {vaga['nivel']} | {vaga['modalidade']}</span>"
+                f"border:1px solid #ddd;border-left:3px solid {cor_left};background:white;'>"
+                f"<span style='font-weight:600'>{status_icon}{urgente_tag}{nova_tag} {vaga['titulo'][:55]}</span> "
+                f"<span style='color:#888;font-size:12px'>— {vaga['empresa']} · {vaga['nivel']} · {vaga['modalidade']}</span>"
                 f"</div>", unsafe_allow_html=True)
-            c1, c2, c3, c4 = st.columns([4, 1, 1, 1])
-            c1.caption(str(vaga['data_coleta'])[:10])
-            c2.markdown(f"🎯 **{score}%**" if score > 0 else "")
-            c3.link_button("🔗 Ver", vaga["link"])
+            c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
+            c1.caption(f"📅 {tempo}")
+            c2.markdown(
+                f"<div style='font-size:11px;font-weight:700;color:#1A5FAD'>🎯 {score}%</div>"
+                f"<div style='background:#f0f0f0;border-radius:3px;height:3px'>"
+                f"<div style='background:#1A5FAD;width:{score}%;height:3px;border-radius:3px'></div></div>"
+                if score > 0 else "", unsafe_allow_html=True)
+            c3.markdown(
+                f"<div style='font-size:11px;font-weight:700;color:#7F77DD'>🤖 {ats}%</div>"
+                f"<div style='background:#f0f0f0;border-radius:3px;height:3px'>"
+                f"<div style='background:#7F77DD;width:{ats}%;height:3px;border-radius:3px'></div></div>"
+                if ats > 0 else "", unsafe_allow_html=True)
+            c4.link_button("🔗", vaga["link"])
             if status_cand_val == "nao_inscrito":
-                if c4.button("✅", key=f"inscrito_{vaga['id']}", help="Marcar como inscrito"):
+                if c5.button("✅", key=f"inscrito_{vaga['id']}", help="Marcar como inscrito"):
                     atualizar_candidatura(int(vaga["id"]), "inscrito", "inscrito", "")
                     st.rerun()
             else:
-                c4.markdown(f"<span style='color:#1D9E75;font-size:11px'>{label_status}</span>", unsafe_allow_html=True)
+                c5.markdown(f"<span style='color:#1D9E75;font-size:11px'>{label_status}</span>", unsafe_allow_html=True)
         return
 
     if ordenar_por == "Score ↓":
