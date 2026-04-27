@@ -19,6 +19,7 @@ from scrapers.amazon_scraper import buscar_vagas_amazon
 from scrapers.bcg_scraper import buscar_vagas_bcg
 from scrapers.doordash_scraper import buscar_vagas_doordash
 from scrapers.uber_scraper import buscar_vagas_uber
+from scrapers.lever_scraper import buscar_vagas_lever
 from database.connection import DB_PATH, conectar, db_connect
 from playwright.sync_api import sync_playwright
 from playwright_stealth import stealth as stealth_sync
@@ -242,6 +243,12 @@ def processar_empresa_uber(nome: str, url_vagas: str) -> tuple[int, int, str]:
     return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_vagas)
 
 
+def processar_empresa_lever(nome: str, url_vagas: str) -> tuple[int, int, str]:
+    slug = url_vagas.rstrip("/").split("lever.co/")[-1].split("/")[0]
+    vagas_raw = buscar_vagas_lever(slug=slug, empresa=nome)
+    return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_vagas)
+
+
 def processar_empresa_amazon(nome: str, url_vagas: str) -> tuple[int, int, str]:
     from urllib.parse import urlparse, parse_qs
     parsed = parse_qs(urlparse(url_vagas).query)
@@ -284,6 +291,8 @@ def rodar_pipeline() -> None:
             processar_empresa_doordash(nome, url_vagas)
         elif "uber.com" in url_vagas and "careers" in url_vagas:
             processar_empresa_uber(nome, url_vagas)
+        elif "lever.co" in url_vagas:
+            processar_empresa_lever(nome, url_vagas)
         else:
             log.info(f"  Plataforma não reconhecida: {url_vagas}")
 
