@@ -1,6 +1,6 @@
 # Job Tracker — Backlog Completo
 
-> Última atualização: Abril 2026 · Total: 158 itens
+> Última atualização: Abril 2026 · Total: 161 itens
 
 ---
 
@@ -13,7 +13,7 @@
 
 ---
 
-## Bloco 2 — Visual do Dashboard ⚡ Em andamento
+## Bloco 2 — Visual do Dashboard ✅ Concluído
 
 - [x] Migrar gráficos para Plotly
 - [x] Logo via favicon — salvo localmente
@@ -31,16 +31,16 @@
 
 ---
 
-## Bloco 4 — Melhorias Visuais nas Vagas
+## Bloco 4 — Melhorias Visuais nas Vagas ⚡ Em andamento
 
-- [ ] Badge de urgência — detectar "início imediato", "urgente" na descrição
-- [ ] Barra de progresso do score de fit por vaga
-- [ ] Indicador de tempo desde a coleta — "coletada há 3 dias"
+- [x] Badge de urgência — detectar "início imediato", "urgente" na descrição
+- [x] Barra de progresso do score de fit por vaga
+- [x] Indicador de tempo desde a coleta — "coletada há 3 dias"
 - [ ] Tag visual de origem — ícone para vagas manuais vs coletadas
-- [ ] Ícones em cada fase da timeline de candidatura
+- [x] Ícones em cada fase da timeline de candidatura
 - [ ] Data de entrada em cada fase da timeline
-- [ ] Modo compacto vs modo detalhado na listagem
-- [ ] Destaque visual para vagas novas (últimas 24h)
+- [x] Modo compacto vs modo detalhado na listagem
+- [x] Destaque visual para vagas novas (últimas 24h)
 - [ ] Ordenação por score de fit, data, empresa ou status
 - [ ] Agrupamento por empresa ou por fase de candidatura
 
@@ -161,13 +161,13 @@
 - [ ] Migrar pipeline para gravar em Bronze primeiro
 - [ ] Criar transformações Bronze → Silver → Gold
 
-### dbt
-- [ ] Instalar e configurar dbt com DuckDB
-- [ ] Criar modelo `stg_vagas` (staging)
-- [ ] Criar modelo `dim_empresa` (dimensão)
-- [ ] Criar modelo `fact_vaga` (fato)
-- [ ] Criar testes de qualidade nos modelos
-- [ ] Gerar documentação automática
+### dbt ✅ Concluído
+- [x] Instalar e configurar dbt com DuckDB
+- [x] Criar modelo `stg_vagas` (staging)
+- [x] Criar modelo `stg_empresas` (dimensão)
+- [x] Criar modelo `fct_vagas` (fato)
+- [x] Criar testes de qualidade nos modelos
+- [x] Gerar documentação automática (`dbt docs generate`)
 
 ### Great Expectations ou Soda
 - [ ] Instalar e configurar
@@ -208,13 +208,19 @@
 
 ---
 
-## Bloco 11 — Expansão da Ingestão
+## Bloco 11 — Expansão da Ingestão ⚡ Em andamento
 
-- [ ] Scraper para Inhire
-- [ ] Scraper para Lever — Nubank, iFood, Rappi
-- [ ] Scraper para Greenhouse — empresas internacionais
-- [ ] Sites próprios — Itaú, XP, Globo
-- [ ] Connector para API do LinkedIn Jobs
+- [x] Scraper para Gupy (24 empresas)
+- [x] Scraper para Greenhouse (Nubank, iFood, C6 Bank, Jusbrasil, Ai Inbev, DoorDash)
+- [x] Scraper para InHire (Magalu Cloud, Pra Valer)
+- [x] Scraper para SmartRecruiters (Visa, Serasa)
+- [x] Scraper para Amazon Jobs (API JSON + filtro country=BRA)
+- [x] Scraper para BCG Careers (Playwright — Phenom People)
+- [x] Scraper para DoorDash (careersatdoordash.com via Greenhouse API)
+- [x] Scraper para Uber (POST /api/loadSearchJobsResults + filtro BRA)
+- [ ] Scraper para Lever — Rappi, outras startups
+- [ ] Sites próprios — Itaú, XP
+- [ ] Connector para API oficial do LinkedIn Jobs
 
 ---
 
@@ -249,21 +255,28 @@
 
 ---
 
-## Bloco 15 — Score de Fit e ATS
+## Bloco 15 — Score de Fit e ATS ⚡ Em andamento
 
+### Agentes ATS ✅ Concluído
+- [x] Agente ANYA — análise de keywords (currículo × vaga)
+- [x] Agente VANELLOPE — análise de formatação ATS-friendly
+- [x] Agente ARYA — verificação de seções obrigatórias
+- [x] Agente NEXUS — otimizador com sugestões before/after
+- [x] Score ponderado final (ANYA 40% + VANELLOPE 25% + ARYA 20% + Impacto 15%)
+- [x] Score calculado automaticamente para cada nova vaga na pipeline
+- [x] Suporte bilíngue PT-BR e EN-US
+- [x] Modelo LLM local via Ollama — sem custo, sem limites
+
+### Score de Fit (pendente)
 - [ ] Algoritmo de match de stacks — perfil do candidato vs vaga
 - [ ] Badge de percentual de match em cada vaga
 - [ ] Ordenar vagas por score de fit
 
-### Score ATS
-- [ ] Análise de match de keywords — currículo vs descrição da vaga
+### Melhorias ATS (pendente)
 - [ ] Análise de densidade de termos técnicos no currículo
 - [ ] Análise de formato ATS-friendly do PDF
-- [ ] Verificar seções obrigatórias no currículo (experiência, educação, skills, resumo)
-- [ ] Score final 0-100 com breakdown por categoria
-- [ ] Sugestões específicas do que adicionar no currículo para cada vaga
-- [ ] Claude API para análise semântica — sinônimos e termos relacionados
 - [ ] Relatório exportável de otimização do currículo por vaga
+- [ ] Claude API para análise semântica avançada (opcional, pago)
 
 ---
 
@@ -286,38 +299,12 @@
 
 ---
 
-## Resumo
-
-| Bloco | Tema | Itens | Status |
-|---|---|---|---|
-| 1 | Estabilidade | 4 | ✅ Concluído |
-| 2 | Visual do Dashboard | 5 | ⚡ Em andamento |
-| 3 | Favicon (Débito) | 3 | ○ Pendente |
-| 4 | Melhorias Visuais | 10 | ○ Pendente |
-| 5 | Novas Funcionalidades | 18 | ○ Pendente |
-| 6 | Inteligência Acionável | 23 | ○ Pendente |
-| 7 | Candidatura Avançada | 9 | ○ Pendente |
-| 8 | Robô de Candidatura | 8 | ○ v2 |
-| 9 | DE Curto Prazo | 14 | ○ Pendente |
-| 10 | DE Médio Prazo | 13 | ○ Pendente |
-| 11 | Expansão Ingestão | 5 | ○ Pendente |
-| 12 | DE Longo Prazo | 6 | ○ v2/v3 |
-| 13 | Encerramento v1.0 | 2 | ○ Pendente |
-| 14 | Perfil do Candidato | 8 | ○ Pendente |
-| 15 | Score de Fit e ATS | 12 | ○ Pendente |
-| v2 | Infraestrutura Cloud | 5 | ○ Futuro |
-| v3 | Raspberry Pi | 4 | ○ Futuro |
-| 16 | Anti-detecção Scraper | 10 | ○ Pendente |
-| **Total** | | **158** | |
-
----
-
 ## Bloco 16 — Anti-detecção e Resiliência do Scraper
 > ⚠️ Todas as soluções deste bloco são 100% gratuitas e open source.
 
+- [x] `playwright-stealth` integrado — remove fingerprints de bot
 - [ ] Delays humanizados aleatórios entre requisições (2-5 segundos)
 - [ ] User-Agent e headers HTTP realistas no Playwright
-- [ ] Integrar `playwright-stealth` — remove fingerprints de bot (pip install, zero custo)
 - [ ] Rotação de viewport e resolução por execução
 - [ ] Rotação de locale e timezone (pt-BR, America/Sao_Paulo)
 - [ ] Detecção de bloqueio — identificar status 403/429/Cloudflare na resposta
@@ -327,3 +314,29 @@
 - [ ] Monitorar se plataformas como Gupy expõem API oficial gratuita
 
 > 🚫 Fora do escopo por custo: proxy residencial, APIs pagas de terceiros.
+
+---
+
+## Resumo
+
+| Bloco | Tema | Itens | Status |
+|---|---|---|---|
+| 1 | Estabilidade | 4 | ✅ Concluído |
+| 2 | Visual do Dashboard | 5 | ✅ Concluído |
+| 3 | Favicon (Débito) | 3 | ○ Pendente |
+| 4 | Melhorias Visuais | 10 | ⚡ Em andamento (6/10) |
+| 5 | Novas Funcionalidades | 18 | ○ Pendente |
+| 6 | Inteligência Acionável | 23 | ○ Pendente |
+| 7 | Candidatura Avançada | 9 | ○ Pendente |
+| 8 | Robô de Candidatura | 8 | ○ v2 |
+| 9 | DE Curto Prazo | 14 | ⚡ Em andamento (6/14) |
+| 10 | DE Médio Prazo | 13 | ○ Pendente |
+| 11 | Expansão Ingestão | 11 | ⚡ Em andamento (8/11) |
+| 12 | DE Longo Prazo | 6 | ○ v2/v3 |
+| 13 | Encerramento v1.0 | 2 | ○ Pendente |
+| 14 | Perfil do Candidato | 8 | ○ Pendente |
+| 15 | Score de Fit e ATS | 12 | ⚡ Em andamento (8/12) |
+| v2 | Infraestrutura Cloud | 5 | ○ Futuro |
+| v3 | Raspberry Pi | 4 | ○ Futuro |
+| 16 | Anti-detecção Scraper | 10 | ⚡ Em andamento (1/10) |
+| **Total** | | **161** | |
