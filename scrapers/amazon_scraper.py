@@ -119,6 +119,7 @@ def buscar_vagas_amazon(loc_query: str = "Brazil", country: str = "BRA",
                 log.warning(f"  Limite de segurança atingido ({max_vagas}), encerrando paginação")
                 break
 
+
             total = data.get("hits", 0)
             offset += result_limit
             if offset >= total:

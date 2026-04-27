@@ -27,3 +27,12 @@ dbt-docs:
 	cd ~/job-tracker && source dbt/.venv/bin/activate && dbt docs generate --project-dir dbt/ --profiles-dir dbt/ && dbt docs serve --project-dir dbt/ --profiles-dir dbt/ --port 8080
 
 dbt-all: dbt-run dbt-test
+
+prefect:
+	cd ~/job-tracker && source .venv/bin/activate && python pipeline_prefect.py
+
+prefect-serve:
+	cd ~/job-tracker && source .venv/bin/activate && python pipeline_prefect.py --serve
+
+prefect-ui:
+	cd ~/job-tracker && source .venv/bin/activate && prefect server start

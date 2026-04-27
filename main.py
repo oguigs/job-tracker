@@ -241,6 +241,15 @@ def processar_empresa_uber(nome: str, url_vagas: str) -> tuple[int, int, str]:
     vagas_raw = buscar_vagas_uber()
     return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_vagas)
 
+
+def processar_empresa_amazon(nome: str, url_vagas: str) -> tuple[int, int, str]:
+    from urllib.parse import urlparse, parse_qs
+    parsed = parse_qs(urlparse(url_vagas).query)
+    loc_query = parsed.get("loc_query", ["Brazil"])[0]
+    base_query = parsed.get("base_query", [""])[0]
+    vagas_raw = buscar_vagas_amazon(loc_query=loc_query, base_query=base_query)
+    return _processar_empresa_generica(nome, vagas_raw)
+
 def rodar_pipeline() -> None:
     criar_tabelas()
     
@@ -268,7 +277,7 @@ def rodar_pipeline() -> None:
         elif "smartrecruiters.com" in url_vagas:
             processar_empresa_smartrecruiters(nome, url_vagas)
         elif "amazon.jobs" in url_vagas:
-            processar_empresa_amazon(nome)
+            processar_empresa_amazon(nome, url_vagas)
         elif "bcg.com" in url_vagas or "careers.bcg" in url_vagas:
             processar_empresa_bcg(nome, url_vagas)
         elif "careersatdoordash.com" in url_vagas:
