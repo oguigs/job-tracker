@@ -17,13 +17,11 @@ def upsert_empresa(nome: str, url_vagas: str, **kwargs) -> int:
         favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
         con.execute("""
             INSERT INTO dim_empresa
-            (id, nome, url_vagas, ramo, cidade, estado,
-             url_linkedin, url_site_vagas, favicon_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, nome, url_vagas, ramo, cidade, estado, favicon_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, [id_empresa, nome, url_vagas,
               kwargs.get("ramo", ""), kwargs.get("cidade", ""),
-              kwargs.get("estado", ""), kwargs.get("url_linkedin", ""),
-              kwargs.get("url_site_vagas", ""), favicon_url])
+              kwargs.get("estado", ""), favicon_url])
     return id_empresa
 
 
