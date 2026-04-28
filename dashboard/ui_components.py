@@ -589,6 +589,108 @@ def _render_ats_tab(id_vaga: int, descricao: str, titulo: str, prefix: str):
     st.caption(f"Calculado em: {scores.get('data_calculo', 'N/A')} · Para análise profunda com IA, use Análise de Currículo.")
 
 
+def _gerar_txt_otimizado_dialog(nexus: dict, texto_cv: str, titulo_vaga: str) -> str:
+    linhas = [
+        "=" * 60,
+        f"CURRÍCULO OTIMIZADO — {titulo_vaga.upper()}",
+        "Gerado por NEXUS | Job Tracker",
+        "=" * 60, "",
+    ]
+    if nexus.get("titulo_sugerido"):
+        linhas += ["TÍTULO PROFISSIONAL SUGERIDO", "-" * 40, nexus["titulo_sugerido"], ""]
+    if nexus.get("resumo_otimizado"):
+        linhas += ["RESUMO PROFISSIONAL OTIMIZADO", "-" * 40, nexus["resumo_otimizado"], ""]
+    if nexus.get("bullets"):
+        linhas += ["BULLETS REESCRITOS", "-" * 40, "Substitua as experiências correspondentes:", ""]
+        for i, b in enumerate(nexus["bullets"], 1):
+            linhas += [f"[{i}] ANTES:", f"    {b['antes']}", f"[{i}] DEPOIS:", f"    {b['depois']}", ""]
+    linhas += ["-" * 60, "CURRÍCULO ORIGINAL (referência)", "-" * 60, "", texto_cv]
+    return "\n".join(linhas)
+
+
+def _render_otimizar_tab(id_vaga: int, descricao: str, titulo: str, empresa: str, prefix: str):
+    from database.candidato import carregar_curriculo_texto
+    from transformers.ats_agents import rodar_anya, rodar_nexus, rodar_carta, ollama_disponivel
+
+    texto_cv = carregar_curriculo_texto()
+
+    if not texto_cv:
+        st.info("Salve seu currículo em **Meu Perfil → Currículo** para usar esta função.")
+        return
+
+    with db_connect() as _c:
+        row = _c.execute("SELECT descricao FROM fact_vaga WHERE id=?", [id_vaga]).fetchone()
+    descricao = (row[0] if row and row[0] else "") or descricao or ""
+
+    if not descricao.strip():
+        st.warning("Esta vaga não tem descrição armazenada. Cole a descrição na aba **🤖 ATS** e salve primeiro.")
+        return
+
+    if not ollama_disponivel():
+        st.warning("Ollama não está rodando. Inicie com `ollama serve` no terminal.")
+        return
+
+    key_nexus  = f"otimizar_nexus_{prefix}_{id_vaga}"
+    key_carta  = f"otimizar_carta_{prefix}_{id_vaga}"
+
+    col_n, col_c = st.columns(2)
+
+    if col_n.button("✦ Otimizar CV", type="primary", use_container_width=True, key=f"btn_nexus_{prefix}_{id_vaga}"):
+        with st.spinner("NEXUS reescrevendo..."):
+            anya  = rodar_anya(texto_cv, descricao, titulo)
+            nexus = rodar_nexus(texto_cv, descricao, titulo, anya)
+            st.session_state[key_nexus] = {"nexus": nexus, "anya": anya}
+
+    if col_c.button("✉ Gerar Carta", use_container_width=True, key=f"btn_carta_{prefix}_{id_vaga}"):
+        with st.spinner("CARTA redigindo..."):
+            carta = rodar_carta(texto_cv, descricao, titulo, empresa)
+            st.session_state[key_carta] = carta
+
+    # exibe NEXUS
+    if st.session_state.get(key_nexus):
+        nexus = st.session_state[key_nexus]["nexus"]
+        st.divider()
+        if nexus.get("titulo_sugerido"):
+            st.markdown("**Título sugerido**")
+            st.success(nexus["titulo_sugerido"])
+        if nexus.get("resumo_otimizado"):
+            st.markdown("**Resumo otimizado**")
+            st.info(nexus["resumo_otimizado"])
+        if nexus.get("bullets"):
+            st.markdown("**Bullets reescritos**")
+            for i, b in enumerate(nexus["bullets"], 1):
+                with st.expander(f"Experiência {i}"):
+                    col_a, col_b = st.columns(2)
+                    col_a.markdown(f"**Antes**\n\n{b['antes']}")
+                    col_b.markdown(f"**Depois**\n\n{b['depois']}")
+        nome_cv = f"cv_otimizado_{titulo[:25].lower().replace(' ','_')}.txt"
+        st.download_button(
+            "📥 Baixar CV otimizado (.txt)",
+            data=_gerar_txt_otimizado_dialog(nexus, texto_cv, titulo).encode("utf-8"),
+            file_name=nome_cv, mime="text/plain", use_container_width=True,
+            key=f"dl_nexus_{prefix}_{id_vaga}",
+        )
+
+    # exibe CARTA
+    if st.session_state.get(key_carta):
+        carta = st.session_state[key_carta]
+        st.divider()
+        st.markdown("**Carta de apresentação**")
+        st.markdown(
+            f"<div style='background:#f8f8f8;border-left:3px solid #378ADD;"
+            f"padding:16px;border-radius:4px;font-size:14px;line-height:1.8;"
+            f"white-space:pre-wrap'>{carta}</div>", unsafe_allow_html=True
+        )
+        nome_carta = f"carta_{titulo[:25].lower().replace(' ','_')}.txt"
+        st.download_button(
+            "📥 Baixar carta (.txt)",
+            data=carta.encode("utf-8"),
+            file_name=nome_carta, mime="text/plain", use_container_width=True,
+            key=f"dl_carta_{prefix}_{id_vaga}",
+        )
+        st.caption("Revise antes de enviar — adapte nome da empresa e detalhes específicos.")
+
+
 def render_dialog_vaga(v, prefix: str = "v"):
     """Dialog de detalhes de vaga reutilizável."""
     import json as _json
@@ -618,12 +720,12 @@ def render_dialog_vaga(v, prefix: str = "v"):
     mostrar_briefing = status_cand in fases_entrevista
 
     if mostrar_briefing:
-        tab_score, tab_cand, tab_briefing, tab_ats, tab_cv, tab_rem, tab_diario = st.tabs([
-            "📊 Score & Stacks", "📋 Candidatura", "🎯 Briefing", "🤖 ATS", "📄 Diff CV", "💰 Remuneração", "📓 Diário"
+        tab_score, tab_cand, tab_briefing, tab_ats, tab_cv, tab_otimizar, tab_rem, tab_diario = st.tabs([
+            "📊 Score & Stacks", "📋 Candidatura", "🎯 Briefing", "🤖 ATS", "📄 Diff CV", "✦ Otimizar", "💰 Remuneração", "📓 Diário"
         ])
     else:
-        tab_score, tab_cand, tab_ats, tab_cv, tab_rem, tab_diario = st.tabs([
-            "📊 Score & Stacks", "📋 Candidatura", "🤖 ATS", "📄 Diff CV", "💰 Remuneração", "📓 Diário"
+        tab_score, tab_cand, tab_ats, tab_cv, tab_otimizar, tab_rem, tab_diario = st.tabs([
+            "📊 Score & Stacks", "📋 Candidatura", "🤖 ATS", "📄 Diff CV", "✦ Otimizar", "💰 Remuneração", "📓 Diário"
         ])
 
     with tab_score:
@@ -787,6 +889,9 @@ def render_dialog_vaga(v, prefix: str = "v"):
                 os.unlink(tmp_path)
         else:
             st.info("Upload o PDF do seu currículo para ver quais stacks aparecem e quais estão faltando para esta vaga.")
+
+    with tab_otimizar:
+        _render_otimizar_tab(int(v["id"]), v.get("descricao", ""), v.get("titulo", ""), v.get("empresa", ""), prefix)
 
     with tab_rem:
         render_remuneracao(v)
