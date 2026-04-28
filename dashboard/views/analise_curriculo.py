@@ -193,7 +193,7 @@ def render():
                     st.session_state["ats_nexus"] = nexus
                     status.update(label="Otimização concluída", state="complete")
 
-            if col_carta.button("✉ GERAR CARTA DE APRESENTAÇÃO", use_container_width=True):
+            if col_carta.button("📝 GERAR CARTA DE APRESENTAÇÃO", use_container_width=True):
                 with st.status("░ CARTA REDIGINDO...", expanded=True) as status:
                     st.write("░ ANALISANDO PERFIL E VAGA...")
                     carta = rodar_carta(
@@ -435,7 +435,7 @@ def _exibir_carta(carta: str, titulo_vaga: str = ""):
     st.divider()
     st.markdown(
         "<div style='font-family:monospace; color:#60a5fa; font-size:13px; "
-        "letter-spacing:2px; margin-bottom:16px'>✉ CARTA — MÓDULO APRESENTAÇÃO</div>",
+        "letter-spacing:2px; margin-bottom:16px'>📝 CARTA — MÓDULO APRESENTAÇÃO</div>",
         unsafe_allow_html=True,
     )
     st.markdown(

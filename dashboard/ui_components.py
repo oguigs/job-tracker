@@ -641,7 +641,7 @@ def _render_otimizar_tab(id_vaga: int, descricao: str, titulo: str, empresa: str
             nexus = rodar_nexus(texto_cv, descricao, titulo, anya)
             st.session_state[key_nexus] = {"nexus": nexus, "anya": anya}
 
-    if col_c.button("✉ Gerar Carta", use_container_width=True, key=f"btn_carta_{prefix}_{id_vaga}"):
+    if col_c.button("📝 Gerar Carta", use_container_width=True, key=f"btn_carta_{prefix}_{id_vaga}"):
         with st.spinner("CARTA redigindo..."):
             carta = rodar_carta(texto_cv, descricao, titulo, empresa)
             st.session_state[key_carta] = carta
