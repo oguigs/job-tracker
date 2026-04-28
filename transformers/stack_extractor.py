@@ -48,6 +48,13 @@ STACKS = {
         "nginx", "apache", "vault", "consul",
         "pulumi", "cloudformation", "cdk", "bicep"
     ],
+    "integracao": [
+        "rest api", "api rest", "restful", "graphql", "grpc", "soap",
+        "fastapi", "flask", "django", "openapi", "swagger",
+        "webhook", "websocket", "event-driven", "event driven",
+        "microservices", "microsserviços", "api gateway",
+        "message broker", "pub/sub", "rabbitmq", "activemq"
+    ],
     "visualizacao": [
         "tableau", "power bi", "looker", "metabase", "superset",
         "grafana", "qlik", "microstrategy", "thoughtspot",

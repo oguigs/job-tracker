@@ -148,6 +148,7 @@ CATEGORIA_CORES = {
     "orquestracao":   {"bg": "#F0EFF9", "border": "#7F77DD", "text": "#4B44AA"},
     "armazenamento":  {"bg": "#FBF4E8", "border": "#BA7517", "text": "#8A5210"},
     "infraestrutura": {"bg": "#F2F2F1", "border": "#888780", "text": "#555450"},
+    "integracao":     {"bg": "#E8F5F0", "border": "#1D9E75", "text": "#157A5A"},
     "visualizacao":   {"bg": "#EBF3FB", "border": "#378ADD", "text": "#1A5FAD"},
     "ml_ia":          {"bg": "#F5EFF9", "border": "#9B59B6", "text": "#6C3483"},
 }
