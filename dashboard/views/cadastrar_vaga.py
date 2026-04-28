@@ -115,23 +115,22 @@ def render():
                         if url_site_oficial:
                             dominio = url_site_oficial.replace("https://www.", "").replace("https://", "").split("/")[0]
                             favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
-                        with db_connect() as con:   
+                        with db_connect() as con:
                             existente = con.execute("SELECT id FROM dim_empresa WHERE nome = ?", [nome]).fetchone()
-                        if existente:
-                            st.warning(f"{nome} já está cadastrada.")
-                        else:
-                            id_novo = con.execute("SELECT nextval('seq_empresa')").fetchone()[0]
-                            con.execute("""
-                                INSERT INTO dim_empresa
-                                (id, nome, ramo, cidade, estado, url_vagas,
-                                 ativa, data_cadastro, favicon_url, url_site_oficial)
-                                VALUES (?, ?, ?, ?, ?, ?, true, ?, ?, ?)
-                            """, [id_novo, nome, ramo, cidade, estado,
-                                  url_vagas,
-                                  date.today(), favicon_url, url_site_oficial])
-                            st.session_state.modal_dados = {}
-                            st.success(f"{nome} cadastrada!")
-                            st.rerun()
+                            if existente:
+                                st.warning(f"{nome} já está cadastrada.")
+                            else:
+                                id_novo = con.execute("SELECT nextval('seq_empresa')").fetchone()[0]
+                                con.execute("""
+                                    INSERT INTO dim_empresa
+                                    (id, nome, ramo, cidade, estado, url_vagas,
+                                     ativa, data_cadastro, favicon_url, url_site_oficial)
+                                    VALUES (?, ?, ?, ?, ?, ?, true, ?, ?, ?)
+                                """, [id_novo, nome, ramo, cidade, estado,
+                                      url_vagas, date.today(), favicon_url, url_site_oficial])
+                                st.session_state.modal_dados = {}
+                                st.success(f"{nome} cadastrada!")
+                                st.rerun()
                     except Exception as e:
                         st.error(f"Erro: {e}")
 

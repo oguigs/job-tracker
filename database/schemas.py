@@ -121,6 +121,7 @@ def criar_tabelas():
         """)
         con.execute("CREATE SEQUENCE IF NOT EXISTS seq_vaga START 1")
         con.execute("ALTER TABLE fact_vaga ADD COLUMN IF NOT EXISTS historico_fases VARCHAR")
+        con.execute("ALTER TABLE fact_vaga ADD COLUMN IF NOT EXISTS ausencias_consecutivas INTEGER DEFAULT 0")
 
         con.execute("""
             CREATE TABLE IF NOT EXISTS dim_candidato (

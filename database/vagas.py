@@ -39,8 +39,8 @@ def inserir_vaga(vaga: dict, id_empresa: int) -> int | None:
 def inserir_vaga_manual(titulo: str, id_empresa: int, empresa_nome: str,
                         descricao: str, origem: str, contato: str) -> int:
     from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade
-    stacks = extrair_stacks(descricao)
-    nivel = detectar_nivel(titulo)
+    stacks    = extrair_stacks(descricao)
+    nivel     = detectar_nivel(titulo)
     modalidade = detectar_modalidade(descricao)
     hash_vaga = gerar_hash(titulo, empresa_nome, origem or "manual")
     with db_connect() as con:
@@ -51,28 +51,44 @@ def inserir_vaga_manual(titulo: str, id_empresa: int, empresa_nome: str,
         con.execute("""
             INSERT INTO fact_vaga
             (id, hash, titulo, nivel, modalidade, stacks, link, fonte,
-             id_empresa, origem, contato)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             id_empresa, origem, contato, descricao, ativa, negada, candidatura_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, false, 'nao_inscrito')
         """, [id_vaga, hash_vaga, titulo, nivel, modalidade,
               json.dumps(stacks), origem or "", "manual",
-              id_empresa, origem, contato])
+              id_empresa, origem, contato, descricao or ""])
     return id_vaga
 
 
 def verificar_vagas_encerradas(id_empresa: int, links_ativos: list) -> list:
     encerradas = []
+    links_set = set(links_ativos)
     with db_connect() as con:
         vagas = con.execute("""
-            SELECT id, link, titulo FROM fact_vaga
-            WHERE id_empresa = ? AND ativa = true
+            SELECT id, link, titulo, ausencias_consecutivas
+            FROM fact_vaga
+            WHERE id_empresa = ? AND ativa = true AND fonte != 'manual'
         """, [id_empresa]).fetchall()
-        for id_vaga, link, titulo in vagas:
-            if link not in links_ativos:
-                con.execute("""
-                    UPDATE fact_vaga SET ativa = false, data_encerramento = current_date
-                    WHERE id = ?
-                """, [id_vaga])
-                encerradas.append(titulo)
+        for id_vaga, link, titulo, ausencias in vagas:
+            ausencias = ausencias or 0
+            if link not in links_set:
+                if ausencias >= 1:
+                    con.execute("""
+                        UPDATE fact_vaga
+                        SET ativa = false, data_encerramento = current_date,
+                            ausencias_consecutivas = 0
+                        WHERE id = ?
+                    """, [id_vaga])
+                    encerradas.append(titulo)
+                else:
+                    con.execute("""
+                        UPDATE fact_vaga SET ausencias_consecutivas = ausencias_consecutivas + 1
+                        WHERE id = ?
+                    """, [id_vaga])
+            else:
+                if ausencias > 0:
+                    con.execute("""
+                        UPDATE fact_vaga SET ausencias_consecutivas = 0 WHERE id = ?
+                    """, [id_vaga])
     return encerradas
 
 
