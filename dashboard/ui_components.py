@@ -324,6 +324,8 @@ _FONTE_ICON = {
     "smartrecruiters": "🟡",
     "amazon":          "🟠",
     "bcg":             "⚫",
+    "lever":           "🔴",
+    "uber":            "⬛",
     "manual":          "✏️",
 }
 

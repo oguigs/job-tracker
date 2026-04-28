@@ -35,4 +35,4 @@ def status_badge(status_cand: str, is_nova: bool) -> tuple[str, str]:
         return 'Em processo', "#F0C040"
     if is_nova:
         return 'Novo', COR_NOVO
-    return 'Não inscrito', COR_INFO
+    return 'Pendente', COR_INFO

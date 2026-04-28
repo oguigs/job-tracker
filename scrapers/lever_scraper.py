@@ -110,7 +110,7 @@ def buscar_vagas_lever(slug: str, empresa: str, filtrar_brasil: bool = True) -> 
                 "titulo"    : titulo,
                 "link"      : link,
                 "modalidade": _detectar_modalidade(job),
-                "fonte"     : "desconhecida",
+                "fonte"     : "lever",
                 "empresa"   : empresa,
                 "descricao" : descricao,
                 "cidade"    : location,

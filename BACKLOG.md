@@ -1,6 +1,6 @@
 # Job Tracker — Backlog Completo
 
-> Última atualização: Abril 2026 · Total: 161 itens
+> Última atualização: Abril 2026 · Total: 168 itens
 
 ---
 
@@ -317,6 +317,22 @@
 
 ---
 
+## Bloco 17 — Integrações Externas Gratuitas
+> Todas via APIs gratuitas com autenticação OAuth2 ou webhooks simples.
+
+- [ ] **Google Agenda** — ao mover vaga para "entrevista agendada", cria evento automático com título, empresa e link; campo de follow-up cria lembrete
+- [ ] **Telegram Bot** — notificação no celular quando nova vaga com score ANYA alto é encontrada; comando `/vagas` retorna resumo do dia
+- [ ] **Gmail digest** — e-mail semanal com resumo de novas vagas filtradas por relevância (SMTP gratuito via conta Google)
+- [ ] **Google Drive** — versionar CVs e cartas de apresentação por empresa; link do Drive salvo na vaga para acesso rápido
+- [ ] **Google Sheets export** — exportar painel de candidaturas para planilha compartilhável (útil para compartilhar progresso com mentor ou recrutador)
+- [ ] **Webhook genérico** — endpoint configurável pelo usuário para integrar com qualquer serviço (Zapier, Make, Notion via automação)
+- [ ] **LinkedIn RSS feed** — coleta título, empresa, link e data de vagas via feed público do LinkedIn (sem login, sem violar ToS, sem descrição completa); complementa os scrapers existentes
+
+> 🚫 Fora do escopo por custo: Slack (pago para apps externos), WhatsApp Business API, Notion API (requer plano pago para integrações avançadas).
+> ⚠️ LinkedIn scraping via login/Playwright fora do escopo — risco de ban de conta e violação de ToS.
+
+---
+
 ## Resumo
 
 | Bloco | Tema | Itens | Status |
@@ -339,4 +355,5 @@
 | v2 | Infraestrutura Cloud | 5 | ○ Futuro |
 | v3 | Raspberry Pi | 4 | ○ Futuro |
 | 16 | Anti-detecção Scraper | 10 | ⚡ Em andamento (1/10) |
+| 17 | Integrações Externas | 6 | ○ Pendente |
 | **Total** | | **161** | |

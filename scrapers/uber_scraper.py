@@ -96,7 +96,7 @@ def buscar_vagas_uber(url_base: str = _JOB_BASE, max_paginas: int = 30) -> list:
                     "titulo"    : titulo,
                     "link"      : f"{_JOB_BASE}/{job_id}",
                     "modalidade": _detectar_modalidade(titulo, descricao),
-                    "fonte"     : "desconhecida",
+                    "fonte"     : "uber",
                     "empresa"   : "Uber",
                     "descricao" : descricao,
                     "cidade"    : cidade,
