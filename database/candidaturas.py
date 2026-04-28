@@ -1,17 +1,32 @@
+import json
+from datetime import date
 from database.connection import db_connect
 
 
 def atualizar_candidatura(id_vaga: int, status: str,
                           fase: str = None, observacao: str = None):
     with db_connect() as con:
+        row = con.execute(
+            "SELECT historico_fases FROM fact_vaga WHERE id = ?", [id_vaga]
+        ).fetchone()
+        historico = {}
+        if row and row[0]:
+            try:
+                historico = json.loads(row[0])
+            except Exception:
+                historico = {}
+        if status and status not in historico:
+            historico[status] = str(date.today())
+
         con.execute("""
             UPDATE fact_vaga
             SET candidatura_status = ?,
                 candidatura_fase = ?,
                 candidatura_observacao = ?,
-                candidatura_data = current_date
+                candidatura_data = current_date,
+                historico_fases = ?
             WHERE id = ?
-        """, [status, fase, observacao, id_vaga])
+        """, [status, fase, observacao, json.dumps(historico), id_vaga])
 
 
 def negar_vaga(id_vaga: int, observacao: str = None):

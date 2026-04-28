@@ -59,11 +59,13 @@ def render():
         _limpar_filtros()
 
     # ── BARRA DE CONTROLES (busca + view) ──────────────────────
-    col_busca, col_ord, col_cols, col_modo = st.columns([3, 2, 1.5, 1.5])
+    col_busca, col_ord, col_agrup, col_cols, col_modo = st.columns([3, 2, 2, 1.5, 1.5])
     busca       = col_busca.text_input("🔍 Buscar no título", key="f_busca", label_visibility="collapsed",
                                         placeholder="Buscar no título...")
     ordenar_por = col_ord.selectbox("Ordenar", ["Score ↓", "Score ↑", "Data ↓", "Data ↑", "Empresa A-Z"],
                                      key="f_ordenar_por", label_visibility="collapsed")
+    agrupar_por = col_agrup.selectbox("Agrupar", ["Nenhum", "Empresa", "Fase"],
+                                       key="f_agrupar_por", label_visibility="collapsed")
     num_colunas = col_cols.select_slider("Colunas", options=[2, 3, 4, 5, 6, 8], value=4,
                                           key="f_num_colunas", label_visibility="collapsed")
     modo_compacto = col_modo.checkbox("Compacto", key="f_modo_compacto")
@@ -197,19 +199,40 @@ def render():
         return
 
     # ── CARDS ──────────────────────────────────────────────────
-    vagas_list = list(df_f.iterrows())
-    for i in range(0, len(vagas_list), num_colunas):
-        grupo = vagas_list[i:i+num_colunas]
-        cols  = st.columns(num_colunas)
-        for j in range(num_colunas):
-            with cols[j]:
-                if j >= len(grupo):
-                    st.empty(); continue
-                _, vaga = grupo[j]
-                score   = int(scores.get(vaga["id"], 0))
-                is_nova = str(vaga["data_coleta"])[:10] >= ontem
-                ats     = ats_scores.get(int(vaga["id"]), 0)
-                render_vaga_card(vaga, score, is_nova, key_prefix="v", ats_score=ats)
+    def _render_grupo(df_grupo, key_prefix="v"):
+        vagas_list = list(df_grupo.iterrows())
+        for i in range(0, len(vagas_list), num_colunas):
+            bloco = vagas_list[i:i+num_colunas]
+            cols  = st.columns(num_colunas)
+            for j in range(num_colunas):
+                with cols[j]:
+                    if j >= len(bloco):
+                        st.empty(); continue
+                    _, vaga = bloco[j]
+                    score   = int(scores.get(vaga["id"], 0))
+                    is_nova = str(vaga["data_coleta"])[:10] >= ontem
+                    ats     = ats_scores.get(int(vaga["id"]), 0)
+                    render_vaga_card(vaga, score, is_nova, key_prefix=key_prefix, ats_score=ats)
+
+    if agrupar_por == "Empresa":
+        for empresa in sorted(df_f["empresa"].unique()):
+            df_emp = df_f[df_f["empresa"] == empresa]
+            st.markdown(f"#### 🏢 {empresa} ({len(df_emp)})")
+            _render_grupo(df_emp, key_prefix=f"v_emp_{empresa[:8]}")
+            st.divider()
+    elif agrupar_por == "Fase":
+        ordem_fases = ["nao_inscrito","inscrito","chamado","recrutador",
+                        "fase_1","fase_2","fase_3","aprovado","reprovado"]
+        for fase in ordem_fases:
+            df_fase = df_f[df_f["candidatura_status"] == fase]
+            if df_fase.empty:
+                continue
+            label = TIMELINE_LABELS.get(fase, fase)
+            st.markdown(f"#### {label} ({len(df_fase)})")
+            _render_grupo(df_fase, key_prefix=f"v_fase_{fase}")
+            st.divider()
+    else:
+        _render_grupo(df_f)
 
     # ── DIALOGS ────────────────────────────────────────────────
     vaga_id_atual = st.session_state.get("dialog_v_atual")

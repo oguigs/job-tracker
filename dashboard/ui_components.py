@@ -591,13 +591,18 @@ def _render_ats_tab(id_vaga: int, descricao: str, titulo: str, prefix: str):
 
 def render_dialog_vaga(v, prefix: str = "v"):
     """Dialog de detalhes de vaga reutilizável."""
+    import json as _json
     with db_connect() as _con:
         _row = _con.execute(
-            "SELECT candidatura_status, candidatura_observacao FROM fact_vaga WHERE id=?",
+            "SELECT candidatura_status, candidatura_observacao, historico_fases FROM fact_vaga WHERE id=?",
             [int(v["id"])]
         ).fetchone()
     status_cand = (_row[0] if _row and _row[0] else None) or "nao_inscrito"
-    _obs_atual = _row[1] if _row and _row[1] else ""
+    _obs_atual  = _row[1] if _row and _row[1] else ""
+    try:
+        _historico = _json.loads(_row[2]) if _row and _row[2] else {}
+    except Exception:
+        _historico = {}
 
     label_status = TIMELINE_LABELS.get(status_cand, "Não inscrito")
     data_fmt_v = str(v['data_coleta'])[:10] if str(v['data_coleta']) not in ['NaT','None','nan'] else 'N/A'
@@ -643,13 +648,16 @@ def render_dialog_vaga(v, prefix: str = "v"):
         cols_f = st.columns(len(fases))
         for idx, fase in enumerate(fases):
             ativo = fase == status_cand
-            icon = _TIMELINE_ICONS.get(fase, "•")
+            icon  = _TIMELINE_ICONS.get(fase, "•")
+            data_fase = _historico.get(fase, "")
+            data_label = data_fase[5:] if data_fase else ""  # MM-DD
+            btn_label = f"{icon}\n{data_label}" if data_label else icon
             if cols_f[idx].button(
-                icon,
+                btn_label,
                 key=f"fase_{prefix}_{fase}_{v['id']}",
                 use_container_width=True,
                 type="primary" if ativo else "secondary",
-                help=TIMELINE_LABELS[fase],
+                help=f"{TIMELINE_LABELS[fase]}{' — ' + data_fase if data_fase else ''}",
             ):
                 atualizar_candidatura(int(v["id"]), fase, fase, _obs_atual)
                 st.cache_data.clear()
