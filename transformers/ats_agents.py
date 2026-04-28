@@ -380,6 +380,56 @@ def _parsear_nexus(raw: str) -> dict:
 
 
 # ──────────────────────────────────────────────
+# CARTA — Agente de Carta de Apresentação (Ollama)
+# ──────────────────────────────────────────────
+
+def rodar_carta(texto_cv: str, descricao_vaga: str, titulo_vaga: str,
+                empresa: str = "", idioma: str = "pt-BR") -> str:
+    """Gera carta de apresentação personalizada baseada no CV e na vaga.
+
+    O que hunters realmente leem:
+    - Linha 1: por que ESSA empresa (não genérico)
+    - 2-3 conquistas quantificadas alinhadas à vaga
+    - Fit técnico explícito (stacks/ferramentas mencionadas)
+    - Fechamento com call-to-action direto
+    Máximo 3 parágrafos, ~250 palavras.
+    """
+    lang = _instrucao_idioma(idioma)
+    empresa_str = empresa or "a empresa"
+
+    prompt = f"""You are CARTA, a specialist in writing cover letters that get responses from headhunters.
+
+Rules that headhunters follow when reading cover letters:
+1. They spend ~10 seconds on the first paragraph — if it's generic, they stop
+2. They look for 2-3 specific and quantified achievements relevant to the role
+3. They check if the candidate mentions the tools/skills listed in the job description
+4. They want a direct closing — not "I hope to hear from you" but "I am available for a call this week"
+
+Write a cover letter in exactly 3 paragraphs:
+
+PARAGRAPH 1 — Hook (2-3 sentences):
+Mention something specific about {empresa_str} that motivates the candidacy.
+Connect the candidate's main differentiation to the job's main need.
+NO "I am writing to apply for the position" opener.
+
+PARAGRAPH 2 — Proof (3-4 sentences):
+Extract 2-3 concrete and quantified achievements from the resume that are directly relevant to the job.
+Naturally mention 2-3 technical keywords from the job description.
+
+PARAGRAPH 3 — Closing (2 sentences):
+Show confidence, not desperation.
+Specific and direct call-to-action.
+
+{lang}
+
+JOB: {titulo_vaga} at {empresa_str}
+JOB DESCRIPTION: {descricao_vaga[:800]}
+RESUME: {texto_cv[:1500]}
+"""
+    return _ollama_chat(prompt)
+
+
+# ──────────────────────────────────────────────
 # Entrada principal — roda os 4 agentes em sequência
 # ──────────────────────────────────────────────
 

@@ -2,7 +2,7 @@ import streamlit as st
 import tempfile
 import os
 from transformers.curriculo_parser import extrair_texto_pdf
-from transformers.ats_agents import analisar_curriculo, rodar_anya, ollama_disponivel, rodar_nexus, detectar_idioma
+from transformers.ats_agents import analisar_curriculo, rodar_anya, ollama_disponivel, rodar_nexus, rodar_carta, detectar_idioma
 from database.connection import db_connect
 
 
@@ -170,13 +170,17 @@ def render():
         st.session_state["ats_descricao"]    = descricao_vaga
         st.session_state["ats_titulo_vaga"]  = titulo_vaga
         st.session_state["ats_nexus"]        = None
+        st.session_state["ats_carta"]        = None
+        st.session_state["ats_empresa"]      = titulo_vaga.split("—")[0].strip() if "—" in titulo_vaga else ""
 
     if "ats_resultado" in st.session_state and st.session_state["ats_resultado"]:
         _exibir_resultado(st.session_state["ats_resultado"], llm_ok)
 
         if llm_ok:
             st.divider()
-            if st.button("✦ OTIMIZAR CURRÍCULO COM NEXUS", type="primary", use_container_width=True):
+            col_nexus, col_carta = st.columns(2)
+
+            if col_nexus.button("✦ OTIMIZAR CURRÍCULO COM NEXUS", type="primary", use_container_width=True):
                 with st.status("░ NEXUS REESCREVENDO CURRÍCULO...", expanded=True) as status:
                     st.write("░ ANALISANDO GAPS E REESCREVENDO BULLETS...")
                     nexus = rodar_nexus(
@@ -189,8 +193,28 @@ def render():
                     st.session_state["ats_nexus"] = nexus
                     status.update(label="Otimização concluída", state="complete")
 
+            if col_carta.button("✉ GERAR CARTA DE APRESENTAÇÃO", use_container_width=True):
+                with st.status("░ CARTA REDIGINDO...", expanded=True) as status:
+                    st.write("░ ANALISANDO PERFIL E VAGA...")
+                    carta = rodar_carta(
+                        st.session_state["ats_texto_cv"],
+                        st.session_state["ats_descricao"],
+                        st.session_state["ats_titulo_vaga"],
+                        st.session_state.get("ats_empresa", ""),
+                        st.session_state["ats_resultado"].get("idioma", "pt-BR"),
+                    )
+                    st.session_state["ats_carta"] = carta
+                    status.update(label="Carta gerada", state="complete")
+
         if st.session_state.get("ats_nexus"):
-            _exibir_nexus(st.session_state["ats_nexus"])
+            _exibir_nexus(
+                st.session_state["ats_nexus"],
+                st.session_state.get("ats_texto_cv", ""),
+                st.session_state.get("ats_titulo_vaga", ""),
+            )
+
+        if st.session_state.get("ats_carta"):
+            _exibir_carta(st.session_state["ats_carta"], st.session_state.get("ats_titulo_vaga", ""))
 
 
 def _exibir_resultado(resultado: dict, llm_ok: bool):
@@ -297,7 +321,31 @@ def _exibir_resultado(resultado: dict, llm_ok: bool):
             st.markdown(f":{cor}[{icone} {secao.capitalize()}]")
 
 
-def _exibir_nexus(nexus: dict):
+def _gerar_txt_otimizado(nexus: dict, texto_cv_original: str, titulo_vaga: str) -> str:
+    linhas = [
+        "═" * 60,
+        f"CURRÍCULO OTIMIZADO — {titulo_vaga.upper()}",
+        "Gerado por NEXUS | Job Tracker",
+        "═" * 60,
+        "",
+    ]
+    if nexus.get("titulo_sugerido"):
+        linhas += ["TÍTULO PROFISSIONAL SUGERIDO", "─" * 40,
+                   nexus["titulo_sugerido"], ""]
+    if nexus.get("resumo_otimizado"):
+        linhas += ["RESUMO PROFISSIONAL OTIMIZADO", "─" * 40,
+                   nexus["resumo_otimizado"], ""]
+    if nexus.get("bullets"):
+        linhas += ["BULLETS REESCRITOS", "─" * 40,
+                   "Substitua as experiências correspondentes no seu CV:", ""]
+        for i, b in enumerate(nexus["bullets"], 1):
+            linhas += [f"[{i}] ANTES:", f"    {b['antes']}",
+                       f"[{i}] DEPOIS:", f"    {b['depois']}", ""]
+    linhas += ["─" * 60, "CURRÍCULO ORIGINAL (referência)", "─" * 60, "", texto_cv_original]
+    return "\n".join(linhas)
+
+
+def _exibir_nexus(nexus: dict, texto_cv_original: str = "", titulo_vaga: str = ""):
     st.divider()
     st.markdown(
         "<div style='font-family:monospace; color:#a78bfa; font-size:13px; "
@@ -367,3 +415,42 @@ def _exibir_nexus(nexus: dict):
             "white-space:pre-wrap'>" + nexus["raw"] + "</div>",
             unsafe_allow_html=True,
         )
+
+    # download TXT
+    if texto_cv_original and (nexus.get("titulo_sugerido") or nexus.get("resumo_otimizado") or nexus.get("bullets")):
+        st.divider()
+        nome_arquivo = f"cv_otimizado_{titulo_vaga[:30].lower().replace(' ','_').replace('/','')}.txt"
+        txt = _gerar_txt_otimizado(nexus, texto_cv_original, titulo_vaga)
+        st.download_button(
+            "📥 Baixar CV otimizado (.txt)",
+            data=txt.encode("utf-8"),
+            file_name=nome_arquivo,
+            mime="text/plain",
+            use_container_width=True,
+        )
+        st.caption("Cole o conteúdo no Google Docs ou Word, aplique as sugestões e exporte como PDF.")
+
+
+def _exibir_carta(carta: str, titulo_vaga: str = ""):
+    st.divider()
+    st.markdown(
+        "<div style='font-family:monospace; color:#60a5fa; font-size:13px; "
+        "letter-spacing:2px; margin-bottom:16px'>✉ CARTA — MÓDULO APRESENTAÇÃO</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div style='background:#0d1117; border:1px solid #30363d; border-radius:6px; "
+        "padding:20px; font-family:sans-serif; color:#e6edf3; font-size:15px; "
+        "line-height:1.8; white-space:pre-wrap'>" + carta + "</div>",
+        unsafe_allow_html=True,
+    )
+    st.divider()
+    nome_arquivo = f"carta_{titulo_vaga[:30].lower().replace(' ','_').replace('/','')}.txt"
+    st.download_button(
+        "📥 Baixar carta (.txt)",
+        data=carta.encode("utf-8"),
+        file_name=nome_arquivo,
+        mime="text/plain",
+        use_container_width=True,
+    )
+    st.caption("Revise antes de enviar — adapte o nome da empresa e detalhes específicos.")
