@@ -64,13 +64,28 @@ def verificar_vagas_encerradas(id_empresa: int, links_ativos: list) -> list:
     links_set = set(links_ativos)
     with db_connect() as con:
         vagas = con.execute("""
-            SELECT id, link, titulo, ausencias_consecutivas
+            SELECT id, link, titulo, ativa, ausencias_consecutivas
             FROM fact_vaga
-            WHERE id_empresa = ? AND ativa = true AND fonte != 'manual'
+            WHERE id_empresa = ? AND fonte != 'manual'
         """, [id_empresa]).fetchall()
-        for id_vaga, link, titulo, ausencias in vagas:
+        for id_vaga, link, titulo, ativa, ausencias in vagas:
             ausencias = ausencias or 0
-            if link not in links_set:
+            if link in links_set:
+                # vaga presente no board — garante que está ativa e zera contador
+                if not ativa:
+                    con.execute("""
+                        UPDATE fact_vaga
+                        SET ativa = true, data_encerramento = NULL,
+                            ausencias_consecutivas = 0
+                        WHERE id = ?
+                    """, [id_vaga])
+                elif ausencias > 0:
+                    con.execute("""
+                        UPDATE fact_vaga SET ausencias_consecutivas = 0 WHERE id = ?
+                    """, [id_vaga])
+            else:
+                if not ativa:
+                    continue  # já encerrada, nada a fazer
                 if ausencias >= 1:
                     con.execute("""
                         UPDATE fact_vaga
@@ -83,11 +98,6 @@ def verificar_vagas_encerradas(id_empresa: int, links_ativos: list) -> list:
                     con.execute("""
                         UPDATE fact_vaga SET ausencias_consecutivas = ausencias_consecutivas + 1
                         WHERE id = ?
-                    """, [id_vaga])
-            else:
-                if ausencias > 0:
-                    con.execute("""
-                        UPDATE fact_vaga SET ausencias_consecutivas = 0 WHERE id = ?
                     """, [id_vaga])
     return encerradas
 
