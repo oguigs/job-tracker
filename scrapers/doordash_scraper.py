@@ -1,16 +1,29 @@
 from logger import get_logger
+
 log = get_logger("doordash_scraper")
 import requests
 import html
 import re
 
 _URL_SITE = "https://careersatdoordash.com/job-search/?location=&spage=1"
-_GH_SLUG  = "doordashinternational"
+_GH_SLUG = "doordashinternational"
 
 _TERMOS_BR = {
-    "brazil", "brasil", "são paulo", "sao paulo", "rio de janeiro",
-    "curitiba", "belo horizonte", "porto alegre", "campinas", "brasilia",
-    "brasília", "fortaleza", "recife", "salvador", "manaus",
+    "brazil",
+    "brasil",
+    "são paulo",
+    "sao paulo",
+    "rio de janeiro",
+    "curitiba",
+    "belo horizonte",
+    "porto alegre",
+    "campinas",
+    "brasilia",
+    "brasília",
+    "fortaleza",
+    "recife",
+    "salvador",
+    "manaus",
 }
 
 
@@ -67,26 +80,28 @@ def buscar_vagas_doordash() -> list:
         log.info(f"  {len(jobs)} vagas brutas no board")
 
         for job in jobs:
-            titulo    = job.get("title", "")
-            link      = job.get("absolute_url", "")
-            loc_obj   = job.get("location", {})
-            location  = loc_obj.get("name", "") if isinstance(loc_obj, dict) else str(loc_obj)
+            titulo = job.get("title", "")
+            link = job.get("absolute_url", "")
+            loc_obj = job.get("location", {})
+            location = loc_obj.get("name", "") if isinstance(loc_obj, dict) else str(loc_obj)
             descricao = _limpar_html(job.get("content", ""))
 
             pais = _detectar_pais(location)
             if pais == "other":
                 continue
 
-            vagas.append({
-                "titulo"    : titulo,
-                "link"      : link,
-                "modalidade": _detectar_modalidade(titulo, location, descricao),
-                "fonte"     : "greenhouse",
-                "empresa"   : "Doordash",
-                "descricao" : descricao,
-                "cidade"    : location,
-                "pais"      : pais,
-            })
+            vagas.append(
+                {
+                    "titulo": titulo,
+                    "link": link,
+                    "modalidade": _detectar_modalidade(titulo, location, descricao),
+                    "fonte": "greenhouse",
+                    "empresa": "Doordash",
+                    "descricao": descricao,
+                    "cidade": location,
+                    "pais": pais,
+                }
+            )
 
         log.info(f"  {len(vagas)} vagas após filtro Brazil/remote")
 

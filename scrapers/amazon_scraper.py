@@ -1,4 +1,5 @@
 from logger import get_logger
+
 log = get_logger("amazon_scraper")
 import requests
 import html
@@ -9,15 +10,42 @@ _BASE_URL = "https://www.amazon.jobs/en/search.json"
 _JOB_BASE = "https://www.amazon.jobs"
 
 _PAISES_BR = {
-    "brazil", "brasil", "são paulo", "sao paulo", "rio de janeiro",
-    "curitiba", "belo horizonte", "porto alegre", "campinas", "brasilia",
-    "brasília", "fortaleza", "recife", "salvador", "manaus",
+    "brazil",
+    "brasil",
+    "são paulo",
+    "sao paulo",
+    "rio de janeiro",
+    "curitiba",
+    "belo horizonte",
+    "porto alegre",
+    "campinas",
+    "brasilia",
+    "brasília",
+    "fortaleza",
+    "recife",
+    "salvador",
+    "manaus",
 }
 
 _PAISES_OUTROS = {
-    "united states", "usa", "us", "india", "china", "uk", "canada",
-    "mexico", "argentina", "colombia", "singapore", "germany", "france",
-    "spain", "luxembourg", "ireland", "japan", "australia",
+    "united states",
+    "usa",
+    "us",
+    "india",
+    "china",
+    "uk",
+    "canada",
+    "mexico",
+    "argentina",
+    "colombia",
+    "singapore",
+    "germany",
+    "france",
+    "spain",
+    "luxembourg",
+    "ireland",
+    "japan",
+    "australia",
 }
 
 
@@ -47,9 +75,13 @@ def _detectar_modalidade(titulo: str, descricao: str, location: str) -> str:
     return "não identificado"
 
 
-def buscar_vagas_amazon(loc_query: str = "Brazil", country: str = "BRA",
-                        base_query: str = "", result_limit: int = 100,
-                        max_vagas: int = 2000) -> list:
+def buscar_vagas_amazon(
+    loc_query: str = "Brazil",
+    country: str = "BRA",
+    base_query: str = "",
+    result_limit: int = 100,
+    max_vagas: int = 2000,
+) -> list:
     """Busca vagas na Amazon Jobs via API JSON pública.
 
     Args:
@@ -67,20 +99,25 @@ def buscar_vagas_amazon(loc_query: str = "Brazil", country: str = "BRA",
         try:
             params = {
                 "base_query": base_query,
-                "loc_query":  loc_query,
-                "country":    country,
+                "loc_query": loc_query,
+                "country": country,
                 "result_limit": result_limit,
                 "offset": offset,
             }
-            resp = requests.get(_BASE_URL, params=params, timeout=20, headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36"
-                ),
-                "Accept": "application/json, text/javascript, */*; q=0.01",
-                "Referer": "https://www.amazon.jobs/",
-            })
+            resp = requests.get(
+                _BASE_URL,
+                params=params,
+                timeout=20,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "Referer": "https://www.amazon.jobs/",
+                },
+            )
 
             if resp.status_code != 200:
                 log.error(f"  Amazon Jobs retornou status {resp.status_code}")
@@ -102,23 +139,24 @@ def buscar_vagas_amazon(loc_query: str = "Brazil", country: str = "BRA",
                 descricao_raw = job.get("description", "") or job.get("description_short", "")
                 descricao = _limpar_html(descricao_raw)
 
-                vagas.append({
-                    "titulo": titulo,
-                    "link": link,
-                    "modalidade": _detectar_modalidade(titulo, descricao, location),
-                    "fonte": "amazon",
-                    "empresa": "Amazon",
-                    "descricao": descricao,
-                    "cidade": city or location,
-                    "pais": _detectar_pais(location, country_code),
-                })
+                vagas.append(
+                    {
+                        "titulo": titulo,
+                        "link": link,
+                        "modalidade": _detectar_modalidade(titulo, descricao, location),
+                        "fonte": "amazon",
+                        "empresa": "Amazon",
+                        "descricao": descricao,
+                        "cidade": city or location,
+                        "pais": _detectar_pais(location, country_code),
+                    }
+                )
 
             log.info(f"  Coletadas {len(vagas)} vagas (offset={offset})")
 
             if len(vagas) >= max_vagas:
                 log.warning(f"  Limite de segurança atingido ({max_vagas}), encerrando paginação")
                 break
-
 
             total = data.get("hits", 0)
             offset += result_limit

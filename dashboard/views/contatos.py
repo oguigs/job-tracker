@@ -13,16 +13,16 @@ def render():
         empresas_db = con.execute("SELECT id, nome FROM dim_empresa ORDER BY nome").fetchall()
 
     nomes_empresas = [e[1] for e in empresas_db]
-    mapa_empresas  = {e[1]: e[0] for e in empresas_db}
+    mapa_empresas = {e[1]: e[0] for e in empresas_db}
 
     st.subheader("Cadastrar contato")
     with st.form("form_contato"):
         col1, col2 = st.columns(2)
-        nome  = col1.text_input("Nome *", placeholder="João Silva")
+        nome = col1.text_input("Nome *", placeholder="João Silva")
         email = col2.text_input("Email corporativo", placeholder="joao@empresa.com")
         col3, col4 = st.columns(2)
         empresa_sel = col3.selectbox("Empresa *", ["— selecione —"] + nomes_empresas)
-        grau        = col4.selectbox("Grau de intimidade", GRAUS)
+        grau = col4.selectbox("Grau de intimidade", GRAUS)
         observacoes = st.text_area("Observações", height=80)
         if st.form_submit_button("Salvar contato", type="primary", use_container_width=True):
             if not nome:
@@ -30,22 +30,31 @@ def render():
             elif empresa_sel == "— selecione —":
                 st.error("Selecione uma empresa.")
             else:
-                inserir_contato(nome=nome, email=email,
-                               id_empresa=mapa_empresas[empresa_sel],
-                               grau=grau, observacoes=observacoes)
+                inserir_contato(
+                    nome=nome,
+                    email=email,
+                    id_empresa=mapa_empresas[empresa_sel],
+                    grau=grau,
+                    observacoes=observacoes,
+                )
                 st.success(f"{nome} cadastrado!")
                 st.rerun()
 
     st.divider()
     st.subheader("Contatos cadastrados")
     empresa_filtro = st.selectbox("Filtrar por empresa", ["Todas"] + nomes_empresas)
-    df = listar_contatos() if empresa_filtro == "Todas" else listar_contatos(mapa_empresas[empresa_filtro])
+    df = (
+        listar_contatos()
+        if empresa_filtro == "Todas"
+        else listar_contatos(mapa_empresas[empresa_filtro])
+    )
 
     if df.empty:
         from dashboard.ui_components import render_empty_state
+
         render_empty_state(
             "Nenhum contato cadastrado",
-            "Adicione pessoas que podem te indicar — aparecem automaticamente ao avançar em entrevistas."
+            "Adicione pessoas que podem te indicar — aparecem automaticamente ao avançar em entrevistas.",
         )
         return
 

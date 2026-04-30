@@ -1,31 +1,32 @@
 from logger import get_logger
+
 log = get_logger("uber_scraper")
 import requests
 import time
 
-_API_URL  = "https://www.uber.com/api/loadSearchJobsResults?localeCode=pt-BR"
+_API_URL = "https://www.uber.com/api/loadSearchJobsResults?localeCode=pt-BR"
 _JOB_BASE = "https://www.uber.com/br/pt-br/careers/list"
-_HEADERS  = {
+_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Referer"     : "https://www.uber.com/br/pt-br/careers/list/",
+    "Referer": "https://www.uber.com/br/pt-br/careers/list/",
     "x-csrf-token": "x",
     "Content-Type": "application/json",
-    "Accept"      : "application/json",
+    "Accept": "application/json",
 }
 
 _PAYLOAD_BASE = {
-    "limit" : 100,
-    "page"  : 0,
+    "limit": 100,
+    "page": 0,
     "params": {
-        "department"        : [],
+        "department": [],
         "lineOfBusinessName": [],
-        "location"          : [],
+        "location": [],
         "programAndPlatform": [],
-        "team"              : [],
+        "team": [],
     },
 }
 
@@ -69,10 +70,10 @@ def buscar_vagas_uber(url_base: str = _JOB_BASE, max_paginas: int = 30) -> list:
                 log.error(f"  Uber API retornou {r.status_code} na página {page}")
                 break
 
-            data   = r.json().get("data", {})
-            jobs   = data.get("results", [])
-            total  = data.get("totalResults", {})
-            total  = total.get("low", 0) if isinstance(total, dict) else int(total or 0)
+            data = r.json().get("data", {})
+            jobs = data.get("results", [])
+            total = data.get("totalResults", {})
+            total = total.get("low", 0) if isinstance(total, dict) else int(total or 0)
 
             if not jobs:
                 break
@@ -87,21 +88,23 @@ def buscar_vagas_uber(url_base: str = _JOB_BASE, max_paginas: int = 30) -> list:
                     continue
 
                 ids_vistos.add(job_id)
-                titulo    = job.get("title", "")
+                titulo = job.get("title", "")
                 descricao = job.get("description", "")
-                loc       = job.get("location", {})
-                cidade    = f"{loc.get('city', '')} - {loc.get('region', '')}".strip(" -")
+                loc = job.get("location", {})
+                cidade = f"{loc.get('city', '')} - {loc.get('region', '')}".strip(" -")
 
-                vagas.append({
-                    "titulo"    : titulo,
-                    "link"      : f"{_JOB_BASE}/{job_id}",
-                    "modalidade": _detectar_modalidade(titulo, descricao),
-                    "fonte"     : "uber",
-                    "empresa"   : "Uber",
-                    "descricao" : descricao,
-                    "cidade"    : cidade,
-                    "pais"      : "br",
-                })
+                vagas.append(
+                    {
+                        "titulo": titulo,
+                        "link": f"{_JOB_BASE}/{job_id}",
+                        "modalidade": _detectar_modalidade(titulo, descricao),
+                        "fonte": "uber",
+                        "empresa": "Uber",
+                        "descricao": descricao,
+                        "cidade": cidade,
+                        "pais": "br",
+                    }
+                )
 
             # Para se já vimos todas as vagas globais
             if len(ids_vistos) >= total or len(jobs) < 100:

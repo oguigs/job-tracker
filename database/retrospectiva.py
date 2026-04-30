@@ -1,26 +1,37 @@
 from database.connection import db_connect
 
 
-def salvar_retrospectiva(id_vaga: int, nao_soube: str, faria_diferente: str,
-                          impressao_geral: str, motivo_encerramento: str) -> int:
+def salvar_retrospectiva(
+    id_vaga: int,
+    nao_soube: str,
+    faria_diferente: str,
+    impressao_geral: str,
+    motivo_encerramento: str,
+) -> int:
     with db_connect() as con:
         # remove retrospectiva anterior se existir
         con.execute("DELETE FROM log_retrospectiva WHERE id_vaga = ?", [id_vaga])
         id_r = con.execute("SELECT nextval('seq_retrospectiva')").fetchone()[0]
-        con.execute("""
+        con.execute(
+            """
             INSERT INTO log_retrospectiva
             (id, id_vaga, nao_soube, faria_diferente, impressao_geral, motivo_encerramento)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, [id_r, id_vaga, nao_soube, faria_diferente, impressao_geral, motivo_encerramento])
+        """,
+            [id_r, id_vaga, nao_soube, faria_diferente, impressao_geral, motivo_encerramento],
+        )
     return id_r
 
 
 def carregar_retrospectiva(id_vaga: int):
     with db_connect() as con:
-        return con.execute("""
+        return con.execute(
+            """
             SELECT nao_soube, faria_diferente, impressao_geral, motivo_encerramento, data
             FROM log_retrospectiva WHERE id_vaga = ?
-        """, [id_vaga]).fetchone()
+        """,
+            [id_vaga],
+        ).fetchone()
 
 
 def listar_retrospectivas():

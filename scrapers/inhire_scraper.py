@@ -1,11 +1,15 @@
 from logger import get_logger
+
 log = get_logger("inhire_scraper")
 from playwright.sync_api import sync_playwright
-import re, time, random
+import re
+import time
+import random
 
 
 def _limpar_html(txt: str) -> str:
     import html as html_lib
+
     return re.sub(r"<[^>]+>", " ", html_lib.unescape(txt or "")).strip()
 
 
@@ -62,15 +66,17 @@ def buscar_vagas_inhire(url_base: str) -> list:
                 elif "presencial" in titulo_lower:
                     modalidade = "presencial"
 
-                vagas.append({
-                    "titulo":    titulo.split(" -> ")[0].strip(),
-                    "link":      url_completa,
-                    "modalidade": modalidade,
-                    "fonte":     "inhire",
-                    "empresa":   dominio.split(".")[0],
-                    "cidade":    "",
-                    "pais":      "br",
-                })
+                vagas.append(
+                    {
+                        "titulo": titulo.split(" -> ")[0].strip(),
+                        "link": url_completa,
+                        "modalidade": modalidade,
+                        "fonte": "inhire",
+                        "empresa": dominio.split(".")[0],
+                        "cidade": "",
+                        "pais": "br",
+                    }
+                )
 
             log.info(f"  {len(vagas)} vagas encontradas — coletando descrições...")
 
@@ -78,7 +84,7 @@ def buscar_vagas_inhire(url_base: str) -> list:
                 desc = _coletar_descricao_inhire(page, vaga["link"])
                 vaga["descricao"] = desc
                 status = f"✓ {len(desc)}ch" if desc else "✗ sem desc"
-                log.info(f"  [{i+1}/{len(vagas)}] {status} — {vaga['titulo'][:45]}")
+                log.info(f"  [{i + 1}/{len(vagas)}] {status} — {vaga['titulo'][:45]}")
                 time.sleep(random.uniform(0.5, 1.2))
 
         except Exception as e:
@@ -92,4 +98,4 @@ if __name__ == "__main__":
     vagas = buscar_vagas_inhire("https://pravaler.inhire.app/vagas")
     log.info(f"{len(vagas)} vagas encontradas")
     for v in vagas[:5]:
-        log.info(f"  - {v['titulo']} | {len(v.get('descricao',''))} chars")
+        log.info(f"  - {v['titulo']} | {len(v.get('descricao', ''))} chars")

@@ -1,11 +1,15 @@
-import json
-import time as _time
-import duckdb
 from scrapers.gupy_scraper import buscar_vagas
 from scrapers.gupy_detalhes import coletar_descricoes_lote
-from transformers.stack_extractor import extrair_stacks, detectar_nivel, detectar_modalidade, detectar_urgencia, detectar_salario, extrair_sinais_descricao
+from transformers.stack_extractor import (
+    extrair_stacks,
+    detectar_nivel,
+    detectar_modalidade,
+    detectar_urgencia,
+    detectar_salario,
+    extrair_sinais_descricao,
+)
 from database.schemas import criar_tabelas
-from database.empresas import upsert_empresa, listar_empresas_ativas, gerar_hash
+from database.empresas import upsert_empresa, gerar_hash
 from database.vagas import inserir_vaga, verificar_vagas_encerradas
 from database.logs import registrar_log, ultima_execucao_sucesso, empresa_bloqueada
 from database.filtros import carregar_filtros, carregar_filtros_localizacao
@@ -20,15 +24,15 @@ from scrapers.bcg_scraper import buscar_vagas_bcg
 from scrapers.doordash_scraper import buscar_vagas_doordash
 from scrapers.uber_scraper import buscar_vagas_uber
 from scrapers.lever_scraper import buscar_vagas_lever
-from database.connection import DB_PATH, conectar, db_connect
-from playwright.sync_api import sync_playwright
-from playwright_stealth import stealth as stealth_sync
-import requests, html, re
+from scrapers.jobs99_scraper import buscar_vagas_99jobs
+from database.connection import db_connect
 
 from logger import get_logger
+
 log = get_logger("pipeline")
 
 TIMEOUT_EMPRESA_SEGUNDOS = 300
+
 
 def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
     titulo_lower = titulo.lower()
@@ -38,35 +42,46 @@ def titulo_relevante(titulo: str, interesse: list, bloqueio: list) -> bool:
         return False
     return True
 
+
 def localidade_relevante(vaga: dict, permitidos: list, bloqueados: list) -> bool:
     if not permitidos and not bloqueados:
         return True
-    
+
     local = (
-        vaga.get("cidade", "") + " " + 
-        vaga.get("pais", "") + " " +
-        vaga.get("modalidade", "") + " " +
-        vaga.get("titulo", "")
+        vaga.get("cidade", "")
+        + " "
+        + vaga.get("pais", "")
+        + " "
+        + vaga.get("modalidade", "")
+        + " "
+        + vaga.get("titulo", "")
     ).lower()
-    
+
     if bloqueados:
         bloqueados_iso = {"india": "in", "china": "cn", "pakistan": "pk"}
         for b in bloqueados:
             if b.lower() in local:
                 return False
-            if b.lower() in bloqueados_iso and bloqueados_iso[b.lower()] == vaga.get("pais","").lower():
+            if (
+                b.lower() in bloqueados_iso
+                and bloqueados_iso[b.lower()] == vaga.get("pais", "").lower()
+            ):
                 return False
-    
+
     if permitidos:
         permitidos_iso = {"brazil": "br", "brasil": "br"}
         for p in permitidos:
             if p.lower() in local:
                 return True
-            if p.lower() in permitidos_iso and permitidos_iso[p.lower()] == vaga.get("pais","").lower():
+            if (
+                p.lower() in permitidos_iso
+                and permitidos_iso[p.lower()] == vaga.get("pais", "").lower()
+            ):
                 return True
         return "remoto" in local or "remote" in local
-    
+
     return True
+
 
 def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tuple[int, int, str]:
     if empresa_bloqueada(nome):
@@ -100,17 +115,19 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
             descricao = vaga.get("descricao", "")
             titulo = vaga.get("titulo", "")
 
-            vaga["stacks"]    = extrair_stacks(descricao)
-            vaga["nivel"]     = detectar_nivel(titulo)
+            vaga["stacks"] = extrair_stacks(descricao)
+            vaga["nivel"] = detectar_nivel(titulo)
             vaga["modalidade"] = detectar_modalidade(
-                descricao,
-                modalidade_coletada=vaga.get("modalidade", "não identificado")
+                descricao, modalidade_coletada=vaga.get("modalidade", "não identificado")
             )
 
             with db_connect() as con_check:
-                negada = con_check.execute("""
+                negada = con_check.execute(
+                    """
                     SELECT id FROM fact_vaga WHERE hash = ? AND negada = true
-                """, [gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])]).fetchone()
+                """,
+                    [gerar_hash(vaga["titulo"], vaga["empresa"], vaga["link"])],
+                ).fetchone()
 
             if negada:
                 continue
@@ -135,25 +152,29 @@ def processar_empresa(nome: str, url_vagas: str, cooldown_horas: int = 12) -> tu
 
     return vagas_encontradas, vagas_novas, erro
 
+
 def _auto_anya(id_vaga: int, descricao: str, titulo: str, texto_cv: str):
     """Runs ANYA score computation silently — never raises."""
     if not texto_cv or not descricao:
         return
     try:
         from transformers.ats_agents import rodar_anya
+
         anya = rodar_anya(texto_cv, descricao, titulo)
         anya["score_final"] = round(
-            anya["score_keywords"]   * 0.40 +
-            anya["score_formatacao"] * 0.25 +
-            anya["score_secoes"]     * 0.20 +
-            anya["score_impacto"]    * 0.15
+            anya["score_keywords"] * 0.40
+            + anya["score_formatacao"] * 0.25
+            + anya["score_secoes"] * 0.20
+            + anya["score_impacto"] * 0.15
         )
         salvar_ats_score(id_vaga, anya)
     except Exception:
         pass
 
 
-def _processar_empresa_generica(nome: str, vagas_raw: list, url_vagas: str = "") -> tuple[int, int, str]:
+def _processar_empresa_generica(
+    nome: str, vagas_raw: list, url_vagas: str = ""
+) -> tuple[int, int, str]:
     """Processa vagas já coletadas — filtra, enriquece e insere no banco."""
     vagas_novas = 0
     try:
@@ -209,7 +230,9 @@ def _processar_empresa_generica(nome: str, vagas_raw: list, url_vagas: str = "")
 
 def processar_empresa_greenhouse(nome: str, slug: str) -> tuple[int, int, str]:
     vagas_raw = buscar_vagas_greenhouse(slug)
-    return _processar_empresa_generica(nome, vagas_raw, url_vagas=f"https://boards.greenhouse.io/{slug}")
+    return _processar_empresa_generica(
+        nome, vagas_raw, url_vagas=f"https://boards.greenhouse.io/{slug}"
+    )
 
 
 def processar_empresa_inhire(nome: str, url_inhire: str) -> tuple[int, int, str]:
@@ -221,11 +244,6 @@ def processar_empresa_smartrecruiters(nome: str, url: str) -> tuple[int, int, st
     slug = url.rstrip("/").split("/")[-1]
     vagas_raw = buscar_vagas_smartrecruiters(slug)
     return _processar_empresa_generica(nome, vagas_raw, url_vagas=url)
-
-
-def processar_empresa_amazon(nome: str, url_vagas: str = "https://www.amazon.jobs/en/search.json") -> tuple[int, int, str]:
-    vagas_raw = buscar_vagas_amazon(loc_query="Brazil")
-    return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_vagas)
 
 
 def processar_empresa_bcg(nome: str, url_base: str) -> tuple[int, int, str]:
@@ -249,17 +267,31 @@ def processar_empresa_lever(nome: str, url_vagas: str) -> tuple[int, int, str]:
     return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_vagas)
 
 
+def processar_empresa_99jobs(nome: str, url_vagas: str) -> tuple[int, int, str]:
+    vagas_raw = buscar_vagas_99jobs(url=url_vagas, empresa=nome)
+    return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_vagas)
+
+
+def processar_empresa_amaris(nome: str, url_vagas: str) -> tuple[int, int, str]:
+    from scrapers.amaris_scraper import buscar_vagas_amaris
+
+    vagas_raw = buscar_vagas_amaris()
+    return _processar_empresa_generica(nome, vagas_raw, url_vagas=url_vagas)
+
+
 def processar_empresa_amazon(nome: str, url_vagas: str) -> tuple[int, int, str]:
     from urllib.parse import urlparse, parse_qs
+
     parsed = parse_qs(urlparse(url_vagas).query)
     loc_query = parsed.get("loc_query", ["Brazil"])[0]
     base_query = parsed.get("base_query", [""])[0]
     vagas_raw = buscar_vagas_amazon(loc_query=loc_query, base_query=base_query)
     return _processar_empresa_generica(nome, vagas_raw)
 
+
 def rodar_pipeline() -> None:
     criar_tabelas()
-    
+
     with db_connect() as con:
         empresas = con.execute("""
             SELECT nome, url_vagas FROM dim_empresa
@@ -293,6 +325,10 @@ def rodar_pipeline() -> None:
             processar_empresa_uber(nome, url_vagas)
         elif "lever.co" in url_vagas:
             processar_empresa_lever(nome, url_vagas)
+        elif "99jobs.com" in url_vagas:
+            processar_empresa_99jobs(nome, url_vagas)
+        elif "careers.amaris.com" in url_vagas:
+            processar_empresa_amaris(nome, url_vagas)
         else:
             log.info(f"  Plataforma não reconhecida: {url_vagas}")
 

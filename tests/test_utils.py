@@ -1,7 +1,9 @@
 """Testes para utils.py — helpers globais."""
+
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from utils import safe_bool, safe_str, safe_int, nivel_fmt, modal_fmt, status_badge, cor_score
 

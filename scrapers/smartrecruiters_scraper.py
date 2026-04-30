@@ -1,12 +1,18 @@
 from logger import get_logger
+
 log = get_logger("smartrecruiters_scraper")
-import requests, html, re
+import requests
+import html
+import re
+
 
 def limpar_html(texto: str) -> str:
-    return re.sub('<[^>]+>', ' ', html.unescape(texto or ''))
+    return re.sub("<[^>]+>", " ", html.unescape(texto or ""))
 
 
-def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, buscar_descricao: bool = True) -> list:
+def buscar_vagas_smartrecruiters(
+    company_slug: str, filtro_cidade: str = None, buscar_descricao: bool = True
+) -> list:
     vagas = []
     limit = 100
     offset = 0
@@ -16,7 +22,7 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, b
             r = requests.get(
                 f"https://api.smartrecruiters.com/v1/companies/{company_slug}/postings",
                 params={"limit": limit, "offset": offset},
-                timeout=15
+                timeout=15,
             )
             if r.status_code != 200:
                 break
@@ -37,12 +43,12 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, b
                     try:
                         rd = requests.get(
                             f"https://api.smartrecruiters.com/v1/companies/{company_slug}/postings/{v['id']}",
-                            timeout=10
+                            timeout=10,
                         )
                         if rd.status_code == 200:
-                            sections = rd.json().get('jobAd',{}).get('sections',{})
-                            desc = limpar_html(sections.get('jobDescription',{}).get('text',''))
-                            qual = limpar_html(sections.get('qualifications',{}).get('text',''))
+                            sections = rd.json().get("jobAd", {}).get("sections", {})
+                            desc = limpar_html(sections.get("jobDescription", {}).get("text", ""))
+                            qual = limpar_html(sections.get("qualifications", {}).get("text", ""))
                             descricao = f"{desc} {qual}"
                     except Exception:
                         pass
@@ -56,16 +62,18 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, b
                 elif "hybrid" in tipo:
                     modalidade = "hibrido"
 
-                vagas.append({
-                    "titulo": v["name"],
-                    "link": f"https://jobs.smartrecruiters.com/{company_slug}/{v['id']}",
-                    "modalidade": modalidade,
-                    "fonte": "smartrecruiters",
-                    "empresa": company_slug,
-                    "descricao": descricao,
-                    "cidade": v.get("location", {}).get("city", ""),
-                    "pais": v.get("location", {}).get("country", ""),
-                })
+                vagas.append(
+                    {
+                        "titulo": v["name"],
+                        "link": f"https://jobs.smartrecruiters.com/{company_slug}/{v['id']}",
+                        "modalidade": modalidade,
+                        "fonte": "smartrecruiters",
+                        "empresa": company_slug,
+                        "descricao": descricao,
+                        "cidade": v.get("location", {}).get("city", ""),
+                        "pais": v.get("location", {}).get("country", ""),
+                    }
+                )
             offset += limit
             if offset >= data.get("totalFound", 0):
                 break
@@ -75,6 +83,7 @@ def buscar_vagas_smartrecruiters(company_slug: str, filtro_cidade: str = None, b
             break
 
     return vagas
+
 
 if __name__ == "__main__":
     vagas = buscar_vagas_smartrecruiters("Visa")

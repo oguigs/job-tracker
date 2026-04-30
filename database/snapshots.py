@@ -1,4 +1,5 @@
 from logger import get_logger
+
 log = get_logger("snapshots")
 import json
 from database.connection import db_connect
@@ -30,32 +31,41 @@ def salvar_snapshot():
                 pass
         for (stack, categoria), quantidade in contagem.items():
             id_snap = con.execute("SELECT nextval('seq_snapshot')").fetchone()[0]
-            con.execute("""
+            con.execute(
+                """
                 INSERT INTO snapshot_mercado (id, data_ref, stack, categoria, quantidade)
                 VALUES (?, ?, ?, ?, ?)
-            """, [id_snap, hoje, stack, categoria, quantidade])
+            """,
+                [id_snap, hoje, stack, categoria, quantidade],
+            )
     log.info(f"Snapshot salvo: {len(contagem)} stacks em {hoje}")
 
 
 def carregar_historico(stack: str = None, categoria: str = None):
     with db_connect() as con:
         if stack:
-            return con.execute("""
+            return con.execute(
+                """
                 SELECT strftime(data_ref, '%Y-%m-%d') as data_ref,
                        stack, categoria, quantidade
                 FROM snapshot_mercado
                 WHERE lower(stack) = lower(?)
                 ORDER BY data_ref
-            """, [stack]).df()
+            """,
+                [stack],
+            ).df()
         elif categoria:
-            return con.execute("""
+            return con.execute(
+                """
                 SELECT strftime(data_ref, '%Y-%m-%d') as data_ref,
                        stack, SUM(quantidade) as quantidade
                 FROM snapshot_mercado
                 WHERE categoria = ?
                 GROUP BY data_ref, stack
                 ORDER BY data_ref, quantidade DESC
-            """, [categoria]).df()
+            """,
+                [categoria],
+            ).df()
         else:
             return con.execute("""
                 SELECT strftime(data_ref, '%Y-%m-%d') as data_ref,

@@ -1,5 +1,10 @@
 import streamlit as st
-from database.perguntas import adicionar_pergunta, listar_perguntas, deletar_pergunta, stats_perguntas
+from database.perguntas import (
+    adicionar_pergunta,
+    listar_perguntas,
+    deletar_pergunta,
+    stats_perguntas,
+)
 from database.connection import db_connect
 
 
@@ -7,9 +12,7 @@ def render():
     st.title("🧠 Banco de Perguntas")
     st.caption("Registre perguntas de entrevistas técnicas. Quanto mais você usa, mais rico fica.")
 
-    tab_banco, tab_adicionar, tab_stats = st.tabs([
-        "📚 Banco", "➕ Adicionar", "📊 Estatísticas"
-    ])
+    tab_banco, tab_adicionar, tab_stats = st.tabs(["📚 Banco", "➕ Adicionar", "📊 Estatísticas"])
 
     # ── BANCO ──────────────────────────────────────────────────
     with tab_banco:
@@ -21,15 +24,18 @@ def render():
         stacks_list = ["Todas"] + [s[0] for s in stacks_disponiveis]
         col_f1, col_f2 = st.columns(2)
         filtro_stack = col_f1.selectbox("Filtrar por stack", stacks_list)
-        filtro_dif = col_f2.selectbox("Filtrar por dificuldade", ["Todas", "fácil", "média", "difícil"])
+        filtro_dif = col_f2.selectbox(
+            "Filtrar por dificuldade", ["Todas", "fácil", "média", "difícil"]
+        )
 
         df = listar_perguntas(stack=filtro_stack if filtro_stack != "Todas" else None)
 
         if df.empty:
             from dashboard.ui_components import render_empty_state
+
             render_empty_state(
                 "Nenhuma pergunta ainda",
-                "Após cada entrevista, registre as perguntas técnicas que fizeram. O banco cresce com o uso!"
+                "Após cada entrevista, registre as perguntas técnicas que fizeram. O banco cresce com o uso!",
             )
         else:
             if filtro_dif != "Todas":
@@ -39,14 +45,17 @@ def render():
             st.divider()
 
             for _, row in df.iterrows():
-                dif_cor = {"fácil": "#1D9E75", "média": "#BA7517", "difícil": "#D85A30"}.get(row["dificuldade"], "#888")
+                dif_cor = {"fácil": "#1D9E75", "média": "#BA7517", "difícil": "#D85A30"}.get(
+                    row["dificuldade"], "#888"
+                )
                 acertou_icon = "✅" if row.get("acertou") else "❌"
                 with st.expander(f"{acertou_icon} [{row['stack']}] {row['pergunta'][:80]}"):
                     col1, col2, col3 = st.columns(3)
                     col1.markdown(f"**Stack:** {row['stack']}")
                     col2.markdown(
                         f"**Dificuldade:** <span style='color:{dif_cor};font-weight:700'>{row['dificuldade']}</span>",
-                        unsafe_allow_html=True)
+                        unsafe_allow_html=True,
+                    )
                     col3.markdown(f"**Empresa:** {row['empresa']}")
                     st.markdown(f"**Pergunta completa:** {row['pergunta']}")
                     if row.get("resposta_ideal"):
@@ -79,16 +88,30 @@ def render():
                 col1, col2 = st.columns(2)
                 stack = col1.text_input("Stack *", placeholder="Ex: Apache Spark")
                 dificuldade = col2.selectbox("Dificuldade", ["fácil", "média", "difícil"])
-                pergunta = st.text_area("Pergunta *", placeholder="Ex: Como funciona o mecanismo de particionamento no Spark?", height=80)
+                pergunta = st.text_area(
+                    "Pergunta *",
+                    placeholder="Ex: Como funciona o mecanismo de particionamento no Spark?",
+                    height=80,
+                )
                 acertou = st.checkbox("Acertei / soube responder")
-                resposta_ideal = st.text_area("Resposta ideal (opcional)", placeholder="Anote a resposta correta para estudar depois", height=80)
+                resposta_ideal = st.text_area(
+                    "Resposta ideal (opcional)",
+                    placeholder="Anote a resposta correta para estudar depois",
+                    height=80,
+                )
 
                 if st.form_submit_button("💾 Salvar pergunta", use_container_width=True):
                     if not stack or not pergunta:
                         st.error("Stack e pergunta são obrigatórios.")
                     else:
-                        adicionar_pergunta(id_vaga_sel, stack.strip(), pergunta.strip(),
-                                         dificuldade, acertou, resposta_ideal.strip())
+                        adicionar_pergunta(
+                            id_vaga_sel,
+                            stack.strip(),
+                            pergunta.strip(),
+                            dificuldade,
+                            acertou,
+                            resposta_ideal.strip(),
+                        )
                         st.success("✅ Pergunta salva!")
                         st.rerun()
 
@@ -113,4 +136,6 @@ def render():
                     f"{int(row['dificeis'])} difíceis</span>"
                     f"<span style='flex:1;text-align:right;color:{cor};font-weight:700'>"
                     f"{taxa_erro}% erro</span>"
-                    f"</div>", unsafe_allow_html=True)
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )

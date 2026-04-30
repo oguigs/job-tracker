@@ -8,7 +8,9 @@ from database.connection import db_connect
 def _load_metrics():
     with db_connect() as con:
         total_vagas = con.execute("SELECT COUNT(*) FROM fact_vaga").fetchone()[0]
-        empresas_ativas = con.execute("SELECT COUNT(*) FROM dim_empresa WHERE ativa=true").fetchone()[0]
+        empresas_ativas = con.execute(
+            "SELECT COUNT(*) FROM dim_empresa WHERE ativa=true"
+        ).fetchone()[0]
         fontes = con.execute(
             "SELECT fonte, COUNT(*) as n FROM fact_vaga GROUP BY fonte ORDER BY n DESC"
         ).fetchall()
@@ -39,14 +41,14 @@ def _load_metrics():
             for cat, items in data.items():
                 if cat == "nivel":
                     continue
-                for s in (items or []):
+                for s in items or []:
                     stack_count[s] = stack_count.get(s, 0) + 1
         except Exception:
             pass
     top_stacks = sorted(stack_count.items(), key=lambda x: -x[1])[:15]
 
     modal_merged = {}
-    for (m, n) in modalidade_raw:
+    for m, n in modalidade_raw:
         key = (m or "não identificado").replace("híbrido", "hibrido")
         modal_merged[key] = modal_merged.get(key, 0) + n
     modalidade = sorted(modal_merged.items(), key=lambda x: -x[1])
@@ -71,36 +73,90 @@ def _diagram_html() -> str:
     arrow = "<div style='display:flex;align-items:center;justify-content:center;padding:0 5px;font-size:22px;color:#c8c8c8;flex-shrink:0;margin-top:40px'>→</div>"
 
     def item(txt, bg, fg):
-        return (f"<div style='padding:5px 9px;margin:3px 0;border-radius:6px;"
-                f"font-size:12px;font-weight:500;background:{bg};color:{fg}'>{txt}</div>")
+        return (
+            f"<div style='padding:5px 9px;margin:3px 0;border-radius:6px;"
+            f"font-size:12px;font-weight:500;background:{bg};color:{fg}'>{txt}</div>"
+        )
 
     def stage(title, color, bg, fg, items):
         body = "".join(item(i, bg, fg) for i in items)
-        return (f"<div style='{ss}'>"
-                f"<div style='{hs};background:{color}'>{title}</div>"
-                f"<div style='{bs}'>{body}</div></div>")
+        return (
+            f"<div style='{ss}'>"
+            f"<div style='{hs};background:{color}'>{title}</div>"
+            f"<div style='{bs}'>{body}</div></div>"
+        )
 
-    s1 = stage("📥 Fontes", "#1A5FAD", "#EBF3FB", "#1A5FAD", [
-        "🟣 Gupy API", "🟠 Amazon Jobs API", "🟢 Greenhouse API",
-        "⚫ BCG Careers", "🔵 InHire", "🟡 SmartRecruiters", "✏️ Cadastro manual",
-    ])
-    s2 = stage("⚡ Extração", "#157A5A", "#E8F5F0", "#157A5A", [
-        "requests HTTP", "JSON REST API", "Playwright headless",
-        "playwright-stealth", "Paginação automática", "Timeout 5 min",
-    ])
-    s3 = stage("🔧 Transformação", "#8A5210", "#FBF4E8", "#8A5210", [
-        "Normalização de campos", "Dedup via MD5 hash", "Stack Extractor NLP",
-        "Detector de nível", "Detector de modalidade", "ATS Score (ANYA)",
-        "Cooldown 12 h / empresa",
-    ])
-    s4 = stage("💾 Armazenamento", "#7F77DD", "#F0EFF9", "#4B44AA", [
-        "DuckDB (local)", "fact_vaga", "dim_empresa",
-        "log_coleta", "7 backups automáticos",
-    ])
-    s5 = stage("📊 Analytics", "#1D9E75", "#E8F5F0", "#157A5A", [
-        "Streamlit dashboard", "Plotly interativo", "Score de Fit",
-        "Funil de candidatura", "Tendências de stacks", "Análise ATS",
-    ])
+    s1 = stage(
+        "📥 Fontes",
+        "#1A5FAD",
+        "#EBF3FB",
+        "#1A5FAD",
+        [
+            "🟣 Gupy API",
+            "🟠 Amazon Jobs API",
+            "🟢 Greenhouse API",
+            "⚫ BCG Careers",
+            "🔵 InHire",
+            "🟡 SmartRecruiters",
+            "✏️ Cadastro manual",
+        ],
+    )
+    s2 = stage(
+        "⚡ Extração",
+        "#157A5A",
+        "#E8F5F0",
+        "#157A5A",
+        [
+            "requests HTTP",
+            "JSON REST API",
+            "Playwright headless",
+            "playwright-stealth",
+            "Paginação automática",
+            "Timeout 5 min",
+        ],
+    )
+    s3 = stage(
+        "🔧 Transformação",
+        "#8A5210",
+        "#FBF4E8",
+        "#8A5210",
+        [
+            "Normalização de campos",
+            "Dedup via MD5 hash",
+            "Stack Extractor NLP",
+            "Detector de nível",
+            "Detector de modalidade",
+            "ATS Score (ANYA)",
+            "Cooldown 12 h / empresa",
+        ],
+    )
+    s4 = stage(
+        "💾 Armazenamento",
+        "#7F77DD",
+        "#F0EFF9",
+        "#4B44AA",
+        [
+            "DuckDB (local)",
+            "fact_vaga",
+            "dim_empresa",
+            "log_coleta",
+            "7 backups automáticos",
+        ],
+    )
+    s5 = stage(
+        "📊 Analytics",
+        "#1D9E75",
+        "#E8F5F0",
+        "#157A5A",
+        [
+            "Streamlit dashboard",
+            "Plotly interativo",
+            "Score de Fit",
+            "Funil de candidatura",
+            "Tendências de stacks",
+            "Análise ATS",
+        ],
+    )
 
     return (
         "<div style='display:flex;align-items:flex-start;gap:0;width:100%;"
@@ -199,13 +255,16 @@ def render():
             labels = [f[0].capitalize() for f in m["fontes"]]
             values = [f[1] for f in m["fontes"]]
             cores = [_FONTE_CORES.get(f[0], "#888") for f in m["fontes"]]
-            fig = go.Figure(go.Pie(
-                labels=labels, values=values,
-                hole=0.55,
-                marker=dict(colors=cores),
-                textinfo="label+percent",
-                textfont_size=12,
-            ))
+            fig = go.Figure(
+                go.Pie(
+                    labels=labels,
+                    values=values,
+                    hole=0.55,
+                    marker=dict(colors=cores),
+                    textinfo="label+percent",
+                    textfont_size=12,
+                )
+            )
             fig.update_layout(
                 margin=dict(t=10, b=10, l=10, r=10),
                 showlegend=False,
@@ -218,14 +277,17 @@ def render():
         if m["vagas_por_dia"]:
             dias = [str(r[0]) for r in m["vagas_por_dia"]]
             qtd = [r[1] for r in m["vagas_por_dia"]]
-            fig2 = go.Figure(go.Scatter(
-                x=dias, y=qtd,
-                mode="lines+markers",
-                line=dict(color="#1A5FAD", width=2),
-                marker=dict(size=8, color="#1A5FAD"),
-                fill="tozeroy",
-                fillcolor="rgba(26,95,173,0.08)",
-            ))
+            fig2 = go.Figure(
+                go.Scatter(
+                    x=dias,
+                    y=qtd,
+                    mode="lines+markers",
+                    line=dict(color="#1A5FAD", width=2),
+                    marker=dict(size=8, color="#1A5FAD"),
+                    fill="tozeroy",
+                    fillcolor="rgba(26,95,173,0.08)",
+                )
+            )
             fig2.update_layout(
                 margin=dict(t=10, b=10, l=10, r=10),
                 xaxis=dict(showgrid=False, tickangle=-30),
@@ -248,16 +310,22 @@ def render():
             labels_m = [r[0].capitalize() for r in m["modalidade"]]
             vals_m = [r[1] for r in m["modalidade"]]
             cores_m = [_MODAL_CORES.get(r[0], "#888") for r in m["modalidade"]]
-            fig3 = go.Figure(go.Bar(
-                x=vals_m, y=labels_m, orientation="h",
-                marker_color=cores_m,
-                text=vals_m, textposition="auto",
-            ))
+            fig3 = go.Figure(
+                go.Bar(
+                    x=vals_m,
+                    y=labels_m,
+                    orientation="h",
+                    marker_color=cores_m,
+                    text=vals_m,
+                    textposition="auto",
+                )
+            )
             fig3.update_layout(
                 margin=dict(t=10, b=10, l=10, r=10),
                 xaxis=dict(showgrid=False),
                 yaxis=dict(autorange="reversed"),
-                height=230, plot_bgcolor="white",
+                height=230,
+                plot_bgcolor="white",
             )
             st.plotly_chart(fig3, use_container_width=True)
 
@@ -267,16 +335,22 @@ def render():
             labels_n = [r[0].capitalize() for r in m["nivel"]]
             vals_n = [r[1] for r in m["nivel"]]
             cores_n = [_NIVEL_CORES.get(r[0], "#888") for r in m["nivel"]]
-            fig4 = go.Figure(go.Bar(
-                x=vals_n, y=labels_n, orientation="h",
-                marker_color=cores_n,
-                text=vals_n, textposition="auto",
-            ))
+            fig4 = go.Figure(
+                go.Bar(
+                    x=vals_n,
+                    y=labels_n,
+                    orientation="h",
+                    marker_color=cores_n,
+                    text=vals_n,
+                    textposition="auto",
+                )
+            )
             fig4.update_layout(
                 margin=dict(t=10, b=10, l=10, r=10),
                 xaxis=dict(showgrid=False),
                 yaxis=dict(autorange="reversed"),
-                height=230, plot_bgcolor="white",
+                height=230,
+                plot_bgcolor="white",
             )
             st.plotly_chart(fig4, use_container_width=True)
 
@@ -287,16 +361,22 @@ def render():
     if m["top_stacks"]:
         stacks = [s[0].upper() for s in m["top_stacks"]]
         counts = [s[1] for s in m["top_stacks"]]
-        fig5 = go.Figure(go.Bar(
-            x=counts, y=stacks, orientation="h",
-            marker_color="#1A5FAD",
-            text=counts, textposition="outside",
-        ))
+        fig5 = go.Figure(
+            go.Bar(
+                x=counts,
+                y=stacks,
+                orientation="h",
+                marker_color="#1A5FAD",
+                text=counts,
+                textposition="outside",
+            )
+        )
         fig5.update_layout(
             margin=dict(t=10, b=10, l=10, r=50),
             xaxis=dict(showgrid=False),
             yaxis=dict(autorange="reversed"),
-            height=440, plot_bgcolor="white",
+            height=440,
+            plot_bgcolor="white",
         )
         st.plotly_chart(fig5, use_container_width=True)
     else:

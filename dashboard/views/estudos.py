@@ -3,11 +3,78 @@ import json
 from database.connection import db_connect
 
 ESTUDOS = {
+    "🌍 Idiomas": {
+        "Inglês Técnico": {
+            "desc": "Vocabulário de tech, leitura de documentação, escrita de PRs e comentários de código em inglês",
+            "prioridade": "alta",
+        },
+        "Inglês para Entrevistas": {
+            "desc": "Apresentação pessoal, explicar projetos, responder perguntas técnicas e comportamentais",
+            "prioridade": "alta",
+        },
+    },
     "🔤 Fundamentos": {
-        "SQL Avançado": {"desc": "Window functions, CTEs, otimização de queries", "prioridade": "alta"},
-        "Python para Dados": {"desc": "Pandas, NumPy, tipagem, testes unitários", "prioridade": "alta"},
+        "SQL Avançado": {
+            "desc": "Window functions, CTEs, otimização de queries",
+            "prioridade": "alta",
+        },
+        "Window Functions SQL": {
+            "desc": "ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, PARTITION BY, OVER — análises sem subqueries",
+            "prioridade": "alta",
+        },
+        "Python para Dados": {
+            "desc": "Pandas, NumPy, tipagem, testes unitários",
+            "prioridade": "alta",
+        },
+        "PEP 8": {
+            "desc": "Guia de estilo oficial do Python — nomenclatura, formatação, boas práticas de legibilidade",
+            "prioridade": "alta",
+        },
+        "Python Data Types": {
+            "desc": "int, float, str, list, dict, set, tuple, None — mutabilidade, casting, type hints",
+            "prioridade": "alta",
+        },
+        "Tuples": {
+            "desc": "Imutabilidade, packing/unpacking, uso como chave de dict, named tuples, performance vs list",
+            "prioridade": "alta",
+        },
+        "FastAPI": {
+            "desc": "Framework moderno para APIs REST com Python — routing, Pydantic, async, OpenAPI automático",
+            "prioridade": "media",
+        },
         "Git & GitHub": {"desc": "Branching, PRs, CI/CD básico", "prioridade": "alta"},
-        "Linux & Terminal": {"desc": "Shell scripting, cron jobs, processos", "prioridade": "media"},
+        "Linux & Terminal": {
+            "desc": "Shell scripting, cron jobs, processos",
+            "prioridade": "media",
+        },
+    },
+    "🔗 Integração de Dados": {
+        "Azure Synapse Analytics": {
+            "desc": "Data warehouse + analytics integrado ao Azure — SQL pools dedicados e serverless, Spark, pipelines, Link para Cosmos DB",
+            "prioridade": "alta",
+        },
+        "Databricks (Integração)": {
+            "desc": "Ingestão e integração de fontes heterogêneas via Delta Live Tables, Auto Loader e connectors nativos",
+            "prioridade": "alta",
+        },
+        "Airflow (Integração)": {
+            "desc": "Orquestração de pipelines de integração — operators HTTP, SQL, S3, Spark, sensores e hooks customizados",
+            "prioridade": "alta",
+        },
+        "Kafka (Integração)": {
+            "desc": "Integração de sistemas via streaming — Kafka Connect, SMT, CDC com Debezium",
+            "prioridade": "alta",
+        },
+    },
+    "🏠 On Premise": {
+        "Airflow On-Premise": {
+            "desc": "Deploy local sem cloud — Docker Compose, executor Celery/Local, configuração de connections, variables e RBAC",
+            "prioridade": "alta",
+        },
+        "Pentaho": {
+            "desc": "Suite ETL/BI on-premise — Pentaho Data Integration (Kettle), transformações, jobs, Spoon, integração com bancos relacionais",
+            "prioridade": "alta",
+        },
     },
     "☁️ Cloud": {
         "AWS S3": {"desc": "Storage, particionamento, lifecycle policies", "prioridade": "alta"},
@@ -20,9 +87,17 @@ ESTUDOS = {
         "GCP BigQuery": {"desc": "Data warehouse serverless do Google", "prioridade": "media"},
         "Databricks": {"desc": "Plataforma unificada de dados e IA", "prioridade": "alta"},
         "Snowflake": {"desc": "Data warehouse cloud-native", "prioridade": "media"},
+        "AWS Redshift": {
+            "desc": "Data warehouse gerenciado na AWS — distribuição de dados, sort keys, vacuum, spectrum",
+            "prioridade": "alta",
+        },
     },
     "⚙️ Processamento": {
         "Apache Spark": {"desc": "Processamento distribuído em larga escala", "prioridade": "alta"},
+        "RDD in Spark": {
+            "desc": "Resilient Distributed Datasets — API de baixo nível do Spark, transformações lazy e actions",
+            "prioridade": "alta",
+        },
         "PySpark": {"desc": "Spark com Python — API DataFrame e SQL", "prioridade": "alta"},
         "Apache Kafka": {"desc": "Streaming de eventos em tempo real", "prioridade": "alta"},
         "dbt": {"desc": "Transformações SQL versionadas e testadas", "prioridade": "alta"},
@@ -35,23 +110,61 @@ ESTUDOS = {
         "Dagster": {"desc": "Data assets, partições, observabilidade", "prioridade": "media"},
     },
     "🗄️ Armazenamento": {
-        "Delta Lake": {"desc": "ACID transactions em data lakes", "prioridade": "alta"},
+        "Delta Lake": {
+            "desc": "ACID transactions em data lakes — Delta tables, time travel, MERGE/UPSERT, Z-ordering, vacuum, schema evolution",
+            "prioridade": "alta",
+        },
         "Apache Iceberg": {"desc": "Table format open source para lakes", "prioridade": "media"},
-        "Data Lakehouse": {"desc": "Arquitetura unificando lake e warehouse", "prioridade": "alta"},
+        "Data Lake (DL)": {
+            "desc": "Armazenamento bruto de dados estruturados, semi e não estruturados — zonas raw/refined, particionamento, formatos Parquet/ORC/Avro",
+            "prioridade": "alta",
+        },
+        "Data Lakehouse (LH)": {
+            "desc": "Arquitetura unificando lake e warehouse — ACID, schema enforcement, BI direto no lake via Delta/Iceberg",
+            "prioridade": "alta",
+        },
+        "Modelagem DW em PostgreSQL": {
+            "desc": "Star schema, snowflake schema, tabelas fato e dimensão, surrogate keys, slowly changing dimensions (SCD) usando PostgreSQL",
+            "prioridade": "alta",
+        },
         "Redis": {"desc": "Cache em memória e estruturas de dados", "prioridade": "media"},
-        "PostgreSQL Avançado": {"desc": "Indexing, particionamento, performance", "prioridade": "media"},
+        "PostgreSQL Avançado": {
+            "desc": "Indexing, particionamento, performance",
+            "prioridade": "media",
+        },
     },
     "📊 Qualidade de Dados": {
-        "Great Expectations": {"desc": "Testes e validações de dados em Python", "prioridade": "alta"},
-        "Soda.io": {"desc": "Monitoramento de qualidade de dados — perguntado em entrevista", "prioridade": "alta"},
-        "Data Contracts": {"desc": "Esquemas acordados entre produtores e consumidores", "prioridade": "alta"},
-        "Data Lineage": {"desc": "Rastreamento de origem e transformações dos dados", "prioridade": "media"},
-        "SLAs de Pipeline": {"desc": "Alertas e monitoramento de qualidade dos pipelines", "prioridade": "alta"},
-        "Anomaly Detection": {"desc": "Detecção automática de problemas nos dados", "prioridade": "media"},
+        "Great Expectations": {
+            "desc": "Testes e validações de dados em Python",
+            "prioridade": "alta",
+        },
+        "Soda.io": {
+            "desc": "Monitoramento de qualidade de dados — perguntado em entrevista",
+            "prioridade": "alta",
+        },
+        "Data Contracts": {
+            "desc": "Esquemas acordados entre produtores e consumidores",
+            "prioridade": "alta",
+        },
+        "Data Lineage": {
+            "desc": "Rastreamento de origem e transformações dos dados",
+            "prioridade": "media",
+        },
+        "SLAs de Pipeline": {
+            "desc": "Alertas e monitoramento de qualidade dos pipelines",
+            "prioridade": "alta",
+        },
+        "Anomaly Detection": {
+            "desc": "Detecção automática de problemas nos dados",
+            "prioridade": "media",
+        },
         "dbt Tests": {"desc": "Testes de qualidade integrados ao dbt", "prioridade": "alta"},
     },
     "🏗️ Arquitetura": {
-        "Medallion Architecture": {"desc": "Bronze/Silver/Gold — camadas de qualidade", "prioridade": "alta"},
+        "Medallion Architecture": {
+            "desc": "Bronze/Silver/Gold — camadas de qualidade",
+            "prioridade": "alta",
+        },
         "Data Mesh": {"desc": "Domínios descentralizados de dados", "prioridade": "media"},
         "Lambda Architecture": {"desc": "Batch + streaming combinados", "prioridade": "media"},
         "Kappa Architecture": {"desc": "Tudo como streaming", "prioridade": "media"},
@@ -59,7 +172,10 @@ ESTUDOS = {
     },
     "🤖 ML/AI para DE": {
         "MLflow": {"desc": "Tracking de experimentos e registro de modelos", "prioridade": "media"},
-        "Feature Store": {"desc": "Armazenamento e serving de features de ML", "prioridade": "media"},
+        "Feature Store": {
+            "desc": "Armazenamento e serving de features de ML",
+            "prioridade": "media",
+        },
         "MLOps Básico": {"desc": "CI/CD para modelos de ML", "prioridade": "media"},
         "LangChain": {"desc": "Framework para aplicações com LLMs", "prioridade": "media"},
         "Vector Databases": {"desc": "Armazenamento para embeddings de IA", "prioridade": "baixa"},
@@ -79,13 +195,17 @@ STATUS_CORES = {
     "✅ Concluído": "#1D9E75",
 }
 
+
 def get_status_key(categoria, topico):
-    return f"estudo_{categoria[:10]}_{topico[:15]}".replace(" ","_").replace("/","_")
+    return f"estudo_{categoria[:10]}_{topico[:15]}".replace(" ", "_").replace("/", "_")
+
 
 def carregar_todos_status():
     try:
         with db_connect() as con:
-            rows = con.execute("SELECT termo FROM config_filtros WHERE tipo = 'estudo_status'").fetchall()
+            rows = con.execute(
+                "SELECT termo FROM config_filtros WHERE tipo = 'estudo_status'"
+            ).fetchall()
         result = {}
         for (termo,) in rows:
             if "=" in termo:
@@ -95,13 +215,21 @@ def carregar_todos_status():
     except Exception:
         return {}
 
+
 def salvar_status_topico(key, novo_status):
     try:
         with db_connect() as con:
-            con.execute("DELETE FROM config_filtros WHERE tipo='estudo_status' AND termo LIKE ?", [f"{key}=%"])
-            con.execute("INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'estudo_status', ?)", [f"{key}={novo_status}"])
+            con.execute(
+                "DELETE FROM config_filtros WHERE tipo='estudo_status' AND termo LIKE ?",
+                [f"{key}=%"],
+            )
+            con.execute(
+                "INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'estudo_status', ?)",
+                [f"{key}={novo_status}"],
+            )
     except Exception as e:
         st.error(f"Erro ao salvar: {e}")
+
 
 def carregar_livros():
     try:
@@ -117,12 +245,17 @@ def carregar_livros():
     except Exception:
         return []
 
+
 def salvar_livro(livro: dict):
     try:
         with db_connect() as con:
-            con.execute("INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'livro', ?)", [json.dumps(livro)])
+            con.execute(
+                "INSERT INTO config_filtros (id, tipo, termo) VALUES (nextval('seq_filtro'), 'livro', ?)",
+                [json.dumps(livro)],
+            )
     except Exception as e:
         st.error(f"Erro ao salvar livro: {e}")
+
 
 def atualizar_livro(livro_id: str, pagina_atual: int):
     try:
@@ -133,12 +266,15 @@ def atualizar_livro(livro_id: str, pagina_atual: int):
                     l = json.loads(termo)
                     if l.get("id") == livro_id:
                         l["pagina_atual"] = pagina_atual
-                        con.execute("UPDATE config_filtros SET termo=? WHERE id=?", [json.dumps(l), row_id])
+                        con.execute(
+                            "UPDATE config_filtros SET termo=? WHERE id=?", [json.dumps(l), row_id]
+                        )
                         break
                 except Exception:
                     pass
     except Exception as e:
         st.error(f"Erro: {e}")
+
 
 def deletar_livro(livro_id: str):
     try:
@@ -177,13 +313,15 @@ def render():
 
         if total > 0:
             st.progress(concluidos / total)
-            st.caption(f"Progresso geral: {round(concluidos/total*100)}%")
+            st.caption(f"Progresso geral: {round(concluidos / total * 100)}%")
 
         st.divider()
 
         col_f1, col_f2 = st.columns(2)
         filtro_status = col_f1.selectbox("Filtrar por status", ["Todos"] + STATUS_OPTIONS)
-        filtro_prio = col_f2.selectbox("Filtrar por prioridade", ["Todas", "Alta", "Média", "Baixa"])
+        filtro_prio = col_f2.selectbox(
+            "Filtrar por prioridade", ["Todas", "Alta", "Média", "Baixa"]
+        )
 
         st.divider()
 
@@ -205,11 +343,15 @@ def render():
             exp_key = f"exp_{categoria[:10]}"
             if exp_key not in st.session_state:
                 st.session_state[exp_key] = False
-            with st.expander(f"{categoria} ({len(topicos_filtrados)})", 
-                           expanded=st.session_state.get(exp_key, False)):
+            with st.expander(
+                f"{categoria} ({len(topicos_filtrados)})",
+                expanded=st.session_state.get(exp_key, False),
+            ):
                 for topico, (info, key, status_atual) in topicos_filtrados.items():
                     prio = info["prioridade"]
-                    cor_prio = "#1D9E75" if prio == "alta" else "#BA7517" if prio == "media" else "#888"
+                    cor_prio = (
+                        "#1D9E75" if prio == "alta" else "#BA7517" if prio == "media" else "#888"
+                    )
 
                     col_t, col_p, col_b1, col_b2, col_b3 = st.columns([4, 1, 1, 1, 1])
                     col_t.markdown(f"**{topico}**")
@@ -218,22 +360,35 @@ def render():
                         f"<div style='padding-top:8px'>"
                         f"<span style='background:{cor_prio};color:white;font-size:10px;"
                         f"padding:2px 6px;border-radius:8px'>{prio}</span></div>",
-                        unsafe_allow_html=True)
-                    if col_b1.button("⬜", key=f"b1_{key}", use_container_width=True,
-                                     type="primary" if status_atual == "⬜ Para estudar" else "secondary",
-                                     help="Para estudar"):
+                        unsafe_allow_html=True,
+                    )
+                    if col_b1.button(
+                        "⬜",
+                        key=f"b1_{key}",
+                        use_container_width=True,
+                        type="primary" if status_atual == "⬜ Para estudar" else "secondary",
+                        help="Para estudar",
+                    ):
                         salvar_status_topico(key, "⬜ Para estudar")
                         st.session_state[f"exp_{categoria[:10]}"] = True
                         st.rerun()
-                    if col_b2.button("📖", key=f"b2_{key}", use_container_width=True,
-                                     type="primary" if status_atual == "📖 Estudando" else "secondary",
-                                     help="Estudando"):
+                    if col_b2.button(
+                        "📖",
+                        key=f"b2_{key}",
+                        use_container_width=True,
+                        type="primary" if status_atual == "📖 Estudando" else "secondary",
+                        help="Estudando",
+                    ):
                         salvar_status_topico(key, "📖 Estudando")
                         st.session_state[f"exp_{categoria[:10]}"] = True
                         st.rerun()
-                    if col_b3.button("✅", key=f"b3_{key}", use_container_width=True,
-                                     type="primary" if status_atual == "✅ Concluído" else "secondary",
-                                     help="Concluído"):
+                    if col_b3.button(
+                        "✅",
+                        key=f"b3_{key}",
+                        use_container_width=True,
+                        type="primary" if status_atual == "✅ Concluído" else "secondary",
+                        help="Concluído",
+                    ):
                         salvar_status_topico(key, "✅ Concluído")
                         st.session_state[f"exp_{categoria[:10]}"] = True
                         st.rerun()
@@ -247,14 +402,16 @@ def render():
         if livros:
             col1, col2 = st.columns(2)
             col1.metric("Livros cadastrados", len(livros))
-            concluidos_l = sum(1 for l in livros if l.get("pagina_atual",0) >= l.get("total_paginas",1))
+            concluidos_l = sum(
+                1 for l in livros if l.get("pagina_atual", 0) >= l.get("total_paginas", 1)
+            )
             col2.metric("✅ Concluídos", concluidos_l)
             st.divider()
 
         # lista de livros
         for livro in livros:
-            lid = livro.get("id","")
-            titulo = livro.get("titulo","")
+            lid = livro.get("id", "")
+            titulo = livro.get("titulo", "")
             total_pag = int(livro.get("total_paginas", 0))
             pag_atual = int(livro.get("pagina_atual", 0))
             pct = round(pag_atual / total_pag * 100) if total_pag > 0 else 0
@@ -277,9 +434,11 @@ def render():
 
                 nova_pag = st.number_input(
                     "Atualizar página atual",
-                    min_value=0, max_value=total_pag,
-                    value=pag_atual, step=1,
-                    key=f"pag_{lid}"
+                    min_value=0,
+                    max_value=total_pag,
+                    value=pag_atual,
+                    step=1,
+                    key=f"pag_{lid}",
                 )
                 if nova_pag != pag_atual:
                     if st.button("Salvar", key=f"save_pag_{lid}"):
@@ -295,12 +454,15 @@ def render():
             if st.form_submit_button("Adicionar", use_container_width=True):
                 if titulo_novo:
                     import uuid
-                    salvar_livro({
-                        "id": uuid.uuid4().hex[:8],
-                        "titulo": titulo_novo,
-                        "total_paginas": int(total_pag_novo),
-                        "pagina_atual": int(pag_inicio)
-                    })
+
+                    salvar_livro(
+                        {
+                            "id": uuid.uuid4().hex[:8],
+                            "titulo": titulo_novo,
+                            "total_paginas": int(total_pag_novo),
+                            "pagina_atual": int(pag_inicio),
+                        }
+                    )
                     st.success(f"'{titulo_novo}' adicionado!")
                     st.rerun()
                 else:

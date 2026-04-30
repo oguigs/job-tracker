@@ -46,28 +46,40 @@ def carregar_logs():
 
 def carregar_perfil_empresa(nome: str):
     with db_connect() as con:
-        empresa = con.execute("""
+        empresa = con.execute(
+            """
             SELECT id, nome, ramo, cidade, estado, url_vagas,
                    url_site_oficial, favicon_url, data_cadastro
             FROM dim_empresa WHERE nome = ?
-        """, [nome]).df()
-        vagas = con.execute("""
+        """,
+            [nome],
+        ).df()
+        vagas = con.execute(
+            """
             SELECT id, titulo, nivel, modalidade, stacks, link,
                    data_coleta, ativa, candidatura_status
             FROM fact_vaga
             WHERE id_empresa = (SELECT id FROM dim_empresa WHERE nome = ?)
             AND (negada = false OR negada IS NULL)
             ORDER BY data_coleta DESC
-        """, [nome]).df()
-        logs = con.execute("""
+        """,
+            [nome],
+        ).df()
+        logs = con.execute(
+            """
             SELECT vagas_encontradas, vagas_novas, status, data_execucao
             FROM log_coleta WHERE empresa = ?
             ORDER BY data_execucao DESC LIMIT 5
-        """, [nome]).df()
-        enderecos = con.execute("""
+        """,
+            [nome],
+        ).df()
+        enderecos = con.execute(
+            """
             SELECT cidade, bairro FROM dim_empresa_endereco
             WHERE id_empresa = (SELECT id FROM dim_empresa WHERE nome = ?)
-        """, [nome]).fetchall()
+        """,
+            [nome],
+        ).fetchall()
     return empresa, vagas, logs, enderecos
 
 
@@ -75,6 +87,7 @@ def carregar_perfil_empresa(nome: str):
 def calcular_scores_vagas():
     from database.candidato import carregar_perfil
     from database.score import calcular_scores_todos
+
     df_perfil = carregar_perfil()
     if df_perfil.empty:
         return {}

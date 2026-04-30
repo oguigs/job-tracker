@@ -6,15 +6,16 @@ Uso:
     python pipeline_prefect.py          # roda uma vez
     python pipeline_prefect.py --serve  # agenda para rodar a cada 6h
 """
+
 import sys
 from prefect import flow, task, get_run_logger
-from prefect.tasks import task_input_hash
 from datetime import timedelta
 
 
 @task(name="buscar-empresas", retries=2, retry_delay_seconds=30)
 def buscar_empresas_task() -> list:
     from database.connection import db_connect
+
     with db_connect(read_only=True) as con:
         return con.execute("""
             SELECT nome, url_vagas FROM dim_empresa
@@ -25,6 +26,7 @@ def buscar_empresas_task() -> list:
 @task(name="verificar-cooldown")
 def verificar_cooldown_task(nome: str, horas_minimas: int = 12) -> bool:
     from database.logs import ultima_execucao_sucesso
+
     horas = ultima_execucao_sucesso(nome)
     return horas >= horas_minimas
 
@@ -32,12 +34,14 @@ def verificar_cooldown_task(nome: str, horas_minimas: int = 12) -> bool:
 @task(name="processar-gupy", retries=1, retry_delay_seconds=60)
 def processar_gupy_task(nome: str, url: str) -> tuple:
     from main import processar_empresa
+
     return processar_empresa(nome, url)
 
 
 @task(name="processar-greenhouse", retries=2, retry_delay_seconds=30)
 def processar_greenhouse_task(nome: str, url: str) -> tuple:
     from main import processar_empresa_greenhouse
+
     slug = url.split("greenhouse.io/")[-1].split("/")[0]
     return processar_empresa_greenhouse(nome, slug)
 
@@ -45,18 +49,21 @@ def processar_greenhouse_task(nome: str, url: str) -> tuple:
 @task(name="processar-inhire", retries=2, retry_delay_seconds=30)
 def processar_inhire_task(nome: str, url: str) -> tuple:
     from main import processar_empresa_inhire
+
     return processar_empresa_inhire(nome, url)
 
 
 @task(name="processar-smartrecruiters", retries=2, retry_delay_seconds=30)
 def processar_smartrecruiters_task(nome: str, url: str) -> tuple:
     from main import processar_empresa_smartrecruiters
+
     return processar_empresa_smartrecruiters(nome, url)
 
 
 @task(name="salvar-snapshot")
 def salvar_snapshot_task():
     from database.snapshots import salvar_snapshot
+
     salvar_snapshot()
 
 

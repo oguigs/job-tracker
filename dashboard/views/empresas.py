@@ -6,32 +6,44 @@ from datetime import date
 
 
 def safe(v):
-    return "" if v is None or str(v) in ["None","nan","<NA>","NaT",""] else str(v)
+    return "" if v is None or str(v) in ["None", "nan", "<NA>", "NaT", ""] else str(v)
 
 
 def detectar_plataforma(url: str) -> str:
-    if "gupy.io" in url: return "Gupy"
-    if "greenhouse.io" in url: return "Greenhouse"
-    if "inhire.app" in url: return "Inhire"
-    if "smartrecruiters.com" in url: return "SmartRecruiters"
+    if "gupy.io" in url:
+        return "Gupy"
+    if "greenhouse.io" in url:
+        return "Greenhouse"
+    if "inhire.app" in url:
+        return "Inhire"
+    if "smartrecruiters.com" in url:
+        return "SmartRecruiters"
+    if "99jobs.com" in url:
+        return "99jobs"
+    if "lever.co" in url:
+        return "Lever"
     return "Desconhecida"
 
 
 def buscar_vagas_empresa(nome: str, url: str):
-    from utils import safe_str
+
     plataforma = detectar_plataforma(url)
     if plataforma == "Greenhouse":
         from main import processar_empresa_greenhouse
+
         slug = url.split("greenhouse.io/")[-1].split("/")[0]
         return processar_empresa_greenhouse(nome, slug)
     elif plataforma == "Inhire":
         from main import processar_empresa_inhire
+
         return processar_empresa_inhire(nome, url)
     elif plataforma == "SmartRecruiters":
         from main import processar_empresa_smartrecruiters
+
         return processar_empresa_smartrecruiters(nome, url)
     else:
         from main import processar_empresa
+
         return processar_empresa(nome, url)
 
 
@@ -46,7 +58,7 @@ def render():
         if "form_key" not in st.session_state:
             st.session_state.form_key = 0
 
-        col_busca, col_btn = st.columns([3, 1])
+        col_busca, col_btn = st.columns([3, 1], vertical_alignment="bottom")
         nome_busca = col_busca.text_input("Nome da empresa", placeholder="Ex: Nubank")
         if col_btn.button("🔍 Buscar", use_container_width=True):
             if nome_busca:
@@ -66,10 +78,12 @@ def render():
             col3, col4 = st.columns(2)
             cidade = col3.text_input("Cidade", value=d.get("cidade", ""))
             estado = col4.text_input("Estado", value=d.get("estado", ""))
-            url_vagas_input = st.text_input("URL de vagas *",
-                placeholder="Gupy, Greenhouse, Inhire ou SmartRecruiters")
-            url_site_oficial = st.text_input("Site oficial",
-                placeholder="https://www.empresa.com.br")
+            url_vagas_input = st.text_input(
+                "URL de vagas *", placeholder="Gupy, Greenhouse, Inhire ou SmartRecruiters"
+            )
+            url_site_oficial = st.text_input(
+                "Site oficial", placeholder="https://www.empresa.com.br"
+            )
 
             if url_vagas_input:
                 plat = detectar_plataforma(url_vagas_input)
@@ -84,25 +98,45 @@ def render():
                     try:
                         favicon_url = ""
                         if url_site_oficial:
-                            dominio = url_site_oficial.replace("https://www.","").replace("https://","").split("/")[0]
-                            favicon_url = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
+                            dominio = (
+                                url_site_oficial.replace("https://www.", "")
+                                .replace("https://", "")
+                                .split("/")[0]
+                            )
+                            favicon_url = (
+                                f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
+                            )
                         con = conectar_rw()
-                        existente = con.execute("SELECT id FROM dim_empresa WHERE nome=?", [nome]).fetchone()
+                        existente = con.execute(
+                            "SELECT id FROM dim_empresa WHERE nome=?", [nome]
+                        ).fetchone()
                         if existente:
                             st.warning(f"{nome} já está cadastrada.")
                         else:
                             id_novo = con.execute("SELECT nextval('seq_empresa')").fetchone()[0]
-                            con.execute("""
+                            con.execute(
+                                """
                                 INSERT INTO dim_empresa
                                 (id, nome, ramo, cidade, estado, url_vagas,
                                  ativa, data_cadastro, favicon_url, url_site_oficial)
                                 VALUES (?, ?, ?, ?, ?, ?, true, ?, ?, ?)
-                            """, [id_novo, nome, ramo, cidade, estado,
-                                  url_vagas_input.strip(), date.today(),
-                                  favicon_url, url_site_oficial])
+                            """,
+                                [
+                                    id_novo,
+                                    nome,
+                                    ramo,
+                                    cidade,
+                                    estado,
+                                    url_vagas_input.strip(),
+                                    date.today(),
+                                    favicon_url,
+                                    url_site_oficial,
+                                ],
+                            )
                             con.close()
                             st.session_state.dados_buscados = {}
                             st.session_state.form_key += 1
+                            st.cache_data.clear()
                             st.success(f"✅ {nome} cadastrada com sucesso!")
                             st.rerun()
                     except Exception as e:
@@ -113,7 +147,9 @@ def render():
     # ── CONTROLES GLOBAIS ──────────────────────────────────────
     col_stats, col_on, col_off = st.columns([3, 1, 1])
     ativas = df_empresas[df_empresas["ativa"] == True].shape[0]
-    col_stats.markdown(f"**{len(df_empresas)} empresas** — {ativas} ativas · {len(df_empresas)-ativas} pausadas")
+    col_stats.markdown(
+        f"**{len(df_empresas)} empresas** — {ativas} ativas · {len(df_empresas) - ativas} pausadas"
+    )
     if col_on.button("✅ Ativar todas", use_container_width=True):
         con = conectar_rw()
         con.execute("UPDATE dim_empresa SET ativa = true")
@@ -127,10 +163,10 @@ def render():
 
     st.divider()
 
-# ── LISTA DE EMPRESAS ──────────────────────────────────────
+    # ── LISTA DE EMPRESAS ──────────────────────────────────────
     empresas_list = list(df_empresas.iterrows())
     for i in range(0, len(empresas_list), 5):
-        grupo = empresas_list[i:i+5]
+        grupo = empresas_list[i : i + 5]
         cols = st.columns(5)
         for j in range(5):
             with cols[j]:
@@ -138,7 +174,7 @@ def render():
                     st.empty()
                     continue
                 _, emp = grupo[j]
-                ativa = str(emp.get("ativa","")) not in ["False","0","nan","None","<NA>"]
+                ativa = str(emp.get("ativa", "")) not in ["False", "0", "nan", "None", "<NA>"]
                 favicon = get_favicon(emp["nome"], safe(emp.get("favicon_url")))
                 url_v = safe(emp.get("url_vagas"))
                 plataforma = detectar_plataforma(url_v) if url_v else "—"
@@ -154,12 +190,15 @@ def render():
                         f"<div style='text-align:right'>"
                         f"<span style='background:{status_cor};color:white;font-size:11px;"
                         f"font-weight:600;padding:3px 8px;border-radius:10px'>{status_label}</span></div>",
-                        unsafe_allow_html=True)
+                        unsafe_allow_html=True,
+                    )
 
                     st.caption(f"🔌 {plataforma}")
 
-                    if st.button("⚙️ Configurar", key=f"cfg_{int(emp['id'])}", use_container_width=True):
-                        st.session_state["config_emp_atual"] = int(emp['id'])
+                    if st.button(
+                        "⚙️ Configurar", key=f"cfg_{int(emp['id'])}", use_container_width=True
+                    ):
+                        st.session_state["config_emp_atual"] = int(emp["id"])
 
     # ── DIALOGS DE CONFIGURAÇÃO ────────────────────────────────
     emp_id_atual = st.session_state.get("config_emp_atual")
@@ -167,17 +206,19 @@ def render():
         rows = df_empresas[df_empresas["id"] == emp_id_atual]
         if not rows.empty:
             emp = rows.iloc[0]
-            ativa = str(emp.get("ativa","")) not in ["False","0","nan","None","<NA>"]
+            ativa = str(emp.get("ativa", "")) not in ["False", "0", "nan", "None", "<NA>"]
             url_v = safe(emp.get("url_vagas"))
             url_of = safe(emp.get("url_site_oficial"))
 
-            @st.dialog(emp['nome'], width="large")
+            @st.dialog(emp["nome"], width="large")
             def config_empresa():
                 tab_info, tab_polos, tab_acoes = st.tabs(["📋 Informações", "📍 Polos", "⚡ Ações"])
 
                 with tab_info:
-                    if url_v: st.caption(f"🔗 {url_v}")
-                    if url_of: st.caption(f"🌐 {url_of}")
+                    if url_v:
+                        st.caption(f"🔗 {url_v}")
+                    if url_of:
+                        st.caption(f"🌐 {url_of}")
                     st.caption(f"📅 {str(emp['data_cadastro'])[:10]}")
                     st.divider()
                     with st.form(key=f"form_edit_{int(emp['id'])}"):
@@ -191,20 +232,36 @@ def render():
                         if st.form_submit_button("💾 Salvar", use_container_width=True):
                             novo_favicon = safe(emp.get("favicon_url"))
                             if edit_site:
-                                dominio = edit_site.replace("https://www.","").replace("https://","").split("/")[0]
-                                novo_favicon = f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
+                                dominio = (
+                                    edit_site.replace("https://www.", "")
+                                    .replace("https://", "")
+                                    .split("/")[0]
+                                )
+                                novo_favicon = (
+                                    f"https://www.google.com/s2/favicons?domain={dominio}&sz=64"
+                                )
                             con = conectar_rw()
-                            con.execute("""
+                            con.execute(
+                                """
                                 UPDATE dim_empresa SET ramo=?, estado=?, url_vagas=?, url_site_oficial=?, favicon_url=?
                                 WHERE id=?
-                            """, [edit_ramo, edit_estado, edit_url, edit_site, novo_favicon, int(emp['id'])])
+                            """,
+                                [
+                                    edit_ramo,
+                                    edit_estado,
+                                    edit_url,
+                                    edit_site,
+                                    novo_favicon,
+                                    int(emp["id"]),
+                                ],
+                            )
                             con.close()
                             st.session_state["config_emp_atual"] = None
                             st.success("Atualizado!")
                             st.rerun()
 
                 with tab_polos:
-                    enderecos = listar_enderecos(int(emp['id']))
+                    enderecos = listar_enderecos(int(emp["id"]))
                     if enderecos:
                         for id_end, cid, bairro in enderecos:
                             col_end, col_del = st.columns([4, 1])
@@ -220,7 +277,7 @@ def render():
                         novo_bairro = col_b.text_input("Bairro")
                         if col_add.form_submit_button("➕"):
                             if nova_cidade:
-                                inserir_endereco(int(emp['id']), nova_cidade, novo_bairro)
+                                inserir_endereco(int(emp["id"]), nova_cidade, novo_bairro)
                                 st.rerun()
 
                 with tab_acoes:
@@ -228,14 +285,18 @@ def render():
                     if ativa:
                         if col_a1.button("⏸ Pausar", use_container_width=True):
                             con = conectar_rw()
-                            con.execute("UPDATE dim_empresa SET ativa=false WHERE id=?", [int(emp['id'])])
+                            con.execute(
+                                "UPDATE dim_empresa SET ativa=false WHERE id=?", [int(emp["id"])]
+                            )
                             con.close()
                             st.session_state["config_emp_atual"] = None
                             st.rerun()
                     else:
                         if col_a1.button("▶️ Ativar", use_container_width=True):
                             con = conectar_rw()
-                            con.execute("UPDATE dim_empresa SET ativa=true WHERE id=?", [int(emp['id'])])
+                            con.execute(
+                                "UPDATE dim_empresa SET ativa=true WHERE id=?", [int(emp["id"])]
+                            )
                             con.close()
                             st.session_state["config_emp_atual"] = None
                             st.rerun()

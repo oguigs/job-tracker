@@ -1,6 +1,7 @@
 """
 curriculo_parser.py — Extrai texto e stacks do currículo em PDF.
 """
+
 import pdfplumber
 from transformers.stack_extractor import extrair_stacks
 

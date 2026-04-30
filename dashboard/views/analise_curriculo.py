@@ -2,7 +2,14 @@ import streamlit as st
 import tempfile
 import os
 from transformers.curriculo_parser import extrair_texto_pdf
-from transformers.ats_agents import analisar_curriculo, rodar_anya, ollama_disponivel, rodar_nexus, rodar_carta, detectar_idioma
+from transformers.ats_agents import (
+    analisar_curriculo,
+    rodar_anya,
+    ollama_disponivel,
+    rodar_nexus,
+    rodar_carta,
+    detectar_idioma,
+)
 from database.connection import db_connect
 
 
@@ -33,7 +40,7 @@ def _barra(score: int, label: str):
 
 def _linha_keyword(presente: bool, termo: str):
     icone = "✓" if presente else "✗"
-    cor   = "#00ff88" if presente else "#ff4444"
+    cor = "#00ff88" if presente else "#ff4444"
     st.markdown(
         f"<span style='font-family:monospace; color:{cor}; font-size:13px'>"
         f"{icone} {termo.upper()}</span>",
@@ -56,7 +63,9 @@ def _bloco_terminal(titulo: str, conteudo: str, cor_titulo: str = "#00ff88"):
 
 def render():
     st.title("Análise de Currículo")
-    st.caption("Cole a descrição da vaga ou selecione uma do banco. Faça upload do seu currículo em PDF.")
+    st.caption(
+        "Cole a descrição da vaga ou selecione uma do banco. Faça upload do seu currículo em PDF."
+    )
 
     col_upload, col_vaga = st.columns([1, 1])
 
@@ -66,8 +75,12 @@ def render():
 
     with col_vaga:
         st.markdown("**Vaga para comparar**")
-        modo = st.radio("", ["Selecionar do banco", "Colar descrição manual"],
-                        horizontal=True, label_visibility="collapsed")
+        modo = st.radio(
+            "",
+            ["Selecionar do banco", "Colar descrição manual"],
+            horizontal=True,
+            label_visibility="collapsed",
+        )
 
     descricao_vaga = ""
     titulo_vaga = ""
@@ -87,18 +100,23 @@ def render():
             """).fetchall()
 
         if not vagas:
-            st.warning("Nenhuma vaga com descrição no banco. Rode o pipeline primeiro ou cole a descrição manualmente.")
+            st.warning(
+                "Nenhuma vaga com descrição no banco. Rode o pipeline primeiro ou cole a descrição manualmente."
+            )
         else:
             opcoes = {f"{v[2]} — {v[1]}": (v[0], v[1]) for v in vagas}
             sel = st.selectbox("", list(opcoes.keys()), label_visibility="collapsed")
             id_vaga, titulo_vaga = opcoes[sel]
             with db_connect() as con:
-                row = con.execute("SELECT descricao FROM fact_vaga WHERE id = ?", [id_vaga]).fetchone()
+                row = con.execute(
+                    "SELECT descricao FROM fact_vaga WHERE id = ?", [id_vaga]
+                ).fetchone()
             descricao_vaga = row[0] if row else ""
     else:
         titulo_vaga = st.text_input("Título da vaga", placeholder="Ex: Analista Pleno de Dados")
-        descricao_vaga = st.text_area("Descrição da vaga", height=200,
-                                       placeholder="Cole aqui o texto completo da vaga...")
+        descricao_vaga = st.text_area(
+            "Descrição da vaga", height=200, placeholder="Cole aqui o texto completo da vaga..."
+        )
 
     st.divider()
 
@@ -108,7 +126,9 @@ def render():
         options=["Automático", "Português (pt-BR)", "English (en-US)"],
         index=0,
     )
-    idioma = {"Automático": "auto", "Português (pt-BR)": "pt-BR", "English (en-US)": "en-US"}[idioma_sel]
+    idioma = {"Automático": "auto", "Português (pt-BR)": "pt-BR", "English (en-US)": "en-US"}[
+        idioma_sel
+    ]
 
     llm_ok = ollama_disponivel()
     if not llm_ok:
@@ -138,7 +158,9 @@ def render():
                 st.write("░ ANYA EXTRAINDO DADOS DO CURRÍCULO...")
                 texto_cv = extrair_texto_pdf(tmp_path)
                 if not texto_cv.strip():
-                    st.error("Não foi possível extrair texto do PDF. Tente um PDF com texto selecionável.")
+                    st.error(
+                        "Não foi possível extrair texto do PDF. Tente um PDF com texto selecionável."
+                    )
                     return
 
                 st.write(f"░ PARSER ENCONTROU {len(texto_cv)} CARACTERES")
@@ -148,30 +170,44 @@ def render():
                 idioma_final = idioma
                 if idioma_final == "auto":
                     idioma_final = detectar_idioma(texto_cv + " " + descricao_vaga)
-                st.write(f"░ IDIOMA DETECTADO: {'PORTUGUÊS' if idioma_final == 'pt-BR' else 'ENGLISH'}")
+                st.write(
+                    f"░ IDIOMA DETECTADO: {'PORTUGUÊS' if idioma_final == 'pt-BR' else 'ENGLISH'}"
+                )
 
                 if llm_ok:
                     st.write("░ VANELLOPE AVALIANDO COMPATIBILIDADE DE CARREIRA...")
                     st.write("░ ARYA CALCULANDO ESTRATÉGIA ANTI-ATS...")
                     st.write("░ SINTETIZADOR COMPILANDO DIAGNÓSTICO FINAL...")
-                    resultado = analisar_curriculo(texto_cv, descricao_vaga, titulo_vaga, idioma_final)
+                    resultado = analisar_curriculo(
+                        texto_cv, descricao_vaga, titulo_vaga, idioma_final
+                    )
                 else:
                     from transformers.ats_agents import rodar_sintetizador
-                    sintese = rodar_sintetizador(anya, "", "", texto_cv, descricao_vaga, titulo_vaga)
-                    resultado = {"anya": anya, "vanellope": None, "arya": None, "sintetizador": sintese}
+
+                    sintese = rodar_sintetizador(
+                        anya, "", "", texto_cv, descricao_vaga, titulo_vaga
+                    )
+                    resultado = {
+                        "anya": anya,
+                        "vanellope": None,
+                        "arya": None,
+                        "sintetizador": sintese,
+                    }
 
                 status.update(label="Análise concluída", state="complete")
 
         finally:
             os.unlink(tmp_path)
 
-        st.session_state["ats_resultado"]    = resultado
-        st.session_state["ats_texto_cv"]     = texto_cv
-        st.session_state["ats_descricao"]    = descricao_vaga
-        st.session_state["ats_titulo_vaga"]  = titulo_vaga
-        st.session_state["ats_nexus"]        = None
-        st.session_state["ats_carta"]        = None
-        st.session_state["ats_empresa"]      = titulo_vaga.split("—")[0].strip() if "—" in titulo_vaga else ""
+        st.session_state["ats_resultado"] = resultado
+        st.session_state["ats_texto_cv"] = texto_cv
+        st.session_state["ats_descricao"] = descricao_vaga
+        st.session_state["ats_titulo_vaga"] = titulo_vaga
+        st.session_state["ats_nexus"] = None
+        st.session_state["ats_carta"] = None
+        st.session_state["ats_empresa"] = (
+            titulo_vaga.split("—")[0].strip() if "—" in titulo_vaga else ""
+        )
 
     if "ats_resultado" in st.session_state and st.session_state["ats_resultado"]:
         _exibir_resultado(st.session_state["ats_resultado"], llm_ok)
@@ -180,7 +216,9 @@ def render():
             st.divider()
             col_nexus, col_carta = st.columns(2)
 
-            if col_nexus.button("✦ OTIMIZAR CURRÍCULO COM NEXUS", type="primary", use_container_width=True):
+            if col_nexus.button(
+                "✦ OTIMIZAR CURRÍCULO COM NEXUS", type="primary", use_container_width=True
+            ):
                 with st.status("░ NEXUS REESCREVENDO CURRÍCULO...", expanded=True) as status:
                     st.write("░ ANALISANDO GAPS E REESCREVENDO BULLETS...")
                     nexus = rodar_nexus(
@@ -214,19 +252,21 @@ def render():
             )
 
         if st.session_state.get("ats_carta"):
-            _exibir_carta(st.session_state["ats_carta"], st.session_state.get("ats_titulo_vaga", ""))
+            _exibir_carta(
+                st.session_state["ats_carta"], st.session_state.get("ats_titulo_vaga", "")
+            )
 
 
 def _exibir_resultado(resultado: dict, llm_ok: bool):
-    anya    = resultado["anya"]
+    anya = resultado["anya"]
     sintese = resultado["sintetizador"]
 
     st.divider()
 
     # ── SCORE GERAL ──────────────────────────────────────────────
-    score  = sintese["score"]
+    score = sintese["score"]
     status = sintese["status"]
-    cor    = _cor_score(score)
+    cor = _cor_score(score)
 
     st.markdown(
         f"<div style='text-align:center; font-family:monospace; padding:24px 0'>"
@@ -249,8 +289,10 @@ def _exibir_resultado(resultado: dict, llm_ok: bool):
     st.divider()
 
     # ── DIMENSÕES ────────────────────────────────────────────────
-    st.markdown("<div style='font-family:monospace; color:#888; font-size:12px'>SCORE ATS DETALHADO</div>",
-                unsafe_allow_html=True)
+    st.markdown(
+        "<div style='font-family:monospace; color:#888; font-size:12px'>SCORE ATS DETALHADO</div>",
+        unsafe_allow_html=True,
+    )
     for label, val in sintese["dimensoes"].items():
         _barra(val, label)
 
@@ -273,19 +315,21 @@ def _exibir_resultado(resultado: dict, llm_ok: bool):
 
     # formatação
     fmt = anya["formatacao"]
-    st.markdown("<div style='font-family:monospace; color:#888; font-size:12px; margin-bottom:8px'>CHECKLIST DE FORMATAÇÃO</div>",
-                unsafe_allow_html=True)
+    st.markdown(
+        "<div style='font-family:monospace; color:#888; font-size:12px; margin-bottom:8px'>CHECKLIST DE FORMATAÇÃO</div>",
+        unsafe_allow_html=True,
+    )
     checks = {
-        "Bullet points":        fmt["tem_bullets"],
+        "Bullet points": fmt["tem_bullets"],
         "Datas de experiência": fmt["tem_datas"],
-        "Email":                fmt["tem_email"],
-        "LinkedIn":             fmt["tem_linkedin"],
-        "Tamanho adequado":     fmt["tamanho_ok"],
+        "Email": fmt["tem_email"],
+        "LinkedIn": fmt["tem_linkedin"],
+        "Tamanho adequado": fmt["tamanho_ok"],
     }
     cols = st.columns(len(checks))
     for col, (label, ok) in zip(cols, checks.items()):
         icone = "✓" if ok else "✗"
-        cor   = "#00ff88" if ok else "#ff4444"
+        cor = "#00ff88" if ok else "#ff4444"
         col.markdown(
             f"<div style='text-align:center; font-family:monospace'>"
             f"<div style='font-size:20px; color:{cor}'>{icone}</div>"
@@ -317,32 +361,52 @@ def _exibir_resultado(resultado: dict, llm_ok: bool):
     with st.expander("Seções detectadas no currículo"):
         for secao, presente in anya["secoes"].items():
             icone = "✓" if presente else "✗"
-            cor   = "green" if presente else "red"
+            cor = "green" if presente else "red"
             st.markdown(f":{cor}[{icone} {secao.capitalize()}]")
 
 
 def _gerar_txt_otimizado(nexus: dict, texto_cv_original: str, titulo_vaga: str) -> str:
-    linhas = [
-        "═" * 60,
-        f"CURRÍCULO OTIMIZADO — {titulo_vaga.upper()}",
+    """Gera CV pronto para uso com alterações do NEXUS já aplicadas no corpo."""
+    cabecalho = [
+        "=" * 60,
+        f"CURRÍCULO OTIMIZADO PARA: {titulo_vaga.upper()}",
         "Gerado por NEXUS | Job Tracker",
-        "═" * 60,
+        "=" * 60,
         "",
     ]
+
+    partes = []
     if nexus.get("titulo_sugerido"):
-        linhas += ["TÍTULO PROFISSIONAL SUGERIDO", "─" * 40,
-                   nexus["titulo_sugerido"], ""]
+        partes += [nexus["titulo_sugerido"], ""]
     if nexus.get("resumo_otimizado"):
-        linhas += ["RESUMO PROFISSIONAL OTIMIZADO", "─" * 40,
-                   nexus["resumo_otimizado"], ""]
-    if nexus.get("bullets"):
-        linhas += ["BULLETS REESCRITOS", "─" * 40,
-                   "Substitua as experiências correspondentes no seu CV:", ""]
-        for i, b in enumerate(nexus["bullets"], 1):
-            linhas += [f"[{i}] ANTES:", f"    {b['antes']}",
-                       f"[{i}] DEPOIS:", f"    {b['depois']}", ""]
-    linhas += ["─" * 60, "CURRÍCULO ORIGINAL (referência)", "─" * 60, "", texto_cv_original]
-    return "\n".join(linhas)
+        partes += [nexus["resumo_otimizado"], ""]
+
+    texto_mod = texto_cv_original
+    nao_encontrados = []
+    for b in nexus.get("bullets", []):
+        antes = b["antes"].strip()
+        depois = b["depois"].strip()
+        antes_limpo = antes.lstrip("-•▸▶* ").strip()
+        substituido = False
+        for variante in [antes, antes_limpo, antes[:80], antes_limpo[:80]]:
+            if variante and variante in texto_mod:
+                texto_mod = texto_mod.replace(variante, depois, 1)
+                substituido = True
+                break
+        if not substituido:
+            nao_encontrados.append(depois)
+
+    resultado = cabecalho + partes + ["-" * 60, "", texto_mod]
+    if nao_encontrados:
+        resultado += [
+            "",
+            "-" * 60,
+            "BULLETS SUGERIDOS (inserir manualmente — trecho não localizado no texto original):",
+            "",
+        ]
+        for b in nao_encontrados:
+            resultado += [f"• {b}", ""]
+    return "\n".join(resultado)
 
 
 def _exibir_nexus(nexus: dict, texto_cv_original: str = "", titulo_vaga: str = ""):
@@ -360,14 +424,16 @@ def _exibir_nexus(nexus: dict, texto_cv_original: str = "", titulo_vaga: str = "
         col_a.markdown(
             "<div style='background:#1a1a2e; padding:12px; border-radius:4px; "
             "font-family:monospace; color:#ff6b6b; font-size:13px'>"
-            "ANTES<br><br>" + (nexus.get("titulo_original", "Seu título atual") or "Seu título atual") +
-            "</div>", unsafe_allow_html=True
+            "ANTES<br><br>"
+            + (nexus.get("titulo_original", "Seu título atual") or "Seu título atual")
+            + "</div>",
+            unsafe_allow_html=True,
         )
         col_b.markdown(
             "<div style='background:#0d2818; padding:12px; border-radius:4px; "
             "font-family:monospace; color:#00ff88; font-size:13px'>"
-            "DEPOIS<br><br>" + nexus["titulo_sugerido"] +
-            "</div>", unsafe_allow_html=True
+            "DEPOIS<br><br>" + nexus["titulo_sugerido"] + "</div>",
+            unsafe_allow_html=True,
         )
 
     st.divider()
@@ -417,9 +483,13 @@ def _exibir_nexus(nexus: dict, texto_cv_original: str = "", titulo_vaga: str = "
         )
 
     # download TXT
-    if texto_cv_original and (nexus.get("titulo_sugerido") or nexus.get("resumo_otimizado") or nexus.get("bullets")):
+    if texto_cv_original and (
+        nexus.get("titulo_sugerido") or nexus.get("resumo_otimizado") or nexus.get("bullets")
+    ):
         st.divider()
-        nome_arquivo = f"cv_otimizado_{titulo_vaga[:30].lower().replace(' ','_').replace('/','')}.txt"
+        nome_arquivo = (
+            f"cv_otimizado_{titulo_vaga[:30].lower().replace(' ', '_').replace('/', '')}.txt"
+        )
         txt = _gerar_txt_otimizado(nexus, texto_cv_original, titulo_vaga)
         st.download_button(
             "📥 Baixar CV otimizado (.txt)",
@@ -428,7 +498,9 @@ def _exibir_nexus(nexus: dict, texto_cv_original: str = "", titulo_vaga: str = "
             mime="text/plain",
             use_container_width=True,
         )
-        st.caption("Cole o conteúdo no Google Docs ou Word, aplique as sugestões e exporte como PDF.")
+        st.caption(
+            "Cole o conteúdo no Google Docs ou Word, aplique as sugestões e exporte como PDF."
+        )
 
 
 def _exibir_carta(carta: str, titulo_vaga: str = ""):
@@ -445,7 +517,7 @@ def _exibir_carta(carta: str, titulo_vaga: str = ""):
         unsafe_allow_html=True,
     )
     st.divider()
-    nome_arquivo = f"carta_{titulo_vaga[:30].lower().replace(' ','_').replace('/','')}.txt"
+    nome_arquivo = f"carta_{titulo_vaga[:30].lower().replace(' ', '_').replace('/', '')}.txt"
     st.download_button(
         "📥 Baixar carta (.txt)",
         data=carta.encode("utf-8"),

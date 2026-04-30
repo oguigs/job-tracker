@@ -1,10 +1,17 @@
 """Testes para transformers/stack_extractor.py"""
-import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from transformers.stack_extractor import (
-    extrair_stacks, detectar_nivel, detectar_modalidade,
-    detectar_urgencia, detectar_salario, extrair_sinais_descricao
+    extrair_stacks,
+    detectar_nivel,
+    detectar_modalidade,
+    detectar_urgencia,
+    detectar_salario,
+    extrair_sinais_descricao,
 )
 
 

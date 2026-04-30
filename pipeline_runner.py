@@ -2,6 +2,7 @@
 pipeline_runner.py — Entrypoint com visualização rica usando Rich.
 Chama a mesma lógica de main.py com output formatado.
 """
+
 import time
 from datetime import datetime
 from rich.console import Console
@@ -16,8 +17,7 @@ from main import (
     processar_empresa_smartrecruiters,
     processar_empresa_amazon,
     processar_empresa_bcg,
-    titulo_relevante,
-    localidade_relevante,
+    processar_empresa_amaris,
 )
 
 console = Console()
@@ -26,10 +26,10 @@ console = Console()
 def log_etapa(nome: str, status: str, duracao: float = None, detalhe: str = ""):
     icon = {
         "iniciando": "[yellow]⟳[/yellow]",
-        "ok":        "[green]✓[/green]",
-        "erro":      "[red]✗[/red]",
-        "aviso":     "[yellow]⚠[/yellow]",
-        "pulado":    "[dim]⏭[/dim]",
+        "ok": "[green]✓[/green]",
+        "erro": "[red]✗[/red]",
+        "aviso": "[yellow]⚠[/yellow]",
+        "pulado": "[dim]⏭[/dim]",
     }.get(status, "•")
     duracao_str = f"[dim]{duracao:.1f}s[/dim]" if duracao else ""
     detalhe_str = f"[dim] — {detalhe}[/dim]" if detalhe else ""
@@ -45,11 +45,13 @@ def buscar_empresas() -> list:
 
 
 def rodar_pipeline_visual():
-    console.print(Panel.fit(
-        f"[bold cyan]Job Tracker — Pipeline[/bold cyan]\n"
-        f"[dim]{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}[/dim]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold cyan]Job Tracker — Pipeline[/bold cyan]\n"
+            f"[dim]{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}[/dim]",
+            border_style="cyan",
+        )
+    )
 
     empresas = buscar_empresas()
     if not empresas:
@@ -85,6 +87,8 @@ def rodar_pipeline_visual():
                 encontradas, novas, erro = processar_empresa_amazon(nome)
             elif "bcg.com" in url or "careers.bcg" in url:
                 encontradas, novas, erro = processar_empresa_bcg(nome, url)
+            elif "careers.amaris.com" in url:
+                encontradas, novas, erro = processar_empresa_amaris(nome, url)
             else:
                 encontradas, novas, erro = processar_empresa(nome, url)
 
@@ -113,7 +117,9 @@ def rodar_pipeline_visual():
         cor = "green" if status == "ok" else "red" if status == "erro" else "dim"
         table.add_row(nome, str(enc), str(nov), f"[{cor}]{status}[/{cor}]")
     console.print(table)
-    console.print(f"\n[bold]Total:[/bold] {total_encontradas} encontradas | [green]{total_novas} novas[/green]")
+    console.print(
+        f"\n[bold]Total:[/bold] {total_encontradas} encontradas | [green]{total_novas} novas[/green]"
+    )
 
 
 if __name__ == "__main__":

@@ -1,31 +1,41 @@
 from logger import get_logger
+
 log = get_logger("schemas")
 import shutil
 from database.connection import DB_PATH
 import os
 from datetime import datetime
-from database.connection import conectar, db_connect
+from database.connection import conectar
 
 BACKUP_DIR = "data/curated/backups"
 MAX_BACKUPS = 7
 
 TIMELINE = [
-    "nao_inscrito", "inscrito", "chamado", "recrutador",
-    "fase_1", "fase_2", "fase_3", "aprovado", "reprovado", "negado"
+    "nao_inscrito",
+    "inscrito",
+    "chamado",
+    "recrutador",
+    "fase_1",
+    "fase_2",
+    "fase_3",
+    "aprovado",
+    "reprovado",
+    "negado",
 ]
 
 TIMELINE_LABELS = {
     "nao_inscrito": "Não inscrito",
-    "inscrito":     "Inscrito",
-    "chamado":      "Chamado",
-    "recrutador":   "Entrevista RH",
-    "fase_1":       "Fase 1",
-    "fase_2":       "Fase 2",
-    "fase_3":       "Fase 3",
-    "aprovado":     "Aprovado",
-    "reprovado":    "Reprovado",
-    "negado":       "Negado"
+    "inscrito": "Inscrito",
+    "chamado": "Chamado",
+    "recrutador": "Entrevista RH",
+    "fase_1": "Fase 1",
+    "fase_2": "Fase 2",
+    "fase_3": "Fase 3",
+    "aprovado": "Aprovado",
+    "reprovado": "Reprovado",
+    "negado": "Negado",
 }
+
 
 def fazer_backup():
     if not os.path.exists(DB_PATH):
@@ -38,6 +48,7 @@ def fazer_backup():
     backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.endswith(".duckdb")])
     while len(backups) > MAX_BACKUPS:
         os.remove(f"{BACKUP_DIR}/{backups.pop(0)}")
+
 
 def criar_tabelas():
     fazer_backup()
@@ -121,7 +132,9 @@ def criar_tabelas():
         """)
         con.execute("CREATE SEQUENCE IF NOT EXISTS seq_vaga START 1")
         con.execute("ALTER TABLE fact_vaga ADD COLUMN IF NOT EXISTS historico_fases VARCHAR")
-        con.execute("ALTER TABLE fact_vaga ADD COLUMN IF NOT EXISTS ausencias_consecutivas INTEGER DEFAULT 0")
+        con.execute(
+            "ALTER TABLE fact_vaga ADD COLUMN IF NOT EXISTS ausencias_consecutivas INTEGER DEFAULT 0"
+        )
 
         con.execute("""
             CREATE TABLE IF NOT EXISTS dim_candidato (
@@ -140,7 +153,12 @@ def criar_tabelas():
             )
         """)
         try:
-            con.execute("ALTER TABLE dim_candidato ADD COLUMN IF NOT EXISTS curriculo_texto VARCHAR")
+            con.execute(
+                "ALTER TABLE dim_candidato ADD COLUMN IF NOT EXISTS curriculo_texto VARCHAR"
+            )
+            con.execute(
+                "ALTER TABLE dim_candidato ADD COLUMN IF NOT EXISTS curriculo_estruturado VARCHAR"
+            )
         except Exception:
             pass
         con.execute("CREATE SEQUENCE IF NOT EXISTS seq_candidato START 1")

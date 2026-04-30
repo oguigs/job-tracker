@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 def render():
     st.title("Qualidade dos dados")
     st.caption("Validação automática com Great Expectations.")
@@ -7,8 +8,10 @@ def render():
     if st.button("▶ Rodar validação", type="primary"):
         with st.spinner("Validando..."):
             import sys
+
             sys.path.insert(0, ".")
             from database.quality import validar_vagas
+
             resultado = validar_vagas()
 
         if resultado["success"]:

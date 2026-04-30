@@ -1,4 +1,5 @@
 from logger import get_logger
+
 log = get_logger("bcg_scraper")
 from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
@@ -10,10 +11,10 @@ _stealth = Stealth()
 _BASE_URL = "https://careers.bcg.com/global/en/search-results?rk=l-brazil&sortBy=Most%20relevant"
 _SITE_BASE = "https://careers.bcg.com"
 
-_SEL_CARDS    = "li[data-ph-at-id='jobs-list-item']"
-_SEL_LINK     = "a[href*='/job/']"
-_SEL_LOCAL    = "[class*='location']"
-_SEL_NEXT     = (
+_SEL_CARDS = "li[data-ph-at-id='jobs-list-item']"
+_SEL_LINK = "a[href*='/job/']"
+_SEL_LOCAL = "[class*='location']"
+_SEL_NEXT = (
     "[data-ph-at-id='pagination-next-button'], "
     "a[aria-label*='Next'], button[aria-label*='Next'], "
     "a[class*='next'], button[class*='next']"
@@ -47,8 +48,16 @@ def _detectar_modalidade(titulo: str, location: str, descricao: str = "") -> str
 def _detectar_pais(location: str) -> str:
     loc = location.lower()
     termos_br = {
-        "brazil", "brasil", "são paulo", "sao paulo", "rio de janeiro",
-        "curitiba", "belo horizonte", "porto alegre", "campinas", "brasilia",
+        "brazil",
+        "brasil",
+        "são paulo",
+        "sao paulo",
+        "rio de janeiro",
+        "curitiba",
+        "belo horizonte",
+        "porto alegre",
+        "campinas",
+        "brasilia",
     }
     if any(t in loc for t in termos_br):
         return "br"
@@ -137,16 +146,18 @@ def buscar_vagas_bcg(
                 location_raw = local_el.inner_text() if local_el else ""
                 location = _limpar_location(location_raw)
 
-                vagas.append({
-                    "titulo": titulo,
-                    "link": link,
-                    "modalidade": _detectar_modalidade(titulo, location),
-                    "fonte": "bcg",
-                    "empresa": "BCG",
-                    "descricao": "",
-                    "cidade": location,
-                    "pais": _detectar_pais(location),
-                })
+                vagas.append(
+                    {
+                        "titulo": titulo,
+                        "link": link,
+                        "modalidade": _detectar_modalidade(titulo, location),
+                        "fonte": "bcg",
+                        "empresa": "BCG",
+                        "descricao": "",
+                        "cidade": location,
+                        "pais": _detectar_pais(location),
+                    }
+                )
 
             # paginação: tenta botão "next"
             next_btn = page.query_selector(_SEL_NEXT)
@@ -179,13 +190,11 @@ def buscar_vagas_bcg(
             _stealth.apply_stealth_sync(desc_page)
 
             for i, vaga in enumerate(vagas):
-                log.info(f"  [{i+1}/{len(vagas)}] {vaga['titulo'][:55]}")
+                log.info(f"  [{i + 1}/{len(vagas)}] {vaga['titulo'][:55]}")
                 desc = _coletar_descricao(desc_page, vaga["link"])
                 vaga["descricao"] = desc
                 if desc:
-                    vaga["modalidade"] = _detectar_modalidade(
-                        vaga["titulo"], vaga["cidade"], desc
-                    )
+                    vaga["modalidade"] = _detectar_modalidade(vaga["titulo"], vaga["cidade"], desc)
                 time.sleep(random.uniform(2.0, 3.5))
 
             desc_page.close()

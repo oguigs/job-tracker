@@ -81,9 +81,10 @@ def render():
 
     if not totais or totais[1] == 0:
         from dashboard.ui_components import render_empty_state
+
         render_empty_state(
             "Nenhuma candidatura ainda",
-            "Candidate-se às vagas na Fila de Inscrição para ver sua performance aqui."
+            "Candidate-se às vagas na Fila de Inscrição para ver sua performance aqui.",
         )
         return
 
@@ -103,7 +104,8 @@ def render():
             f"border-left:4px solid {cor};margin:8px 0'>"
             f"<span style='font-size:13px;color:{cor};font-weight:600'>"
             f"Taxa de conversão inscrição → entrevista: {taxa}%</span></div>",
-            unsafe_allow_html=True)
+            unsafe_allow_html=True,
+        )
 
     st.divider()
 
@@ -114,7 +116,11 @@ def render():
         with col_a:
             st.caption("Empresas onde você mais avançou")
             for _, row in por_empresa.head(8).iterrows():
-                pct = round(row["entrevistas"] / row["candidaturas"] * 100) if row["candidaturas"] > 0 else 0
+                pct = (
+                    round(row["entrevistas"] / row["candidaturas"] * 100)
+                    if row["candidaturas"] > 0
+                    else 0
+                )
                 cor = "#1D9E75" if row["entrevistas"] > 0 else "#888"
                 st.markdown(
                     f"<div style='display:flex;align-items:center;padding:4px 0;"
@@ -124,7 +130,9 @@ def render():
                     f"{int(row['candidaturas'])} candidatura(s)</span>"
                     f"<span style='flex:1;text-align:right;color:{cor};font-weight:600'>"
                     f"{int(row['entrevistas'])} entrevista(s)</span>"
-                    f"</div>", unsafe_allow_html=True)
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
 
     st.divider()
 
@@ -133,19 +141,29 @@ def render():
     with col_n:
         st.subheader("📊 Por nível")
         if not por_nivel.empty:
-            fig = px.bar(por_nivel, x="nivel", y=["total","entrevistas"],
-                barmode="group", template="plotly_white",
-                color_discrete_sequence=["#378ADD","#1D9E75"],
-                labels={"value":"Vagas","variable":"","nivel":"Nível"})
-            fig.update_layout(height=280, margin=dict(l=0,r=0,t=20,b=0))
+            fig = px.bar(
+                por_nivel,
+                x="nivel",
+                y=["total", "entrevistas"],
+                barmode="group",
+                template="plotly_white",
+                color_discrete_sequence=["#378ADD", "#1D9E75"],
+                labels={"value": "Vagas", "variable": "", "nivel": "Nível"},
+            )
+            fig.update_layout(height=280, margin=dict(l=0, r=0, t=20, b=0))
             st.plotly_chart(fig, use_container_width=True)
 
     with col_m:
         st.subheader("🏠 Por modalidade")
         if not por_modalidade.empty:
-            fig = px.bar(por_modalidade, x="modalidade", y=["total","entrevistas"],
-                barmode="group", template="plotly_white",
-                color_discrete_sequence=["#378ADD","#1D9E75"],
-                labels={"value":"Vagas","variable":"","modalidade":"Modalidade"})
-            fig.update_layout(height=280, margin=dict(l=0,r=0,t=20,b=0))
+            fig = px.bar(
+                por_modalidade,
+                x="modalidade",
+                y=["total", "entrevistas"],
+                barmode="group",
+                template="plotly_white",
+                color_discrete_sequence=["#378ADD", "#1D9E75"],
+                labels={"value": "Vagas", "variable": "", "modalidade": "Modalidade"},
+            )
+            fig.update_layout(height=280, margin=dict(l=0, r=0, t=20, b=0))
             st.plotly_chart(fig, use_container_width=True)

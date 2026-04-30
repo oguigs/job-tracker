@@ -38,7 +38,7 @@
 - [x] Indicador de tempo desde a coleta — "coletada há 3 dias"
 - [ ] Tag visual de origem — ícone para vagas manuais vs coletadas
 - [x] Ícones em cada fase da timeline de candidatura
-- [ ] Data de entrada em cada fase da timeline
+- [ ] Data de entrada em cada fase da timelin
 - [x] Modo compacto vs modo detalhado na listagem
 - [x] Destaque visual para vagas novas (últimas 24h)
 - [ ] Ordenação por score de fit, data, empresa ou status
@@ -49,19 +49,19 @@
 ## Bloco 5 — Novas Funcionalidades
 
 ### Cadastro manual de vagas
-- [ ] Formulário de cadastro de vaga manual
-- [ ] Busca de empresa existente no formulário
-- [ ] Modal de cadastro rápido de empresa se não existir
-- [ ] Campo de descrição livre para colar o texto da vaga
-- [ ] **Extração automática de stacks da descrição colada via `stack_extractor`**
-- [ ] **Detecção automática de nível (junior/pleno/sênior/especialista) do texto colado**
-- [ ] **Detecção automática de modalidade (remoto/híbrido/presencial) do texto colado**
-- [ ] **Preview das stacks extraídas antes de salvar — permitir edição manual**
-- [ ] **Identificar escopo da vaga — responsabilidades, requisitos obrigatórios vs desejáveis**
-- [ ] **Usar Claude API para análise semântica profunda da descrição — sinônimos, contexto e senioridade implícita**
-- [ ] Campo de origem (headhunter/indicação/LinkedIn/site próprio)
-- [ ] Campo de contato livre (ex: "João da XP me indicou")
-- [ ] Testar fluxo completo
+- [x] Formulário de cadastro de vaga manual
+- [x] Busca de empresa existente no formulário
+- [x] Modal de cadastro rápido de empresa se não existir
+- [x] Campo de descrição livre para colar o texto da vaga
+- [x] Extração automática de stacks da descrição colada via `stack_extractor`
+- [x] Detecção automática de nível (junior/pleno/sênior/especialista) do texto colado
+- [x] Detecção automática de modalidade (remoto/híbrido/presencial) do texto colado
+- [x] Preview das stacks extraídas antes de salvar — permitir edição manual
+- [x] Identificar escopo da vaga — responsabilidades, requisitos obrigatórios vs desejáveis
+- [ ] Usar Claude API para análise semântica profunda da descrição — sinônimos, contexto e senioridade implícita
+- [x] Campo de origem (headhunter/indicação/LinkedIn/site próprio)
+- [x] Campo de contato livre (ex: "João da XP me indicou")
+- [x] Testar fluxo completo
 
 ### Base de indicadores
 - [ ] Criar tabela `dim_contato` no banco
@@ -135,7 +135,7 @@
 - [ ] Índice de senioridade do mercado — proporção sênior/pleno/júnior
 - [ ] Sazonalidade de contratações — quando as empresas mais contratam
 - [ ] Cronômetro de processo seletivo — há quantos dias em cada fase
-- [ ] Gerador de carta de apresentação personalizada por vaga via IA
+- [x] Gerador de carta de apresentação personalizada por vaga via IA
 
 ---
 
@@ -218,7 +218,8 @@
 - [x] Scraper para BCG Careers (Playwright — Phenom People)
 - [x] Scraper para DoorDash (careersatdoordash.com via Greenhouse API)
 - [x] Scraper para Uber (POST /api/loadSearchJobsResults + filtro BRA)
-- [ ] Scraper para Lever — Rappi, outras startups
+- [x] Scraper para Lever — Rappi, outras startups
+- [x] Scraper para 99jobs — Grupo Smart Fit
 - [ ] Sites próprios — Itaú, XP
 - [ ] Connector para API oficial do LinkedIn Jobs
 
@@ -244,14 +245,24 @@
 
 ## Bloco 14 — Perfil do Candidato
 
-- [ ] Criar página "Meu Perfil" no dashboard
-- [ ] Criar tabela `dim_candidato` no banco
-- [ ] Formulário de dados pessoais (nome, email, LinkedIn, cidade, nível, modalidade, pretensão salarial)
-- [ ] Formulário de stacks com nível por tecnologia (básico/intermediário/avançado/especialista)
-- [ ] Upload de PDF do currículo ou exportação do LinkedIn
-- [ ] Extração automática de stacks do PDF com `pdfplumber`
-- [ ] Salvar stacks extraídas no perfil para edição manual
+- [x] Criar página "Meu Perfil" no dashboard
+- [x] Criar tabela `dim_candidato` no banco
+- [x] Formulário de dados pessoais (nome, email, LinkedIn, cidade, nível, modalidade, pretensão salarial)
+- [x] Formulário de stacks com nível por tecnologia (básico/intermediário/avançado/especialista)
+- [x] Upload de PDF do currículo ou exportação do LinkedIn
+- [x] Extração automática de stacks do PDF com `pdfplumber`
+- [x] Salvar stacks extraídas no perfil para edição manual
 - [ ] Exibir perfil resumido na sidebar do dashboard
+
+## Bloco 18 — Ferramentas de IA para Candidatura ✅ Concluído
+
+- [x] Construtor de Currículo — editor estruturado com seções, bullets e exportação TXT
+- [x] Importar PDF/DOCX — extração via pdfplumber + parsing com Ollama
+- [x] Otimizar CV por vaga — agente NEXUS reescreve título, resumo e bullets
+- [x] Prática de Entrevista — agente MIRROR gera perguntas + avalia respostas com score
+- [x] Interview Buddy — coaching ao vivo por pergunta com pontos-chave e keywords
+- [x] Carta de Apresentação — agente CARTA gera carta personalizada por vaga + idioma
+- [x] Auto Apply — ranqueamento automático por ANYA score + fila de candidaturas
 
 ---
 

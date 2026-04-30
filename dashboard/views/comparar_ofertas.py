@@ -23,9 +23,10 @@ def render():
 
     if len(vagas) < 2:
         from dashboard.ui_components import render_empty_state
+
         render_empty_state(
             "Poucas vagas em processo",
-            "Você precisa de pelo menos 2 vagas em fase de candidatura/entrevista para comparar."
+            "Você precisa de pelo menos 2 vagas em fase de candidatura/entrevista para comparar.",
         )
         return
 
@@ -34,7 +35,7 @@ def render():
 
     col1, col2 = st.columns(2)
     sel_a = col1.selectbox("Oferta A", nomes, index=0)
-    sel_b = col2.selectbox("Oferta B", nomes, index=min(1, len(nomes)-1))
+    sel_b = col2.selectbox("Oferta B", nomes, index=min(1, len(nomes) - 1))
 
     if sel_a == sel_b:
         st.warning("Selecione ofertas diferentes.")
@@ -59,8 +60,16 @@ def render():
         ("Nível", va[2] or "—", vb[2] or "—"),
         ("Modalidade", va[3] or "—", vb[3] or "—"),
         ("Regime", va[4] or "—", vb[4] or "—"),
-        ("Salário mensal", f"R$ {int(va[5]):,.0f}" if va[5] else "—", f"R$ {int(vb[5]):,.0f}" if vb[5] else "—"),
-        ("Total anual", f"R$ {int(va[6]):,.0f}" if va[6] else "—", f"R$ {int(vb[6]):,.0f}" if vb[6] else "—"),
+        (
+            "Salário mensal",
+            f"R$ {int(va[5]):,.0f}" if va[5] else "—",
+            f"R$ {int(vb[5]):,.0f}" if vb[5] else "—",
+        ),
+        (
+            "Total anual",
+            f"R$ {int(va[6]):,.0f}" if va[6] else "—",
+            f"R$ {int(vb[6]):,.0f}" if vb[6] else "—",
+        ),
         ("Score de fit", f"🎯 {score_a}%", f"🎯 {score_b}%"),
         ("Status", va[8], vb[8]),
     ]
@@ -98,15 +107,24 @@ def render():
             with col_a:
                 st.caption(f"Só em {va[9]}")
                 for s in sorted(so_a):
-                    st.markdown(f"<span style='background:#EBF3FB;color:#378ADD;padding:2px 6px;border-radius:8px;font-size:11px;margin:2px;display:inline-block'>{s}</span>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<span style='background:#EBF3FB;color:#378ADD;padding:2px 6px;border-radius:8px;font-size:11px;margin:2px;display:inline-block'>{s}</span>",
+                        unsafe_allow_html=True,
+                    )
             with col_com:
                 st.caption("Ambas pedem")
                 for s in sorted(comuns):
-                    st.markdown(f"<span style='background:#E8F5F0;color:#1D9E75;padding:2px 6px;border-radius:8px;font-size:11px;margin:2px;display:inline-block'>{s}</span>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<span style='background:#E8F5F0;color:#1D9E75;padding:2px 6px;border-radius:8px;font-size:11px;margin:2px;display:inline-block'>{s}</span>",
+                        unsafe_allow_html=True,
+                    )
             with col_b:
                 st.caption(f"Só em {vb[9]}")
                 for s in sorted(so_b):
-                    st.markdown(f"<span style='background:#FBF0EB;color:#D85A30;padding:2px 6px;border-radius:8px;font-size:11px;margin:2px;display:inline-block'>{s}</span>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<span style='background:#FBF0EB;color:#D85A30;padding:2px 6px;border-radius:8px;font-size:11px;margin:2px;display:inline-block'>{s}</span>",
+                        unsafe_allow_html=True,
+                    )
     except Exception:
         pass
 
@@ -128,12 +146,22 @@ def render():
     sal_norm_a = (va[5] or 0) / sal_max if sal_max > 0 else 0
     sal_norm_b = (vb[5] or 0) / sal_max if sal_max > 0 else 0
 
-    final_a = round((score_a/100 * peso_score + sal_norm_a * peso_salario + af_a/5 * peso_afinidade) * 100)
-    final_b = round((score_b/100 * peso_score + sal_norm_b * peso_salario + af_b/5 * peso_afinidade) * 100)
+    final_a = round(
+        (score_a / 100 * peso_score + sal_norm_a * peso_salario + af_a / 5 * peso_afinidade) * 100
+    )
+    final_b = round(
+        (score_b / 100 * peso_score + sal_norm_b * peso_salario + af_b / 5 * peso_afinidade) * 100
+    )
 
     col_fa, col_fb = st.columns(2)
     cor_a = "#1D9E75" if final_a >= final_b else "#888"
     cor_b = "#1D9E75" if final_b >= final_a else "#888"
-    col_fa.markdown(f"<div style='text-align:center;padding:16px;background:#f8f8f8;border-radius:8px;border-left:4px solid {cor_a}'><div style='font-size:32px;font-weight:700;color:{cor_a}'>{final_a}</div><div style='font-size:12px;color:#888'>Score final {va[9]}</div></div>", unsafe_allow_html=True)
-    col_fb.markdown(f"<div style='text-align:center;padding:16px;background:#f8f8f8;border-radius:8px;border-left:4px solid {cor_b}'><div style='font-size:32px;font-weight:700;color:{cor_b}'>{final_b}</div><div style='font-size:12px;color:#888'>Score final {vb[9]}</div></div>", unsafe_allow_html=True)
+    col_fa.markdown(
+        f"<div style='text-align:center;padding:16px;background:#f8f8f8;border-radius:8px;border-left:4px solid {cor_a}'><div style='font-size:32px;font-weight:700;color:{cor_a}'>{final_a}</div><div style='font-size:12px;color:#888'>Score final {va[9]}</div></div>",
+        unsafe_allow_html=True,
+    )
+    col_fb.markdown(
+        f"<div style='text-align:center;padding:16px;background:#f8f8f8;border-radius:8px;border-left:4px solid {cor_b}'><div style='font-size:32px;font-weight:700;color:{cor_b}'>{final_b}</div><div style='font-size:12px;color:#888'>Score final {vb[9]}</div></div>",
+        unsafe_allow_html=True,
+    )
     st.caption("Score final = 40% fit técnico + 30% salário + 30% afinidade pessoal")

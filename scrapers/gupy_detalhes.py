@@ -1,6 +1,12 @@
 from logger import get_logger
+
 log = get_logger("gupy_detalhes")
-import requests, re, json, html as html_lib, time, random
+import requests
+import re
+import json
+import html as html_lib
+import time
+import random
 
 
 def _limpar_html(txt: str) -> str:
@@ -15,12 +21,13 @@ def _extrair_descricao_gupy(link: str) -> dict:
     try:
         r = requests.get(
             link,
-            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            },
             timeout=15,
         )
         m = re.search(
-            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-            r.text, re.DOTALL
+            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', r.text, re.DOTALL
         )
         if not m:
             return {}
@@ -44,9 +51,9 @@ def _extrair_descricao_gupy(link: str) -> dict:
             modalidade = "presencial"
 
         return {
-            "descricao":  descricao,
+            "descricao": descricao,
             "modalidade": modalidade,
-            "cidade":     job.get("addressCity", ""),
+            "cidade": job.get("addressCity", ""),
         }
     except Exception as e:
         log.error(f"  Erro ao extrair descrição: {e}")
@@ -94,7 +101,7 @@ def coletar_descricoes_lote(vagas: list) -> list:
             vaga["urgente"] = detectar_urgencia(descricao, vaga.get("titulo", ""))
 
         status = f"✓ {len(descricao)}ch" if descricao else "✗ sem desc"
-        log.info(f"  [{i+1}/{len(vagas)}] {status} — {vaga['titulo'][:45]}")
+        log.info(f"  [{i + 1}/{len(vagas)}] {status} — {vaga['titulo'][:45]}")
         time.sleep(random.uniform(0.3, 0.8))
 
     log.info("  Descrições coletadas.")

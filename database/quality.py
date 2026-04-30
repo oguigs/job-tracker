@@ -1,5 +1,4 @@
 import great_expectations as gx
-import pandas as pd
 from database.connection import db_connect
 
 
@@ -19,10 +18,21 @@ def validar_vagas() -> dict:
     validator.expect_column_values_to_not_be_null("id")
     validator.expect_column_values_to_not_be_null("titulo")
     validator.expect_column_values_to_not_be_null("id_empresa")
-    validator.expect_column_values_to_be_in_set("candidatura_status", [
-        "nao_inscrito", "inscrito", "chamado", "recrutador",
-        "fase_1", "fase_2", "fase_3", "aprovado", "reprovado", "negado"
-    ])
+    validator.expect_column_values_to_be_in_set(
+        "candidatura_status",
+        [
+            "nao_inscrito",
+            "inscrito",
+            "chamado",
+            "recrutador",
+            "fase_1",
+            "fase_2",
+            "fase_3",
+            "aprovado",
+            "reprovado",
+            "negado",
+        ],
+    )
     validator.expect_column_values_to_not_be_null("link")
     validator.expect_column_values_to_be_unique("hash")
 
@@ -32,5 +42,5 @@ def validar_vagas() -> dict:
         "total": results["statistics"]["evaluated_expectations"],
         "passed": results["statistics"]["successful_expectations"],
         "failed": results["statistics"]["unsuccessful_expectations"],
-        "results": results["results"]
+        "results": results["results"],
     }

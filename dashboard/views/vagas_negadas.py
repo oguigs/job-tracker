@@ -3,6 +3,7 @@ from database.vagas import listar_vagas_negadas
 from database.schemas import TIMELINE_LABELS
 from dashboard.components import conectar_rw
 
+
 def render():
     st.title("Vagas Negadas")
     st.caption("Vagas que você optou por não seguir.")
@@ -11,9 +12,9 @@ def render():
 
     if df_negadas.empty:
         from dashboard.ui_components import render_empty_state
+
         render_empty_state(
-            "Nenhuma vaga negada",
-            "Vagas que você negar aparecem aqui para referência futura."
+            "Nenhuma vaga negada", "Vagas que você negar aparecem aqui para referência futura."
         )
         return
 
@@ -29,13 +30,16 @@ def render():
                 st.write(f"**Observação:** {vaga['candidatura_observacao']}")
             if st.button("Reativar vaga", key=f"reativar_negada_{vaga['id']}"):
                 con = conectar_rw()
-                con.execute("""
+                con.execute(
+                    """
                     UPDATE fact_vaga
                     SET negada = false, candidatura_status = 'nao_inscrito',
                         candidatura_fase = null, candidatura_observacao = null,
                         candidatura_data = null
                     WHERE id = ?
-                """, [vaga["id"]])
+                """,
+                    [vaga["id"]],
+                )
                 con.close()
                 st.success("Vaga reativada!")
                 st.rerun()

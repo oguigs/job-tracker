@@ -1,6 +1,10 @@
 from logger import get_logger
+
 log = get_logger("gupy_scraper")
-import requests, re, json
+import requests
+import re
+import json
+
 
 def buscar_vagas(url_empresa: str) -> list:
     """
@@ -14,7 +18,9 @@ def buscar_vagas(url_empresa: str) -> list:
     try:
         r = requests.get(
             url_base,
-            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            },
             timeout=15,
         )
         if r.status_code != 200:
@@ -22,8 +28,7 @@ def buscar_vagas(url_empresa: str) -> list:
             return []
 
         match = re.search(
-            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-            r.text, re.DOTALL
+            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', r.text, re.DOTALL
         )
         if not match:
             log.error(f"__NEXT_DATA__ não encontrado em {url_base}")
@@ -38,9 +43,9 @@ def buscar_vagas(url_empresa: str) -> list:
 
     vagas = []
     for job in jobs:
-        workplace   = job.get("workplace", {})
-        wp_type     = (workplace.get("workplaceType") or "").lower()
-        address     = workplace.get("address", {})
+        workplace = job.get("workplace", {})
+        wp_type = (workplace.get("workplaceType") or "").lower()
+        address = workplace.get("address", {})
 
         modalidade = "não identificado"
         if wp_type in ("remote", "remoto"):
@@ -51,15 +56,17 @@ def buscar_vagas(url_empresa: str) -> list:
             modalidade = "presencial"
 
         job_id = job.get("id", "")
-        vagas.append({
-            "titulo":    job.get("title", ""),
-            "empresa":   nome_empresa.capitalize(),
-            "link":      f"{url_base}/jobs/{job_id}?jobBoardSource=gupy_public_page",
-            "modalidade": modalidade,
-            "fonte":     "gupy",
-            "cidade":    address.get("city", ""),
-            "pais":      "br",
-        })
+        vagas.append(
+            {
+                "titulo": job.get("title", ""),
+                "empresa": nome_empresa.capitalize(),
+                "link": f"{url_base}/jobs/{job_id}?jobBoardSource=gupy_public_page",
+                "modalidade": modalidade,
+                "fonte": "gupy",
+                "cidade": address.get("city", ""),
+                "pais": "br",
+            }
+        )
 
     log.info(f"  {len(vagas)} vagas encontradas em {nome_empresa}")
     return vagas

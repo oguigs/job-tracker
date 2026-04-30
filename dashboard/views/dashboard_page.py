@@ -4,8 +4,10 @@ from datetime import datetime, timedelta
 from database.schemas import TIMELINE_LABELS
 from database.candidaturas import atualizar_candidatura
 from dashboard.components import (
-    carregar_vagas, carregar_logs, extrair_stacks_flat,
-    grafico_stacks, calcular_scores_vagas,
+    carregar_vagas,
+    extrair_stacks_flat,
+    grafico_stacks,
+    calcular_scores_vagas,
 )
 from dashboard.ui_components import render_dialog_vaga, tempo_relativo
 from database.ats_score import listar_ats_scores
@@ -32,13 +34,19 @@ def render():
     df_ativas = df[df["ativa"] == True]
 
     # ── MÉTRICAS PRINCIPAIS ────────────────────────────────────
-    total       = len(df_ativas)
-    novas_hoje  = df_ativas[df_ativas["data_coleta"].astype(str) >= ontem].shape[0]
-    inscritas   = df_ativas[df_ativas["candidatura_status"] == "inscrito"].shape[0]
-    em_processo = df_ativas[df_ativas["candidatura_status"].isin(
-        ["chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
-    )].shape[0]
-    score_medio = int(df_ativas[df_ativas["score"] > 0]["score"].mean()) if (df_ativas["score"] > 0).any() else 0
+    total = len(df_ativas)
+    novas_hoje = df_ativas[df_ativas["data_coleta"].astype(str) >= ontem].shape[0]
+    inscritas = df_ativas[df_ativas["candidatura_status"] == "inscrito"].shape[0]
+    em_processo = df_ativas[
+        df_ativas["candidatura_status"].isin(
+            ["chamado", "recrutador", "fase_1", "fase_2", "fase_3"]
+        )
+    ].shape[0]
+    score_medio = (
+        int(df_ativas[df_ativas["score"] > 0]["score"].mean())
+        if (df_ativas["score"] > 0).any()
+        else 0
+    )
     urgentes_nao_candidatadas = df_ativas[
         (df_ativas["urgente"] == True) & (df_ativas["candidatura_status"] == "nao_inscrito")
     ].shape[0]
@@ -92,7 +100,7 @@ def render():
         st.subheader("Top vagas para candidatar agora")
         for _, v in top_vagas.iterrows():
             score = int(v["score"])
-            ats   = int(v["ats"])
+            ats = int(v["ats"])
             urgente = v.get("urgente") is True
             cor_score = "#1D9E75" if score >= 70 else "#BA7517" if score >= 40 else "#888"
             urgente_tag = " 🔥" if urgente else ""
@@ -134,23 +142,37 @@ def render():
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         fig = grafico_stacks(extrair_stacks_flat(df_ativas, "linguagens"), "Linguagens", "#1D9E75")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     with col_b:
         fig = grafico_stacks(extrair_stacks_flat(df_ativas, "cloud"), "Cloud", "#378ADD")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     with col_c:
-        fig = grafico_stacks(extrair_stacks_flat(df_ativas, "processamento"), "Processamento", "#D85A30")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        fig = grafico_stacks(
+            extrair_stacks_flat(df_ativas, "processamento"), "Processamento", "#D85A30"
+        )
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     col_d, col_e, col_f = st.columns(3)
     with col_d:
-        fig = grafico_stacks(extrair_stacks_flat(df_ativas, "orquestracao"), "Orquestração", "#7F77DD")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        fig = grafico_stacks(
+            extrair_stacks_flat(df_ativas, "orquestracao"), "Orquestração", "#7F77DD"
+        )
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     with col_e:
-        fig = grafico_stacks(extrair_stacks_flat(df_ativas, "armazenamento"), "Armazenamento", "#BA7517")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        fig = grafico_stacks(
+            extrair_stacks_flat(df_ativas, "armazenamento"), "Armazenamento", "#BA7517"
+        )
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     with col_f:
-        fig = grafico_stacks(extrair_stacks_flat(df_ativas, "infraestrutura"), "Infraestrutura", "#888780")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        fig = grafico_stacks(
+            extrair_stacks_flat(df_ativas, "infraestrutura"), "Infraestrutura", "#888780"
+        )
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
 
@@ -160,29 +182,45 @@ def render():
         st.subheader("Por nível")
         df_nivel = df_ativas["nivel"].value_counts().reset_index()
         df_nivel.columns = ["nivel", "count"]
-        fig = px.pie(df_nivel, values="count", names="nivel",
-                     color_discrete_sequence=px.colors.qualitative.Set2,
-                     template="plotly_white")
+        fig = px.pie(
+            df_nivel,
+            values="count",
+            names="nivel",
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            template="plotly_white",
+        )
         fig.update_layout(height=260, margin=dict(l=0, r=0, t=0, b=0))
         st.plotly_chart(fig, use_container_width=True)
     with col_modal:
         st.subheader("Por modalidade")
         df_modal = df_ativas["modalidade"].value_counts().reset_index()
         df_modal.columns = ["modalidade", "count"]
-        fig = px.pie(df_modal, values="count", names="modalidade",
-                     color_discrete_sequence=["#1D9E75", "#378ADD", "#D85A30"],
-                     template="plotly_white")
+        fig = px.pie(
+            df_modal,
+            values="count",
+            names="modalidade",
+            color_discrete_sequence=["#1D9E75", "#378ADD", "#D85A30"],
+            template="plotly_white",
+        )
         fig.update_layout(height=260, margin=dict(l=0, r=0, t=0, b=0))
         st.plotly_chart(fig, use_container_width=True)
     with col_status:
         st.subheader("Por status")
-        df_status = df_ativas["candidatura_status"].map(TIMELINE_LABELS).value_counts().reset_index()
+        df_status = (
+            df_ativas["candidatura_status"].map(TIMELINE_LABELS).value_counts().reset_index()
+        )
         df_status.columns = ["status", "count"]
-        fig = px.bar(df_status, x="count", y="status", orientation="h",
-                     color_discrete_sequence=["#1A5FAD"],
-                     template="plotly_white")
-        fig.update_layout(height=260, margin=dict(l=0, r=0, t=0, b=0),
-                          xaxis_title="", yaxis_title="")
+        fig = px.bar(
+            df_status,
+            x="count",
+            y="status",
+            orientation="h",
+            color_discrete_sequence=["#1A5FAD"],
+            template="plotly_white",
+        )
+        fig.update_layout(
+            height=260, margin=dict(l=0, r=0, t=0, b=0), xaxis_title="", yaxis_title=""
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     # ── DIALOGS ────────────────────────────────────────────────

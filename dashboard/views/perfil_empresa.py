@@ -1,9 +1,11 @@
 import streamlit as st
-from database.schemas import TIMELINE, TIMELINE_LABELS
-from database.candidaturas import atualizar_candidatura, negar_vaga
+from database.schemas import TIMELINE_LABELS
 from dashboard.components import (
-    carregar_perfil_empresa, extrair_stacks_flat,
-    grafico_stacks, get_favicon, render_stacks
+    carregar_perfil_empresa,
+    extrair_stacks_flat,
+    grafico_stacks,
+    get_favicon,
+    render_stacks,
 )
 from database.connection import db_connect
 from database.logs import ultima_execucao_sucesso
@@ -23,14 +25,16 @@ def render(empresa_perfil: str):
     if favicon:
         col_logo.image(favicon, width=64)
     col_titulo.title(emp["nome"])
-    col_titulo.caption(f"{emp['ramo'] or '—'} · {emp['cidade'] or '—'}/{emp['estado'] or '—'} · Cadastrada em {emp['data_cadastro']}")
+    col_titulo.caption(
+        f"{emp['ramo'] or '—'} · {emp['cidade'] or '—'}/{emp['estado'] or '—'} · Cadastrada em {emp['data_cadastro']}"
+    )
 
     cols_links = st.columns(3)
     url_v = str(emp.get("url_vagas") or "")
-    if url_v and url_v not in ["None","nan"]:
+    if url_v and url_v not in ["None", "nan"]:
         cols_links[0].link_button("Portal de vagas", url_v, use_container_width=True)
     url_of = str(emp.get("url_site_oficial") or "")
-    if url_of and url_of not in ["None","nan"]:
+    if url_of and url_of not in ["None", "nan"]:
         cols_links[1].link_button("Site oficial", url_of, use_container_width=True)
     if enderecos:
         st.write("**Polos:**")
@@ -47,10 +51,10 @@ def render(empresa_perfil: str):
 
     # ── RADAR DE SAÚDE ────────────────────────────────────────
 
-
     with db_connect() as con:
         # ritmo de abertura — vagas por semana
-        ritmo = con.execute("""
+        ritmo = con.execute(
+            """
             SELECT
                 DATE_TRUNC('week', data_coleta) as semana,
                 COUNT(*) as vagas
@@ -58,25 +62,33 @@ def render(empresa_perfil: str):
             JOIN dim_empresa e ON v.id_empresa = e.id
             WHERE e.nome = ?
             GROUP BY semana ORDER BY semana DESC LIMIT 8
-        """, [empresa_perfil]).df()
+        """,
+            [empresa_perfil],
+        ).df()
 
         # tempo médio de vida das vagas
-        tempo_vida = con.execute("""
+        tempo_vida = con.execute(
+            """
             SELECT
                 AVG(DATEDIFF('day', data_coleta, data_encerramento)) as media_dias
             FROM fact_vaga v
             JOIN dim_empresa e ON v.id_empresa = e.id
             WHERE e.nome = ? AND data_encerramento IS NOT NULL
-        """, [empresa_perfil]).fetchone()
+        """,
+            [empresa_perfil],
+        ).fetchone()
 
         # distribuição senior/pleno/junior
-        dist_nivel = con.execute("""
+        dist_nivel = con.execute(
+            """
             SELECT nivel, COUNT(*) as total
             FROM fact_vaga v
             JOIN dim_empresa e ON v.id_empresa = e.id
             WHERE e.nome = ? AND (v.negada = false OR v.negada IS NULL)
             GROUP BY nivel ORDER BY total DESC
-        """, [empresa_perfil]).fetchall()
+        """,
+            [empresa_perfil],
+        ).fetchall()
 
     horas_ultima = ultima_execucao_sucesso(empresa_perfil)
     col_s1, col_s2, col_s3 = st.columns(3)
@@ -88,7 +100,9 @@ def render(empresa_perfil: str):
         f"<div style='font-size:12px;color:#888'>Última coleta</div>"
         f"<div style='font-size:18px;font-weight:700;color:{cor_coleta}'>"
         f"{'agora' if horas_ultima < 1 else f'{horas_ultima}h atrás'}</div>"
-        f"</div>", unsafe_allow_html=True)
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
     # tempo médio de vida
     media_dias = round(tempo_vida[0]) if tempo_vida and tempo_vida[0] else None
@@ -97,7 +111,9 @@ def render(empresa_perfil: str):
         f"<div style='font-size:12px;color:#888'>Tempo médio de vaga aberta</div>"
         f"<div style='font-size:18px;font-weight:700;color:#378ADD'>"
         f"{f'{media_dias} dias' if media_dias else 'N/A'}</div>"
-        f"</div>", unsafe_allow_html=True)
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
     # nível predominante
     nivel_pred = dist_nivel[0][0] if dist_nivel else "N/A"
@@ -105,18 +121,27 @@ def render(empresa_perfil: str):
         f"<div style='background:#f8f8f8;border-radius:8px;padding:12px;border-left:4px solid #7F77DD'>"
         f"<div style='font-size:12px;color:#888'>Nível predominante</div>"
         f"<div style='font-size:18px;font-weight:700;color:#7F77DD'>{nivel_pred}</div>"
-        f"</div>", unsafe_allow_html=True)
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
     # gráfico de ritmo de abertura
     if not ritmo.empty and len(ritmo) > 1:
         st.write("")
         import plotly.express as px
+
         ritmo["semana"] = ritmo["semana"].astype(str).str[:10]
-        fig = px.bar(ritmo.sort_values("semana"), x="semana", y="vagas",
+        fig = px.bar(
+            ritmo.sort_values("semana"),
+            x="semana",
+            y="vagas",
             title="Ritmo de abertura de vagas (últimas 8 semanas)",
-            color_discrete_sequence=["#378ADD"], template="plotly_white")
-        fig.update_layout(height=220, margin=dict(l=0,r=0,t=40,b=0),
-            xaxis_title="", yaxis_title="Vagas")
+            color_discrete_sequence=["#378ADD"],
+            template="plotly_white",
+        )
+        fig.update_layout(
+            height=220, margin=dict(l=0, r=0, t=40, b=0), xaxis_title="", yaxis_title="Vagas"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
@@ -126,13 +151,18 @@ def render(empresa_perfil: str):
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         fig = grafico_stacks(extrair_stacks_flat(vagas_df, "linguagens"), "Linguagens", "#1D9E75")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     with col_b:
         fig = grafico_stacks(extrair_stacks_flat(vagas_df, "cloud"), "Cloud", "#378ADD")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     with col_c:
-        fig = grafico_stacks(extrair_stacks_flat(vagas_df, "processamento"), "Processamento", "#D85A30")
-        if fig: st.plotly_chart(fig, use_container_width=True)
+        fig = grafico_stacks(
+            extrair_stacks_flat(vagas_df, "processamento"), "Processamento", "#D85A30"
+        )
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
     st.subheader("Vagas")

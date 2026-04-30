@@ -1,0 +1,23 @@
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "W", "F"]
+ignore = [
+    "E402",   # module-import-not-at-top — lazy imports são intencionais no projeto
+    "E501",   # line-too-long — SQL, URLs e prompts LLM não podem ser quebrados sem perda de clareza
+    "E701",   # multiple-statements-on-one-line-colon — estilo usado em dicts/ifs de uma linha
+    "E702",   # multiple-statements-on-one-line-semicolon
+    "E712",   # true-false-comparison — DuckDB retorna Python bool, comparação explícita é intencional
+    "E741",   # ambiguous-variable-name — l, O, I usados em loops curtos
+    "F841",   # unused-variable — variáveis de debug e retornos ignorados intencionais
+]
+
+[lint.per-file-ignores]
+"transformers/ats_agents.py" = ["E501"]  # prompts LLM com linhas longas por design
+"dashboard/ui_components.py" = ["E501"]  # HTML inline com f-strings longas
+"database/schemas.py" = ["E501"]          # DDL SQL
+
+[format]
+quote-style = "double"
+indent-style = "space"

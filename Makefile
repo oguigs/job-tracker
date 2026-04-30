@@ -1,4 +1,4 @@
-.PHONY: run pipeline backup test clean dbt-run dbt-test dbt-docs dbt-all
+.PHONY: run pipeline backup test clean lint format dbt-run dbt-test dbt-docs dbt-all
 
 run:
 	cd ~/job-tracker && source .venv/bin/activate && streamlit run dashboard/app.py
@@ -14,8 +14,10 @@ clean:
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 lint:
-	cd ~/job-tracker && source .venv/bin/activate && python -m py_compile dashboard/views/*.py dashboard/components.py main.py
-	echo "Sem erros de sintaxe!"
+	cd ~/job-tracker && source .venv/bin/activate && ruff check .
+
+format:
+	cd ~/job-tracker && source .venv/bin/activate && ruff format .
 
 dbt-run:
 	cd ~/job-tracker && source dbt/.venv/bin/activate && dbt run --project-dir dbt/ --profiles-dir dbt/

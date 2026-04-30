@@ -92,6 +92,7 @@ EMPRESAS = [
     ("Playkids", "https://playkids.gupy.io/"),
 ]
 
+
 async def testar_url(page, nome, url):
     try:
         response = await page.goto(url, wait_until="networkidle", timeout=15000)
@@ -108,10 +109,17 @@ async def testar_url(page, nome, url):
             total = len(await page.query_selector_all("a[href*='/job']"))
             return {"nome": nome, "url": url, "status": "válida", "codigo": 200, "vagas": total}
         except Exception:
-            return {"nome": nome, "url": url, "status": "válida_sem_vagas", "codigo": 200, "vagas": 0}
+            return {
+                "nome": nome,
+                "url": url,
+                "status": "válida_sem_vagas",
+                "codigo": 200,
+                "vagas": 0,
+            }
 
     except Exception as e:
         return {"nome": nome, "url": url, "status": "erro", "codigo": 0, "erro": str(e)[:80]}
+
 
 async def validar_todas():
     resultados = []
@@ -122,7 +130,7 @@ async def validar_todas():
         page = await browser.new_page()
 
         for i, (nome, url) in enumerate(EMPRESAS):
-            print(f"[{i+1}/{total}] Testando {nome}...", end=" ")
+            print(f"[{i + 1}/{total}] Testando {nome}...", end=" ")
             resultado = await testar_url(page, nome, url)
             resultados.append(resultado)
             status = resultado["status"]
@@ -135,9 +143,9 @@ async def validar_todas():
     invalidas = [r for r in resultados if r["status"] == "inválida"]
     erros = [r for r in resultados if r["status"] == "erro"]
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Válidas: {len(validas)} | Inválidas: {len(invalidas)} | Erros: {len(erros)}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
     print("\nVálidas com vagas:")
     for r in sorted(validas, key=lambda x: x.get("vagas", 0), reverse=True):
@@ -153,15 +161,21 @@ async def validar_todas():
         print(f"  {r['nome']} — {r.get('erro', '')}")
 
     with open("data/raw/urls_validadas.json", "w", encoding="utf-8") as f:
-        json.dump({
-            "data": datetime.now().isoformat(),
-            "validas": validas,
-            "invalidas": invalidas,
-            "erros": erros
-        }, f, ensure_ascii=False, indent=2)
+        json.dump(
+            {
+                "data": datetime.now().isoformat(),
+                "validas": validas,
+                "invalidas": invalidas,
+                "erros": erros,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     print("\nResultado salvo em data/raw/urls_validadas.json")
     return validas
+
 
 if __name__ == "__main__":
     asyncio.run(validar_todas())

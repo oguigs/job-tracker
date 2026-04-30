@@ -1,14 +1,15 @@
 import streamlit as st
-from database.schemas import TIMELINE, TIMELINE_LABELS
 from database.candidaturas import atualizar_candidatura, negar_vaga
 from dashboard.components import (
-    calcular_scores_vagas, carregar_vagas,
-    render_score_breakdown, render_checklist_preparacao,
-    render_stacks, render_remuneracao
+    calcular_scores_vagas,
+    carregar_vagas,
+    render_score_breakdown,
+    render_checklist_preparacao,
+    render_stacks,
+    render_remuneracao,
 )
-from utils import safe_str, data_fmt
+from utils import safe_str
 from datetime import datetime, timedelta
-
 
 
 def render():
@@ -22,10 +23,9 @@ def render():
     # só vagas não inscritas e ativas
     ontem = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
 
-    df_f = df[
-        (df["candidatura_status"] == "nao_inscrito") &
-        (df["ativa"] != False)
-    ].sort_values(["data_coleta", "score"], ascending=[False, False])
+    df_f = df[(df["candidatura_status"] == "nao_inscrito") & (df["ativa"] != False)].sort_values(
+        ["data_coleta", "score"], ascending=[False, False]
+    )
 
     if df_f.empty:
         st.success("🎉 Todas as vagas foram processadas!")
@@ -41,7 +41,8 @@ def render():
     col_luck, col_reset = st.columns([1, 1])
     if col_luck.button("🎲 Estou com sorte", use_container_width=True):
         import random
-        st.session_state["fila_idx"] = random.randint(0, len(df_f)-1)
+
+        st.session_state["fila_idx"] = random.randint(0, len(df_f) - 1)
         st.rerun()
     if col_reset.button("⏮ Voltar ao início", use_container_width=True):
         st.session_state["fila_idx"] = 0
@@ -58,8 +59,8 @@ def render():
 
     # progresso
     st.markdown(
-        f"<div style='font-size:12px;color:#888'>Vaga {idx+1} de {total}</div>",
-        unsafe_allow_html=True
+        f"<div style='font-size:12px;color:#888'>Vaga {idx + 1} de {total}</div>",
+        unsafe_allow_html=True,
     )
     st.progress((idx) / total if total > 0 else 0)
     st.write("")
@@ -68,13 +69,13 @@ def render():
     with st.container(border=True):
         col_titulo, col_score = st.columns([5, 1])
         col_titulo.markdown(f"### {vaga['titulo']}")
-        score = int(vaga['score'])
+        score = int(vaga["score"])
         cor = "#1D9E75" if score >= 70 else "#BA7517" if score >= 40 else "#888"
         col_score.markdown(
             f"<div style='text-align:center;padding-top:8px'>"
             f"<span style='font-size:24px;font-weight:700;color:{cor}'>{score}%</span>"
             f"<div style='font-size:11px;color:#888'>fit</div></div>",
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
         col_info1, col_info2, col_info3 = st.columns(3)
@@ -99,7 +100,7 @@ def render():
     if col_inscrito.button("✅ Inscrito", use_container_width=True, type="primary"):
         atualizar_candidatura(int(vaga["id"]), "inscrito", "inscrito", "")
         st.session_state["fila_idx"] = idx  # mantém posição, vaga some da fila
-        st.toast(f"✅ Inscrito em {vaga['empresa']}! {len(df_f)-1} vagas restantes.")
+        st.toast(f"✅ Inscrito em {vaga['empresa']}! {len(df_f) - 1} vagas restantes.")
         st.rerun()
 
     if col_pular.button("⏭ Pular", use_container_width=True):
@@ -116,9 +117,9 @@ def render():
 
     # lista das próximas
     st.subheader("Próximas na fila")
-    proximas = df_f.iloc[idx+1:idx+6]
+    proximas = df_f.iloc[idx + 1 : idx + 6]
     for _, prox in proximas.iterrows():
-        sc = int(prox['score'])
+        sc = int(prox["score"])
         cor_p = "#1D9E75" if sc >= 70 else "#BA7517" if sc >= 40 else "#888"
         st.markdown(
             f"<div style='padding:6px 10px;margin:2px 0;border-radius:6px;border:1px solid #eee'>"
@@ -126,5 +127,5 @@ def render():
             f"<span style='color:#888;font-size:11px'>— {prox['empresa']}</span> "
             f"<span style='color:{cor_p};font-weight:700;font-size:12px;float:right'>🎯{sc}%</span>"
             f"</div>",
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )

@@ -1,23 +1,36 @@
 import streamlit as st
-from database.connection import DB_PATH, db_connect
+from database.connection import db_connect
 import threading
 import time
 from database.logs import ultima_execucao_sucesso
 from database.schemas import criar_tabelas
 from main import (
-    processar_empresa, processar_empresa_greenhouse,
-    processar_empresa_inhire, processar_empresa_smartrecruiters,
-    processar_empresa_amazon, processar_empresa_bcg,
+    processar_empresa,
+    processar_empresa_greenhouse,
+    processar_empresa_inhire,
+    processar_empresa_smartrecruiters,
+    processar_empresa_amazon,
+    processar_empresa_bcg,
+    processar_empresa_amaris,
 )
 from streamlit import cache_data
 
+
 def detectar_plataforma(url: str) -> str:
-    if "gupy.io" in url: return "Gupy"
-    if "greenhouse.io" in url: return "Greenhouse"
-    if "inhire.app" in url: return "Inhire"
-    if "smartrecruiters.com" in url: return "SmartRecruiters"
-    if "amazon.jobs" in url: return "Amazon Jobs"
-    if "bcg.com" in url or "careers.bcg" in url: return "BCG"
+    if "gupy.io" in url:
+        return "Gupy"
+    if "greenhouse.io" in url:
+        return "Greenhouse"
+    if "inhire.app" in url:
+        return "Inhire"
+    if "smartrecruiters.com" in url:
+        return "SmartRecruiters"
+    if "amazon.jobs" in url:
+        return "Amazon Jobs"
+    if "bcg.com" in url or "careers.bcg" in url:
+        return "BCG"
+    if "careers.amaris.com" in url:
+        return "Amaris"
     return "—"
 
 
@@ -31,9 +44,11 @@ def processar(nome, url):
     elif "smartrecruiters.com" in url:
         return processar_empresa_smartrecruiters(nome, url)
     elif "amazon.jobs" in url:
-        return processar_empresa_amazon(nome)
+        return processar_empresa_amazon(nome, url)
     elif "bcg.com" in url or "careers.bcg" in url:
         return processar_empresa_bcg(nome, url)
+    elif "careers.amaris.com" in url:
+        return processar_empresa_amaris(nome, url)
     else:
         return processar_empresa(nome, url)
 
@@ -94,9 +109,13 @@ def render():
 
     if "pipeline_estado" not in st.session_state:
         st.session_state.pipeline_estado = {
-            "rodando": False, "concluido": False, "log": [],
-            "total_encontradas": 0, "total_novas": 0,
-            "progresso": 0.0, "empresa_atual": ""
+            "rodando": False,
+            "concluido": False,
+            "log": [],
+            "total_encontradas": 0,
+            "total_novas": 0,
+            "progresso": 0.0,
+            "empresa_atual": "",
         }
     estado = st.session_state.pipeline_estado
 
@@ -116,39 +135,69 @@ def render():
                     f"<div style='font-size:12px;font-weight:600'>{nome}</div>"
                     f"<div style='font-size:10px;color:#888'>{plat} · {label}</div>"
                     f"</div>",
-                    unsafe_allow_html=True)
+                    unsafe_allow_html=True,
+                )
     st.divider()
 
     # ── CONTROLES ──────────────────────────────────────────────
     col_btn1, col_btn2, col_btn3, col_btn4 = st.columns([2, 1, 1, 1])
 
     with col_btn1:
-        if st.button("🚀 Rodar pipeline", type="primary",
-                     use_container_width=True, disabled=estado["rodando"]):
-            estado.update({"rodando": True, "concluido": False, "log": [],
-                          "total_encontradas": 0, "total_novas": 0,
-                          "progresso": 0.0, "empresa_atual": ""})
+        if st.button(
+            "🚀 Rodar pipeline",
+            type="primary",
+            use_container_width=True,
+            disabled=estado["rodando"],
+        ):
+            estado.update(
+                {
+                    "rodando": True,
+                    "concluido": False,
+                    "log": [],
+                    "total_encontradas": 0,
+                    "total_novas": 0,
+                    "progresso": 0.0,
+                    "empresa_atual": "",
+                }
+            )
             threading.Thread(target=rodar_pipeline, args=(empresas, estado), daemon=True).start()
             st.rerun()
 
     with col_btn2:
-        intervalo = st.number_input("⏱ Intervalo (min)", min_value=0, max_value=60, value=0, step=1,
-            label_visibility="collapsed", help="0 = sem intervalo")
+        intervalo = st.number_input(
+            "⏱ Intervalo (min)",
+            min_value=0,
+            max_value=60,
+            value=0,
+            step=1,
+            label_visibility="collapsed",
+            help="0 = sem intervalo",
+        )
         st.caption("⏱ intervalo (min)")
 
     with col_btn3:
-        if st.button("⏰ Espaçado", use_container_width=True,
-                     disabled=estado["rodando"] or intervalo == 0):
-            estado.update({"rodando": True, "concluido": False, "log": [],
-                          "total_encontradas": 0, "total_novas": 0,
-                          "progresso": 0.0, "empresa_atual": ""})
-            threading.Thread(target=rodar_pipeline, args=(empresas, estado, intervalo), daemon=True).start()
+        if st.button(
+            "⏰ Espaçado", use_container_width=True, disabled=estado["rodando"] or intervalo == 0
+        ):
+            estado.update(
+                {
+                    "rodando": True,
+                    "concluido": False,
+                    "log": [],
+                    "total_encontradas": 0,
+                    "total_novas": 0,
+                    "progresso": 0.0,
+                    "empresa_atual": "",
+                }
+            )
+            threading.Thread(
+                target=rodar_pipeline, args=(empresas, estado, intervalo), daemon=True
+            ).start()
             st.rerun()
 
     with col_btn4:
         if st.button("🗑 Limpar", use_container_width=True, disabled=estado["rodando"]):
-            estado.update({"log": [], "concluido": False,
-                          "total_encontradas": 0, "total_novas": 0})
+            estado.update({"log": [], "concluido": False, "total_encontradas": 0, "total_novas": 0})
             st.rerun()
 
     # ── STATUS ─────────────────────────────────────────────────
@@ -190,7 +239,8 @@ def render():
         st.markdown(
             f"<div style='background:#f8f8f8;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto'>"
             f"{log_html}</div>",
-            unsafe_allow_html=True)
+            unsafe_allow_html=True,
+        )
 
     # ── SAÚDE DO PIPELINE ──────────────────────────────────────
     st.divider()
@@ -223,7 +273,11 @@ def render():
         st.divider()
 
         for _, row in df_saude.iterrows():
-            taxa = round(row["sucessos"] / row["total_execucoes"] * 100) if row["total_execucoes"] > 0 else 0
+            taxa = (
+                round(row["sucessos"] / row["total_execucoes"] * 100)
+                if row["total_execucoes"] > 0
+                else 0
+            )
             cor = "#1D9E75" if taxa >= 80 else "#BA7517" if taxa >= 50 else "#D85A30"
             ultima = str(row["ultima_execucao"])[:16] if row["ultima_execucao"] else "—"
             st.markdown(
@@ -235,7 +289,7 @@ def render():
                 f"✓{int(row['sucessos'])} ✗{int(row['erros'])} 🚫{int(row['bloqueios'])}</span>"
                 f"<span style='flex:1;text-align:right;color:#888;font-size:11px'>{ultima}</span>"
                 f"</div>",
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
 
     if estado["rodando"]:

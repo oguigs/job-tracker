@@ -1,11 +1,12 @@
 from logger import get_logger
+
 log = get_logger("lever_scraper")
 import requests
 import re
 
 _API_BASE = "https://api.lever.co/v0/postings"
 _SITE_BASE = "https://jobs.lever.co"
-_HEADERS   = {
+_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -15,9 +16,20 @@ _HEADERS   = {
 }
 
 _TERMOS_BR = {
-    "brazil", "brasil", "são paulo", "sao paulo", "rio de janeiro",
-    "curitiba", "belo horizonte", "porto alegre", "campinas", "brasilia",
-    "brasília", "fortaleza", "recife", "salvador",
+    "brazil",
+    "brasil",
+    "são paulo",
+    "sao paulo",
+    "rio de janeiro",
+    "curitiba",
+    "belo horizonte",
+    "porto alegre",
+    "campinas",
+    "brasilia",
+    "brasília",
+    "fortaleza",
+    "recife",
+    "salvador",
 }
 
 
@@ -60,9 +72,11 @@ def _detectar_modalidade(job: dict) -> str:
         return "presencial"
     # fallback via texto
     texto = (
-        job.get("text", "") + " " +
-        str(job.get("categories", {}).get("location", "")) + " " +
-        str(job.get("descriptionPlain", ""))[:300]
+        job.get("text", "")
+        + " "
+        + str(job.get("categories", {}).get("location", ""))
+        + " "
+        + str(job.get("descriptionPlain", ""))[:300]
     ).lower()
     if "remote" in texto or "remoto" in texto:
         return "remoto"
@@ -101,21 +115,27 @@ def buscar_vagas_lever(slug: str, empresa: str, filtrar_brasil: bool = True) -> 
             if filtrar_brasil and not _e_brasil(job):
                 continue
 
-            titulo   = job.get("text", "")
-            location = _cidade_brasil(job) if filtrar_brasil else job.get("categories", {}).get("location", "")
-            link     = job.get("hostedUrl", "") or f"{_SITE_BASE}/{slug}/{job.get('id', '')}"
+            titulo = job.get("text", "")
+            location = (
+                _cidade_brasil(job)
+                if filtrar_brasil
+                else job.get("categories", {}).get("location", "")
+            )
+            link = job.get("hostedUrl", "") or f"{_SITE_BASE}/{slug}/{job.get('id', '')}"
             descricao = job.get("descriptionPlain", "") or _limpar_html(job.get("description", ""))
 
-            vagas.append({
-                "titulo"    : titulo,
-                "link"      : link,
-                "modalidade": _detectar_modalidade(job),
-                "fonte"     : "lever",
-                "empresa"   : empresa,
-                "descricao" : descricao,
-                "cidade"    : location,
-                "pais"      : "br",
-            })
+            vagas.append(
+                {
+                    "titulo": titulo,
+                    "link": link,
+                    "modalidade": _detectar_modalidade(job),
+                    "fonte": "lever",
+                    "empresa": empresa,
+                    "descricao": descricao,
+                    "cidade": location,
+                    "pais": "br",
+                }
+            )
 
         log.info(f"  {len(vagas)} vagas após filtro{'  Brasil' if filtrar_brasil else ''}")
 

@@ -29,10 +29,12 @@ def render():
 
     if df.empty:
         from dashboard.ui_components import render_empty_state
+
         render_empty_state(
             "Nenhuma candidatura ainda",
             "Candidate-se às vagas na Fila de Inscrição e acompanhe seu progresso aqui.",
-            "Ir para Fila de Inscrição", "Fila de Inscrição"
+            "Ir para Fila de Inscrição",
+            "Fila de Inscrição",
         )
         return
 
@@ -48,15 +50,36 @@ def render():
         st.markdown(f"**Taxa de conversão inscrição → entrevista: {taxa}%**")
 
     st.divider()
-    ordem = ["inscrito","chamado","recrutador","fase_1","fase_2","fase_3","aprovado","reprovado"]
+    ordem = [
+        "inscrito",
+        "chamado",
+        "recrutador",
+        "fase_1",
+        "fase_2",
+        "fase_3",
+        "aprovado",
+        "reprovado",
+    ]
     df["label"] = df["candidatura_status"].map(TIMELINE_LABELS)
     df["ordem"] = df["candidatura_status"].map(lambda x: ordem.index(x) if x in ordem else 99)
     df = df.sort_values("ordem")
-    fig = px.bar(df, x="label", y="total", title="Distribuição por fase",
-        color="total", color_continuous_scale=["#D85A30","#BA7517","#1D9E75"],
-        template="plotly_white")
-    fig.update_layout(height=350, margin=dict(l=0,r=0,t=40,b=0),
-        xaxis_title="", yaxis_title="Vagas", showlegend=False, coloraxis_showscale=False)
+    fig = px.bar(
+        df,
+        x="label",
+        y="total",
+        title="Distribuição por fase",
+        color="total",
+        color_continuous_scale=["#D85A30", "#BA7517", "#1D9E75"],
+        template="plotly_white",
+    )
+    fig.update_layout(
+        height=350,
+        margin=dict(l=0, r=0, t=40, b=0),
+        xaxis_title="",
+        yaxis_title="Vagas",
+        showlegend=False,
+        coloraxis_showscale=False,
+    )
     st.plotly_chart(fig, use_container_width=True)
     st.divider()
     st.subheader("Vagas negadas")

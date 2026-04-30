@@ -1,5 +1,5 @@
 from ddgs import DDGS
-import re
+
 
 def buscar_empresa(nome_empresa: str) -> dict:
     resultado = {
@@ -8,13 +8,13 @@ def buscar_empresa(nome_empresa: str) -> dict:
         "bairro": "",
         "estado": "",
         "url_linkedin": "",
-        "url_site_vagas": ""
+        "url_site_vagas": "",
     }
 
     queries = {
         "linkedin": f"{nome_empresa} site:linkedin.com/company",
         "info": f"{nome_empresa} empresa sede endereço setor brasil",
-        "vagas": f"{nome_empresa} vagas emprego careers jobs"
+        "vagas": f"{nome_empresa} vagas emprego careers jobs",
     }
 
     setores = {
@@ -25,13 +25,23 @@ def buscar_empresa(nome_empresa: str) -> dict:
         "saúde": ["saúde", "health", "hospital", "médico", "farmácia"],
         "educação": ["educação", "ensino", "escola", "edtech", "cursos"],
         "logística": ["logística", "transporte", "frete", "entrega"],
-        "telecomunicações": ["telecom", "telecomunicações", "internet", "fibra"]
+        "telecomunicações": ["telecom", "telecomunicações", "internet", "fibra"],
     }
 
     cidades = [
-        "são paulo", "rio de janeiro", "belo horizonte", "curitiba",
-        "porto alegre", "brasília", "campinas", "florianópolis",
-        "recife", "salvador", "fortaleza", "manaus", "goiânia"
+        "são paulo",
+        "rio de janeiro",
+        "belo horizonte",
+        "curitiba",
+        "porto alegre",
+        "brasília",
+        "campinas",
+        "florianópolis",
+        "recife",
+        "salvador",
+        "fortaleza",
+        "manaus",
+        "goiânia",
     ]
 
     with DDGS() as ddgs:
@@ -53,7 +63,9 @@ def buscar_empresa(nome_empresa: str) -> dict:
                     if tipo == "vagas":
                         if resultado["url_site_vagas"]:
                             break
-                        if any(p in link for p in ["gupy.io", "inhire.io", "lever.co", "greenhouse.io"]):
+                        if any(
+                            p in link for p in ["gupy.io", "inhire.io", "lever.co", "greenhouse.io"]
+                        ):
                             resultado["url_site_vagas"] = link
                             break
                         if any(p in link for p in ["vagas", "careers", "jobs", "trabalhe"]):

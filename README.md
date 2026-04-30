@@ -1,100 +1,39 @@
-# Job Tracker — Data Engineering
+# Job Tracker
 
-> Sistema de inteligência de mercado para profissionais de dados. Coleta vagas automaticamente de 37 empresas, extrai stacks, calcula scores ATS e exibe tudo em um dashboard interativo.
+Sistema pessoal de inteligência de mercado para acompanhar vagas de dados. Coleta automaticamente de 10+ plataformas de recrutamento, extrai stacks, calcula score ATS e exibe tudo num dashboard local.
+
+**Números atuais:** ~40 empresas monitoradas · 10 plataformas de coleta · ~170 vagas indexadas · 4 agentes LLM locais
 
 ---
 
-## Sobre o projeto
+## O que faz
 
-Pipeline completo de engenharia de dados para acompanhar o mercado de trabalho em Data Engineering. O sistema coleta vagas de 7 plataformas de recrutamento, processa as descrições, extrai tecnologias exigidas, calcula um score ATS comparando a vaga com o currículo do usuário, e apresenta tudo em um dashboard Streamlit com análises visuais.
+O problema que esse projeto resolve é simples: acompanhar o mercado de dados manualmente é inviável. As vagas somem, as stacks mudam, e sem registro você perde padrões que só ficam óbvios com volume.
 
-**Números atuais:** 37 empresas monitoradas · 7 plataformas de coleta · ~169 vagas indexadas · 4 agentes LLM locais
+O sistema faz três coisas:
+
+1. **Coleta vagas** de múltiplas plataformas automaticamente, com deduplicação por hash e detecção de vagas encerradas
+2. **Analisa o fit** entre seu currículo e cada vaga, usando agentes LLM locais rodando no Ollama
+3. **Exibe tudo** num dashboard Streamlit com filtros, funil de candidaturas, análise de stacks e histórico
 
 ---
 
 ## Arquitetura
 
 ```
-job-tracker/
-├── scrapers/
-│   ├── gupy_scraper.py            # Gupy — paginação via API JSON
-│   ├── gupy_detalhes.py           # Coleta descrição individual por vaga (Playwright)
-│   ├── greenhouse_scraper.py      # Greenhouse — boards-api.greenhouse.io
-│   ├── inhire_scraper.py          # InHire — Playwright + networkidle
-│   ├── smartrecruiters_scraper.py # SmartRecruiters — API pública
-│   ├── amazon_scraper.py          # Amazon Jobs — search.json API, filtro country=BRA
-│   ├── bcg_scraper.py             # BCG Careers (Phenom People) — Playwright
-│   ├── doordash_scraper.py        # DoorDash — Greenhouse API (doordashinternational)
-│   ├── uber_scraper.py            # Uber — POST /api/loadSearchJobsResults, filtro BRA
-│   └── company_search.py          # Busca dados de empresa (DuckDuckGo)
-├── transformers/
-│   ├── stack_extractor.py         # Extração de stacks, nível, modalidade, urgência, salário
-│   ├── ats_agents.py              # Agentes ANYA, VANELLOPE, ARYA, NEXUS (Ollama)
-│   └── curriculo_parser.py        # Parser de PDF do currículo
-├── database/
-│   ├── connection.py              # Gerenciamento de conexão DuckDB (context manager)
-│   ├── schemas.py                 # DDL de todas as tabelas + backup automático
-│   ├── empresas.py                # CRUD de empresas
-│   ├── vagas.py                   # Inserção e deduplicação de vagas
-│   ├── candidaturas.py            # Gestão do funil de candidatura
-│   ├── ats_score.py               # Score ATS por vaga
-│   ├── candidato.py               # Perfil e currículo do candidato
-│   ├── contatos.py                # Rede de contatos por empresa
-│   ├── logs.py                    # Log de execuções do pipeline
-│   ├── filtros.py                 # Filtros de interesse e localização
-│   └── snapshots.py               # Snapshots semanais do mercado
-├── dashboard/
-│   ├── app.py                     # Entrada do Streamlit — roteamento de páginas
-│   ├── ui_components.py           # Cards, badges e componentes visuais reutilizáveis
-│   └── views/
-│       ├── dashboard_page.py      # Análises gerais do mercado
-│       ├── vagas.py               # Lista de vagas com filtros e modo compacto
-│       ├── empresas.py            # Gestão de empresas monitoradas
-│       ├── perfil_empresa.py      # Perfil detalhado por empresa
-│       ├── analise_curriculo.py   # Análise ATS currículo × vaga (4 agentes)
-│       ├── arquitetura.py         # Visualização do pipeline ETL ao vivo
-│       ├── tendencias.py          # Ranking de stacks e tendências de mercado
-│       ├── funil.py               # Funil de candidaturas e conversão
-│       ├── pipeline.py            # Monitor de execuções do pipeline
-│       ├── minha_performance.py   # Métricas pessoais de candidatura
-│       ├── perfil_candidato.py    # Perfil e stacks do candidato
-│       ├── cadastrar_vaga.py      # Cadastro manual de vagas
-│       ├── comparar_ofertas.py    # Comparativo entre ofertas
-│       ├── comparativo.py         # Comparativo entre empresas
-│       ├── configuracoes.py       # Filtros, currículo e preferências
-│       ├── fila_inscricao.py      # Fila de vagas para se inscrever
-│       ├── vagas_negadas.py       # Vagas negadas / arquivadas
-│       ├── contatos.py            # Rede de contatos
-│       ├── qualidade.py           # Qualidade dos dados coletados
-│       ├── estudos.py             # Plano de estudos e gaps
-│       └── perguntas.py           # Perguntas de entrevista por empresa
-├── dbt/
-│   ├── models/
-│   │   ├── staging/               # stg_vagas, stg_empresas, stg_log_coleta
-│   │   └── marts/                 # fct_vagas, dim_empresa_stats, agg_stacks_mercado
-│   └── profiles.yml               # Conexão DuckDB para o dbt
-├── main.py                        # Orquestrador do pipeline
-├── logger.py                      # Logger centralizado com rich
-├── Makefile                       # Atalhos: run, pipeline, dbt-run, dbt-test
-└── BACKLOG.md                     # Roadmap completo do projeto
-```
-
-### Fluxo do pipeline
-
-```
 dim_empresa (banco)
-      │  37 empresas ativas, cooldown 12h por empresa
+      │  empresas ativas, cooldown 12h por empresa
       ▼
-Scrapers (7 plataformas)
-  Gupy · Greenhouse · InHire · SmartRecruiters
-  Amazon Jobs · BCG · DoorDash · Uber
+Scrapers (10 plataformas)
+  Gupy · Greenhouse · Lever · InHire · SmartRecruiters
+  Amazon Jobs · BCG · DoorDash · Uber · Amaris (MeiliSearch)
       │  título, link, localização, descrição
       ▼
-Stack Extractor (regex + dicionário)
-      │  stacks por categoria, nível, modalidade, urgência, salário
+Stack Extractor (regex + dicionário por categoria)
+      │  stacks, nível, modalidade, urgência, salário
       ▼
 ANYA (agente ATS — Ollama local)
-      │  score ATS: keywords + formatação + seções + impacto
+      │  score: keywords + formatação + seções + impacto
       ▼
 DuckDB — fact_vaga
       │  deduplicação por hash, vagas encerradas detectadas
@@ -105,117 +44,179 @@ dbt (staging → marts)
 Dashboard Streamlit
 ```
 
+```
+job-tracker/
+├── scrapers/           # Um arquivo por plataforma
+├── transformers/       # Stack extractor + agentes ATS (Ollama)
+├── database/           # DuckDB: conexão, schemas, CRUD por entidade
+├── dashboard/
+│   ├── app.py          # Roteamento de páginas
+│   ├── ui_components.py
+│   └── views/          # Uma view por página do dashboard
+├── dbt/
+│   ├── models/staging/ # stg_vagas, stg_empresas, stg_log_coleta
+│   └── models/marts/   # fct_vagas, dim_empresa_stats, agg_stacks_mercado
+├── main.py             # Orquestrador do pipeline
+└── pipeline_prefect.py # Orquestração com Prefect (opcional)
+```
+
 ---
 
-## Plataformas de coleta
+## Stacks e por que foram escolhidas
 
-| Plataforma | Abordagem | Empresas |
-|---|---|---|
-| Gupy | API JSON pública (`/v1/jobs`) | 24 empresas |
-| Greenhouse | API REST (`boards-api.greenhouse.io`) | Nubank, iFood, C6 Bank, Jusbrasil, Ai Inbev, DoorDash |
-| InHire | Playwright + `networkidle` | Magalu Cloud, Pra Valer |
-| SmartRecruiters | API REST pública | Visa, Serasa |
-| Amazon Jobs | API JSON + filtro `country=BRA` | Amazon AWS |
-| BCG Careers | Playwright (Phenom People) | BCG |
-| Uber Careers | POST `/api/loadSearchJobsResults` + filtro BRA | Uber |
+### DuckDB
+
+Banco de dados analítico embedded. Sem servidor, sem configuração, arquivo único no disco.
+
+Foi a escolha certa porque o projeto é OLAP puro: leituras analíticas em cima de um volume pequeno-médio de vagas. DuckDB é incrivelmente rápido nisso, roda dentro do processo Python e é compatível com dbt nativamente.
+
+**O que poderia ter sido usado:**
+- **SQLite** — mais familiar, mas sem suporte analítico decente. Sem funções de janela, sem JSON bem suportado, sem integração com dbt.
+- **PostgreSQL** — seria exagero. Você ganha transações e escalabilidade que esse projeto nunca vai precisar, em troca de ter que rodar um servidor local.
+- **Parquet + pandas** — simples de começar, mas perde a capacidade de query ad-hoc e não tem onde guardar estado (candidaturas, empresas, contatos).
 
 ---
 
-## Agentes ATS (Ollama — local, gratuito)
+### Streamlit
 
-Quatro agentes LLM analisam o currículo em relação a cada vaga:
+Dashboard sem frontend. Você escreve Python, o Streamlit vira interface.
 
-| Agente | Função | Score |
-|---|---|---|
-| ANYA | Analisa match de keywords entre currículo e vaga | 0–100 |
-| VANELLOPE | Analisa formatação ATS-friendly do currículo | 0–100 |
-| ARYA | Verifica seções obrigatórias (experiência, skills, educação) | 0–100 |
-| NEXUS | Gera sugestões de otimização com before/after | — |
+A escolha foi pragmática: o objetivo era ter um dashboard funcional rápido, não construir uma aplicação web. Streamlit elimina HTML, CSS e JavaScript completamente. Para uso pessoal e local, funciona bem.
 
-Score final = ANYA × 0,40 + VANELLOPE × 0,25 + ARYA × 0,20 + Impacto × 0,15
+**O que poderia ter sido usado:**
+- **Dash (Plotly)** — mais flexível que Streamlit para customização visual, mas requer estrutura de callbacks que aumenta a complexidade para pouco ganho aqui.
+- **Grafana** — ótimo para séries temporais e monitoramento de infra. Inadequado para esse caso porque o dashboard mistura análise com ações (funil de candidaturas, edição de dados, geração de cartas).
+- **Metabase** — bom para exploração SQL por não-devs. Não faria sentido aqui porque o projeto já é do desenvolvedor.
+- **React + FastAPI** — seria o caminho se houvesse intenção de hospedar ou compartilhar. Para uso local pessoal, é muito overhead.
+
+---
+
+### Playwright + playwright-stealth
+
+Para os sites que carregam via JavaScript (React/Next.js SPAs), requests normais retornam HTML vazio ou de loading. Playwright abre um browser de verdade e espera a página renderizar.
+
+playwright-stealth remove os fingerprints que sites de recrutamento usam para detectar automação (navigator.webdriver, inconsistências em Canvas, etc.).
+
+**O que poderia ter sido usado:**
+- **Selenium** — mais antigo, mais pesado, mais lento. Playwright tem API melhor e é mais confiável com páginas modernas.
+- **Puppeteer** — só JavaScript/Node. Não faz sentido num projeto Python.
+- **Splash** — proxy HTTP que renderiza JavaScript, mas requer um serviço Docker separado. Mais complexidade sem ganho claro.
+- **undetected-chromedriver** — alternativa ao stealth para ChromeDriver. Playwright + stealth ficou mais robusto nos testes.
+
+---
+
+### requests
+
+Para as plataformas que têm API pública (Gupy, Greenhouse, SmartRecruiters, Lever, Amazon Jobs, Uber), requests é o suficiente. Sem JavaScript, sem browser, só HTTP.
+
+**O que poderia ter sido usado:**
+- **httpx** — suporte a async e HTTP/2. Seria útil se os scrapers rodassem em paralelo com asyncio. Por ora o pipeline é síncrono e requests resolve.
+- **aiohttp** — mesmo argumento. Vale migrar se o tempo de coleta virar gargalo.
+
+---
+
+### Ollama (llama3.2 / qwen2.5)
+
+Quatro agentes LLM analisam currículo × vaga localmente. Sem API key, sem custo por token, sem limite de chamadas.
+
+O modelo roda na máquina. A latência é maior que uma API cloud, mas para análise assíncrona de vagas isso não importa. O que importa é não ter custo recorrente e não mandar currículo para servidores externos.
+
+| Agente | O que faz |
+|---|---|
+| ANYA | Match de keywords currículo × vaga (peso 40%) |
+| VANELLOPE | Compatibilidade de carreira e posicionamento (peso 25%) |
+| ARYA | Estratégia para o processo seletivo (peso 20%) |
+| NEXUS | Reescreve título, resumo e bullets do currículo (peso 15%) |
+| CARTA | Gera carta de apresentação personalizada por vaga |
+
+**O que poderia ter sido usado:**
+- **OpenAI API (GPT-4o)** — respostas melhores, especialmente em análise de contexto. Mas custa dinheiro por chamada e você manda dados pessoais para fora.
+- **Groq** — API gratuita com Llama e Mixtral, rápida. Boa alternativa se o hardware local for fraco. Ainda depende de conexão e tem limite de rate.
+- **HuggingFace Transformers** — rodar modelos localmente sem Ollama. Mais controle, muito mais complexidade de setup.
+- **Regex puro** — suficiente para extração de keywords, mas não para análise contextual. ANYA já usa regex; os outros agentes precisam de raciocínio.
+
+---
+
+### dbt (dbt-core + dbt-duckdb)
+
+Camada de transformação analítica. Os scrapers inserem dados brutos; o dbt produz as tabelas limpas que o dashboard usa.
+
+O modelo staging → marts separa responsabilidades: os scrapers não precisam saber do schema analítico, e o dashboard não depende de tabelas brutas.
+
+**O que poderia ter sido usado:**
+- **pandas puro** — simples de começar, mas você perde documentação de linhagem, testes automáticos de dados e a separação clara entre ingestão e transformação.
+- **SQLAlchemy** — para transformações em SQL dentro do Python. Sem a estrutura de DAG e sem os testes nativos do dbt.
+- **Airflow** — orquestração pesada demais para um projeto local. Faz sentido quando você tem dezenas de pipelines com dependências complexas.
+
+---
+
+### Regex + dicionário de stacks
+
+Stack extractor não usa LLM: é regex com dicionário categorizado de tecnologias. Mais de 400 termos mapeados por categoria (linguagens, cloud, bancos de dados, ferramentas de dados, etc.).
+
+A escolha foi deliberada. LLM para extração de stacks seria lento e impreciso comparado a um dicionário curado. Regex não alucina "React" quando a vaga menciona "reação do cliente".
+
+**O que poderia ter sido usado:**
+- **spaCy com NER customizado** — mais sofisticado, reconhece entidades no contexto. Vale considerar quando o dicionário ficar difícil de manter.
+- **GPT para extração** — funciona, mas traz o custo e latência de uma chamada de API para cada vaga. O dicionário cobre 95% dos casos com custo zero.
+
+---
+
+### Prefect (opcional)
+
+Orquestração do pipeline com retry, logging estruturado e UI de monitoramento. O pipeline funciona sem Prefect (basta `python main.py`), mas com `pipeline_prefect.py` você ganha observabilidade e scheduling.
+
+**O que poderia ter sido usado:**
+- **cron** — suficiente para scheduling. Sem observabilidade, sem retry automático.
+- **APScheduler** — scheduler dentro do processo Python. Mais simples que Prefect, menos recursos.
+- **Dagster** — alternativa moderna ao Airflow/Prefect. Boa para equipes; overhead alto para uso pessoal.
+
+---
+
+### pdfplumber
+
+Lê PDF do currículo e extrai texto para os agentes LLM processarem.
+
+**O que poderia ter sido usado:**
+- **PyMuPDF (fitz)** — mais rápido e melhor com PDFs complexos. pdfplumber é mais simples de usar para extração de texto simples.
+- **python-docx** — já está no requirements para arquivos .docx.
+
+---
+
+### MeiliSearch (externo, via Amaris)
+
+O site careers.amaris.com usa MeiliSearch como motor de busca. Em vez de scraping com Playwright, o scraper da Amaris chama a API REST do MeiliSearch diretamente, com a chave pública exposta no bundle JavaScript do site.
 
 ---
 
 ## Modelo de dados
 
 ### `fact_vaga`
-| Campo | Tipo | Descrição |
-|---|---|---|
-| id | INTEGER | Chave primária |
-| hash | VARCHAR | MD5(título + empresa + link) — unicidade |
-| titulo | VARCHAR | Título da vaga |
-| nivel | VARCHAR | junior / pleno / senior / especialista / lead |
-| modalidade | VARCHAR | remoto / hibrido / presencial |
-| stacks | JSON | Stacks por categoria (linguagens, cloud, etc.) |
-| link | VARCHAR | URL da vaga |
-| fonte | VARCHAR | gupy / greenhouse / inhire / smartrecruiters / amazon / bcg / desconhecida |
-| id_empresa | INTEGER | FK → dim_empresa |
-| data_coleta | DATE | Data da coleta |
-| ativa | BOOLEAN | Vaga ainda no ar |
-| urgente | BOOLEAN | Detectado "urgente" / "início imediato" |
-| salario_min / max | INTEGER | Faixa salarial extraída da descrição |
-| candidatura_status | VARCHAR | nao_inscrito → inscrito → chamado → aprovado / reprovado |
-
-### `dim_empresa`
-| Campo | Tipo | Descrição |
-|---|---|---|
-| id | INTEGER | Chave primária |
-| nome | VARCHAR | Nome da empresa |
-| url_vagas | VARCHAR | URL do portal de vagas |
-| favicon_url | VARCHAR | URL do ícone da empresa |
-| ramo / cidade / estado | VARCHAR | Dados cadastrais |
-| ativa | BOOLEAN | Monitoramento ativo |
-
-### `dim_ats_score`
-| Campo | Tipo | Descrição |
-|---|---|---|
-| id_vaga | INTEGER | FK → fact_vaga |
-| score_keywords / formatacao / secoes / impacto | FLOAT | Scores por dimensão |
-| score_final | FLOAT | Score ponderado 0–100 |
-| keywords_encontradas / ausentes | JSON | Detalhes do match |
-
-### `log_coleta`
-| Campo | Tipo | Descrição |
-|---|---|---|
-| empresa | VARCHAR | Empresa processada |
-| status | VARCHAR | sucesso / erro / bloqueado |
-| vagas_encontradas / novas | INTEGER | Métricas da execução |
-| data_execucao | TIMESTAMP | Horário da execução |
+| Campo | Descrição |
+|---|---|
+| `hash` | MD5(título + empresa + link) — deduplicação |
+| `titulo`, `nivel`, `modalidade` | Dados básicos da vaga |
+| `stacks` | JSON com tecnologias por categoria |
+| `fonte` | gupy / greenhouse / lever / smartrecruiters / amazon / bcg / amaris / ... |
+| `ativa` | False quando a vaga sai do ar |
+| `urgente` | True quando detecta "urgente" / "início imediato" na descrição |
+| `salario_min`, `salario_max` | Faixa salarial extraída da descrição |
+| `candidatura_status` | nao_inscrito → inscrito → chamado → aprovado / reprovado |
 
 ### Modelos dbt
-| Modelo | Camada | Descrição |
+| Modelo | Camada | O que faz |
 |---|---|---|
 | `stg_vagas` | Staging | Vagas normalizadas, nulos tratados, negadas filtradas |
 | `stg_empresas` | Staging | Empresas com plataforma detectada pela URL |
-| `stg_log_coleta` | Staging | Log de execuções |
 | `fct_vagas` | Mart | Tabela fato com empresa desnormalizada e flags analíticas |
-| `dim_empresa_stats` | Mart | Empresa enriquecida com estatísticas de vagas e pipeline |
-| `agg_stacks_mercado` | Mart | Stacks unnestadas — ranking por categoria e nível |
-
----
-
-## Stack do projeto
-
-| Camada | Ferramenta | Por quê |
-|---|---|---|
-| Scraping JS | Playwright + playwright-stealth | Sites React/Next.js com SPA |
-| Scraping REST | requests | APIs JSON públicas (Gupy, Greenhouse, SmartRecruiters, Uber, Amazon) |
-| NLP / extração | Regex + dicionário de stacks | Leve, customizável, zero custo |
-| LLM local | Ollama (llama3.2 / qwen2.5) | Análise ATS sem custo, sem limite de tokens |
-| Storage | DuckDB | OLAP local, zero infraestrutura, compatível com dbt |
-| Transformação analytics | dbt-core + dbt-duckdb | Camada staging → marts com testes automáticos |
-| Dashboard | Streamlit | Zero frontend, deploy simples |
-| Logging | rich / loguru | Logs coloridos no terminal |
+| `dim_empresa_stats` | Mart | Empresa com estatísticas de vagas e pipeline de candidatura |
+| `agg_stacks_mercado` | Mart | Stacks unnestadas para ranking por categoria e nível |
 
 ---
 
 ## Instalação
 
-### Pré-requisitos
-- Python 3.11+
-- [Ollama](https://ollama.ai) (para os agentes ATS — opcional)
-
-### Setup
+**Pré-requisitos:** Python 3.11+, [Ollama](https://ollama.ai) (opcional, para agentes ATS)
 
 ```bash
 git clone https://github.com/oguigs/job-tracker.git
@@ -223,58 +224,41 @@ cd job-tracker
 
 python3 -m venv .venv
 source .venv/bin/activate
-
 pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-### Ollama (agentes ATS)
-
 ```bash
-# instalar Ollama: https://ollama.ai
-ollama pull llama3.2   # ou qwen2.5, mistral
+# Ollama — agentes ATS
+ollama pull llama3.2
 ```
 
-### Rodar
-
 ```bash
-# pipeline de coleta
-make pipeline
-# ou: python main.py
-
-# dashboard
-make run
-# ou: streamlit run dashboard/app.py
-
-# dbt (camada analytics)
-make dbt-run
-make dbt-test
+make pipeline   # coleta vagas
+make run        # dashboard
+make dbt-run    # camada analytics
+make dbt-test   # testes de qualidade
 ```
 
 ---
 
-## Funcionalidades
+## Plataformas de coleta
 
-### Pipeline
-- Scraper multi-plataforma: Gupy, Greenhouse, InHire, SmartRecruiters, Amazon, BCG, DoorDash, Uber
-- Cooldown por empresa (12h) — evita coletas repetidas
-- Bloqueio automático de 48h em caso de detecção de bot
-- Deduplicação por hash MD5 — sem duplicatas
-- Detecção automática de vagas encerradas
-- Score ATS calculado automaticamente para cada nova vaga
-- Extração de stacks por categoria, nível, modalidade, urgência e faixa salarial
-
-### Dashboard
-- **Vagas** — cards com badges 🆕/🔥, tempo relativo, scores com mini progress bars, modo compacto
-- **Análise ATS** — 4 agentes LLM analisam currículo × vaga com score detalhado e sugestões
-- **Arquitetura ETL** — visualização ao vivo do pipeline com métricas por empresa
-- **Tendências** — ranking de stacks, comparativo de tecnologias, histórico temporal
-- **Funil** — kanban de candidaturas com timeline de fases
-- **Perfil da empresa** — stacks exigidas, nível médio, histórico de vagas
-- **Filtros configuráveis** — por título, localização, nível e modalidade
+| Plataforma | Abordagem | Notas |
+|---|---|---|
+| Gupy | API JSON (`/v1/jobs`) | 24+ empresas |
+| Greenhouse | API REST (`boards-api.greenhouse.io`) | iFood, Nubank, C6, Ai Inbev |
+| Lever | API REST pública | CloudWalk, dLocal |
+| InHire | Playwright + networkidle | Magalu Cloud |
+| SmartRecruiters | API REST pública | Visa, Serasa |
+| Amazon Jobs | API JSON + filtro country=BRA | |
+| BCG Careers | Playwright (Phenom People) | |
+| Uber Careers | POST `/api/loadSearchJobsResults` | filtro BRA |
+| DoorDash | Greenhouse API (doordashinternational) | |
+| Amaris | MeiliSearch REST direto | chave pública no bundle JS |
 
 ---
 
 ## Licença
 
-Projeto pessoal para estudo e uso próprio.
+Projeto pessoal. Use, fork, adapte.

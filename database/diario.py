@@ -6,19 +6,22 @@ def adicionar_nota(id_vaga: int, nota: str, impressao: str = None) -> int:
         id_nota = con.execute("SELECT nextval('seq_log_candidatura')").fetchone()[0]
         con.execute(
             "INSERT INTO log_candidatura (id, id_vaga, nota, impressao) VALUES (?, ?, ?, ?)",
-            [id_nota, id_vaga, nota, impressao]
+            [id_nota, id_vaga, nota, impressao],
         )
     return id_nota
 
 
 def listar_notas(id_vaga: int):
     with db_connect() as con:
-        return con.execute("""
+        return con.execute(
+            """
             SELECT id, data_nota, nota, impressao
             FROM log_candidatura
             WHERE id_vaga = ?
             ORDER BY data_nota DESC, id DESC
-        """, [id_vaga]).df()
+        """,
+            [id_vaga],
+        ).df()
 
 
 def deletar_nota(id_nota: int):

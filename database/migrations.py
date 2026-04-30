@@ -1,4 +1,5 @@
 from logger import get_logger
+
 log = get_logger("migrations")
 """
 migrations.py — Corrige tipos errados no banco existente.
@@ -13,12 +14,12 @@ def migrar_v1_tipos_fact_vaga():
     que o DuckDB inferiu como INTEGER ou BOOLEAN incorretamente.
     """
     correcoes = [
-        ("origem",          "VARCHAR"),
-        ("contato",         "VARCHAR"),
-        ("regime",          "VARCHAR"),
-        ("moeda",           "VARCHAR"),
+        ("origem", "VARCHAR"),
+        ("contato", "VARCHAR"),
+        ("regime", "VARCHAR"),
+        ("moeda", "VARCHAR"),
         ("outros_beneficios", "VARCHAR"),
-        ("salario_anual",   "INTEGER"),
+        ("salario_anual", "INTEGER"),
     ]
 
     with db_connect() as con:
@@ -51,8 +52,8 @@ def migrar_v2_adicionar_colunas_faltantes():
         colunas_existentes = {row[1] for row in info}
 
         novas_colunas = [
-            ("data_coleta",         "DATE DEFAULT current_date"),
-            ("descricao",           "VARCHAR"),
+            ("data_coleta", "DATE DEFAULT current_date"),
+            ("descricao", "VARCHAR"),
         ]
 
         for coluna, definicao in novas_colunas:
@@ -83,9 +84,9 @@ if __name__ == "__main__":
 def migrar_v3_tipos_dim_contato():
     """Corrige colunas VARCHAR criadas como INTEGER em dim_contato."""
     correcoes = [
-        ("nome",        "VARCHAR"),
-        ("email",       "VARCHAR"),
-        ("grau",        "VARCHAR"),
+        ("nome", "VARCHAR"),
+        ("email", "VARCHAR"),
+        ("grau", "VARCHAR"),
         ("observacoes", "VARCHAR"),
     ]
     with db_connect() as con:

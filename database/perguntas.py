@@ -1,23 +1,32 @@
 from database.connection import db_connect
 
 
-def adicionar_pergunta(id_vaga: int, stack: str, pergunta: str,
-                       dificuldade: str, acertou: bool,
-                       resposta_ideal: str = "") -> int:
+def adicionar_pergunta(
+    id_vaga: int,
+    stack: str,
+    pergunta: str,
+    dificuldade: str,
+    acertou: bool,
+    resposta_ideal: str = "",
+) -> int:
     with db_connect() as con:
         id_p = con.execute("SELECT nextval('seq_pergunta')").fetchone()[0]
-        con.execute("""
+        con.execute(
+            """
             INSERT INTO log_perguntas_entrevista
             (id, id_vaga, stack, pergunta, dificuldade, acertou, resposta_ideal)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, [id_p, id_vaga, stack, pergunta, dificuldade, acertou, resposta_ideal])
+        """,
+            [id_p, id_vaga, stack, pergunta, dificuldade, acertou, resposta_ideal],
+        )
     return id_p
 
 
 def listar_perguntas(id_vaga: int = None, stack: str = None):
     with db_connect() as con:
         if id_vaga:
-            return con.execute("""
+            return con.execute(
+                """
                 SELECT p.id, p.stack, p.pergunta, p.dificuldade, p.acertou,
                        p.resposta_ideal, p.data, e.nome as empresa
                 FROM log_perguntas_entrevista p
@@ -25,9 +34,12 @@ def listar_perguntas(id_vaga: int = None, stack: str = None):
                 JOIN dim_empresa e ON v.id_empresa = e.id
                 WHERE p.id_vaga = ?
                 ORDER BY p.data DESC
-            """, [id_vaga]).df()
+            """,
+                [id_vaga],
+            ).df()
         elif stack:
-            return con.execute("""
+            return con.execute(
+                """
                 SELECT p.id, p.stack, p.pergunta, p.dificuldade, p.acertou,
                        p.resposta_ideal, p.data, e.nome as empresa
                 FROM log_perguntas_entrevista p
@@ -35,7 +47,9 @@ def listar_perguntas(id_vaga: int = None, stack: str = None):
                 JOIN dim_empresa e ON v.id_empresa = e.id
                 WHERE lower(p.stack) = lower(?)
                 ORDER BY p.dificuldade, p.data DESC
-            """, [stack]).df()
+            """,
+                [stack],
+            ).df()
         else:
             return con.execute("""
                 SELECT p.id, p.stack, p.pergunta, p.dificuldade, p.acertou,
