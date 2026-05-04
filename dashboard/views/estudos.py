@@ -18,6 +18,26 @@ ESTUDOS = {
             "desc": "Window functions, CTEs, otimização de queries",
             "prioridade": "alta",
         },
+        "CTE (Common Table Expressions)": {
+            "desc": "WITH clause, CTEs encadeadas, CTEs recursivas para hierarquias e grafos, diferença entre CTE e subquery, materialização",
+            "prioridade": "alta",
+        },
+        "UNION / UNION ALL": {
+            "desc": "UNION elimina duplicatas (usa DISTINCT implícito); UNION ALL mantém tudo e é mais rápido. Diferença de performance, uso com ORDER BY, INTERSECT e EXCEPT",
+            "prioridade": "alta",
+        },
+        "Self Join SQL": {
+            "desc": "Join de tabela consigo mesma usando aliases (current_mc, previous_mc). Útil para comparar linhas da mesma tabela — ex: mês atual vs mês anterior. Alternativa ao LAG() quando window functions não são permitidas",
+            "prioridade": "alta",
+        },
+        "CASE WHEN SQL": {
+            "desc": "Lógica condicional no SELECT. Retornar NULL explicitamente com ELSE NULL. Múltiplas condições encadeadas. Diferença entre CASE WHEN e IF(). Uso para tratar 0 como NULL",
+            "prioridade": "alta",
+        },
+        "Date Arithmetic SQL (INTERVAL)": {
+            "desc": "closing_date - INTERVAL 1 MONTH para navegar datas. Cuidado: assume que todo mês existe — usar MAX(previous_date) para robustez. DATE_ADD, DATEDIFF, DATE_SUB por banco",
+            "prioridade": "alta",
+        },
         "Window Functions SQL": {
             "desc": "ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, PARTITION BY, OVER — análises sem subqueries",
             "prioridade": "alta",
@@ -95,10 +115,54 @@ ESTUDOS = {
     "⚙️ Processamento": {
         "Apache Spark": {"desc": "Processamento distribuído em larga escala", "prioridade": "alta"},
         "RDD in Spark": {
-            "desc": "Resilient Distributed Datasets — API de baixo nível do Spark, transformações lazy e actions",
+            "desc": "Resilient Distributed Datasets — API de baixo nível do Spark, transformações lazy e actions. RDD bypassa o Catalyst Optimizer — Python lambdas são opacos para o planner, sem pushdown nem otimização de plano",
+            "prioridade": "alta",
+        },
+        "PySpark — Catalyst Optimizer": {
+            "desc": "Motor de otimização do Spark. Analisa plano lógico → físico. Não age sobre RDD.map(lambda). Por isso DataFrame/SQL > RDD para performance. Evitar UDFs quando existe função nativa equivalente",
+            "prioridade": "alta",
+        },
+        "PySpark — Broadcast Join": {
+            "desc": "Spark usa broadcast automático quando tabela < spark.sql.autoBroadcastJoinThreshold (default 10MB). Para forçar: /*+ MAPJOIN(tabela) */ ou hint('broadcast'). Evita shuffle da tabela grande. 500MB + 2MB → broadcast automático",
+            "prioridade": "alta",
+        },
+        "PySpark — Skew e AQE": {
+            "desc": "Data skew: poucos executors fazem 90% do trabalho. Fix: ativar AQE (spark.sql.adaptive.enabled=true) + salting (adicionar chave aleatória para distribuir partições). repartition(n) sozinho não resolve skew de dados",
+            "prioridade": "alta",
+        },
+        "PySpark — Cache e Persist": {
+            "desc": ".cache() = MEMORY_AND_DISK (serializado em disco se não couber na RAM). .persist(StorageLevel.MEMORY_ONLY) para forçar só memória. Usar antes de ação repetida no mesmo DF. .unpersist() para liberar",
+            "prioridade": "alta",
+        },
+        "PySpark — UDFs Python": {
+            "desc": "Python UDF exige serialização JVM↔Python por linha — alto overhead. Alternativas: funções nativas (col, when, expr), Pandas UDF (@udf vectorizado), Scala UDF. Catalyst não otimiza UDF Python",
+            "prioridade": "alta",
+        },
+        "PySpark — collect_list / collect_set": {
+            "desc": "collect_list retorna array sem garantia de ordem. collect_set retorna únicos sem ordem. Para ordem garantida: sort_array(collect_list(...)). Cuidado com grupos grandes — coleta tudo no driver",
+            "prioridade": "alta",
+        },
+        "PySpark — Structured Streaming": {
+            "desc": "Modos de output: Append (emite linha só quando finalizada após watermark), Update (emite linha atualizada a cada trigger), Complete (reemite tudo). Watermark define quanto tempo aguardar dados atrasados",
             "prioridade": "alta",
         },
         "PySpark": {"desc": "Spark com Python — API DataFrame e SQL", "prioridade": "alta"},
+        "PySpark — Schema e Leitura CSV": {
+            "desc": "StructType, StructField, StringType, DoubleType. Leitura com .schema() + .option('header', False). Por que definir schema em vez de inferir (performance + tipagem garantida)",
+            "prioridade": "alta",
+        },
+        "PySpark — groupBy + agg": {
+            "desc": "groupBy('col').agg(avg(col('x')).alias('y')). Diferença entre .agg() e .mean(). Renomear coluna resultado para evitar nomes gerados automaticamente como 'avg(temperature)'",
+            "prioridade": "alta",
+        },
+        "PySpark — Joins e Ambiguidade de Colunas": {
+            "desc": "Renomear colunas antes do join quando ambos DataFrames têm o mesmo nome (.alias). Sintaxe on='coluna' vs on=[cond]. Inner vs Left join. Evitar AnalysisException por colunas ambíguas",
+            "prioridade": "alta",
+        },
+        "PySpark — Write CSV (part files)": {
+            "desc": ".write.mode('overwrite').option('header', False).csv(path) gera pasta com part files. coalesce(1) força arquivo único mas quebra paralelismo — não usar em produção. Diferença entre save e csv",
+            "prioridade": "alta",
+        },
         "Apache Kafka": {"desc": "Streaming de eventos em tempo real", "prioridade": "alta"},
         "dbt": {"desc": "Transformações SQL versionadas e testadas", "prioridade": "alta"},
         "Apache Flink": {"desc": "Stream processing de baixa latência", "prioridade": "media"},
@@ -111,7 +175,11 @@ ESTUDOS = {
     },
     "🗄️ Armazenamento": {
         "Delta Lake": {
-            "desc": "ACID transactions em data lakes — Delta tables, time travel, MERGE/UPSERT, Z-ordering, vacuum, schema evolution",
+            "desc": "ACID transactions em data lakes — Delta tables, time travel, MERGE/UPSERT, Z-ordering, vacuum, schema evolution. Compaction (OPTIMIZE), Liquid Clustering, Deletion Vectors, compatibilidade com Iceberg via UniForm",
+            "prioridade": "alta",
+        },
+        "Parquet": {
+            "desc": "Formato colunar binário — predicate pushdown, column pruning, compressão por coluna (Snappy/ZSTD), row groups, page encoding. Por que é mais rápido que CSV/JSON para analytics",
             "prioridade": "alta",
         },
         "Apache Iceberg": {"desc": "Table format open source para lakes", "prioridade": "media"},
@@ -162,7 +230,7 @@ ESTUDOS = {
     },
     "🏗️ Arquitetura": {
         "Medallion Architecture": {
-            "desc": "Bronze/Silver/Gold — camadas de qualidade",
+            "desc": "Bronze (raw, sem transformação) → Silver (limpo, deduplicado, tipado) → Gold (agregado, pronto para BI/ML). Contratos de schema por camada, Delta Lake como base, estratégia de reprocessamento por zona",
             "prioridade": "alta",
         },
         "Data Mesh": {"desc": "Domínios descentralizados de dados", "prioridade": "media"},
